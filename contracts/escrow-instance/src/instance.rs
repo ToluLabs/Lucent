@@ -6,7 +6,7 @@ use soroban_sdk::{
     contract, contractevent, contractimpl, contracttype, Address, Bytes, Env, String,
 };
 
-use crate::{Escrow, EscrowState, Error, TokenClient, RELEASE_WINDOW};
+use crate::{Error, Escrow, EscrowState, TokenClient, RELEASE_WINDOW};
 
 #[contracttype]
 enum DataKey {
@@ -16,6 +16,9 @@ enum DataKey {
     ReleaseProof,
     /// Pre-generated payout proof: instance -> depositor.
     RefundProof,
+    RegisterData,
+    AuditorId,
+    TransferIn,
 }
 
 #[contractevent]
@@ -79,37 +82,69 @@ impl PrivateEscrowInstance {
         );
     }
 
-    /// Store the two pre-generated payout proofs (instance → recipient,
-    /// instance → depositor) the state machine will later select between.
-    /// Split out from `fund` because bundling both proofs alongside the
-    /// register and transfer-in proofs in one transaction exceeds Soroban's
-    /// per-transaction size ceiling — four ~14KB UltraHonk proofs is too much
-    /// for a single call. Must be called before `fund`; harmless to call again
-    /// while still `Created` (last write wins).
-    pub fn store_payout_proofs(e: &Env, release_proof: Bytes, refund_proof: Bytes) -> Result<(), Error> {
-        let esc = get(e);
-        esc.depositor.require_auth();
-        if esc.state != EscrowState::Created {
-            return Err(Error::BadState);
-        }
-        e.storage().instance().set(&DataKey::ReleaseProof, &release_proof);
-        e.storage().instance().set(&DataKey::RefundProof, &refund_proof);
-        Ok(())
-    }
-
-    /// Lock funds into this escrow. The depositor:
-    ///   * registers this instance as a confidential account (`register_data`
-    ///     is the register proof for the instance's Grumpkin identity), and
-    ///   * `confidential_transfer`s the amount in (`transfer_in`).
-    /// Requires `store_payout_proofs` to have already been called — `Funded` is
-    /// only ever reached with a complete, working payout-proof set already in
-    /// place, so there is no reachable half-funded state. State: Created -> Funded.
-    pub fn fund(
+    /// Prepare immutable inputs for payout validation. Re-preparing invalidates
+    /// both previously checked proofs. No token registration or funds move yet.
+    pub fn prepare_funding(
         e: &Env,
         register_data: Bytes,
         auditor_id: u32,
         transfer_in: Bytes,
     ) -> Result<(), Error> {
+        let esc = get(e);
+        esc.depositor.require_auth();
+        if esc.state != EscrowState::Created {
+            return Err(Error::BadState);
+        }
+        e.storage()
+            .instance()
+            .set(&DataKey::RegisterData, &register_data);
+        e.storage().instance().set(&DataKey::AuditorId, &auditor_id);
+        e.storage()
+            .instance()
+            .set(&DataKey::TransferIn, &transfer_in);
+        e.storage().instance().remove(&DataKey::ReleaseProof);
+        e.storage().instance().remove(&DataKey::RefundProof);
+        Ok(())
+    }
+
+    /// Verify one settlement branch against the EXACT prepared funding inputs
+    /// before storing it. One proof per call keeps transaction size and proving
+    /// verification cost bounded. A rejected proof never enables funding.
+    pub fn store_payout_proof(e: &Env, release: bool, proof: Bytes) -> Result<(), Error> {
+        let esc = get(e);
+        esc.depositor.require_auth();
+        if esc.state != EscrowState::Created {
+            return Err(Error::BadState);
+        }
+        let register_data: Bytes = e
+            .storage()
+            .instance()
+            .get(&DataKey::RegisterData)
+            .ok_or(Error::FundingNotPrepared)?;
+        let auditor_id: u32 = e.storage().instance().get(&DataKey::AuditorId).unwrap();
+        let transfer_in: Bytes = e.storage().instance().get(&DataKey::TransferIn).unwrap();
+        let to = if release {
+            &esc.recipient
+        } else {
+            &esc.depositor
+        };
+        if !token(e).verify_escrow_payout(&register_data, &auditor_id, &transfer_in, to, &proof) {
+            return Err(Error::InvalidPayoutProof);
+        }
+        let key = if release {
+            DataKey::ReleaseProof
+        } else {
+            DataKey::RefundProof
+        };
+        e.storage().instance().set(&key, &proof);
+        Ok(())
+    }
+
+    /// Execute the prepared funding only after BOTH payout proofs passed.
+    /// Registration, transfer and merge are atomic: nobody can inject a credit
+    /// between registration and this one merge. Later credits stay in receiving
+    /// and cannot invalidate the frozen spendable commitment used at settlement.
+    pub fn fund(e: &Env) -> Result<(), Error> {
         let mut esc = get(e);
         esc.depositor.require_auth();
         if esc.state != EscrowState::Created {
@@ -120,14 +155,18 @@ impl PrivateEscrowInstance {
         {
             return Err(Error::PayoutProofsMissing);
         }
-
+        let register_data: Bytes = e.storage().instance().get(&DataKey::RegisterData).unwrap();
+        let auditor_id: u32 = e.storage().instance().get(&DataKey::AuditorId).unwrap();
+        let transfer_in: Bytes = e.storage().instance().get(&DataKey::TransferIn).unwrap();
         let token = token(e);
         let this = e.current_contract_address();
-        // The instance authorizes its own registration by invocation.
         token.register(&this, &auditor_id, &register_data);
-        // from = depositor (the transaction source authorizes this).
         token.confidential_transfer(&esc.depositor, &this, &transfer_in);
+        token.merge(&this);
 
+        e.storage().instance().remove(&DataKey::RegisterData);
+        e.storage().instance().remove(&DataKey::TransferIn);
+        e.storage().instance().remove(&DataKey::AuditorId);
         esc.state = EscrowState::Funded;
         put(e, &esc);
         Funded {}.publish(e);
@@ -145,7 +184,11 @@ impl PrivateEscrowInstance {
         esc.state = EscrowState::Completed;
         esc.completed_at = e.ledger().timestamp();
         put(e, &esc);
-        Completed { by: esc.recipient, proof_uri }.publish(e);
+        Completed {
+            by: esc.recipient,
+            proof_uri,
+        }
+        .publish(e);
         Ok(())
     }
 
@@ -180,7 +223,11 @@ impl PrivateEscrowInstance {
         }
         esc.state = EscrowState::Disputed;
         put(e, &esc);
-        Disputed { by: esc.recipient, proof_uri }.publish(e);
+        Disputed {
+            by: esc.recipient,
+            proof_uri,
+        }
+        .publish(e);
         Ok(())
     }
 
@@ -299,11 +346,11 @@ fn depositor_proof(e: &Env) -> Bytes {
     e.storage().instance().get(&DataKey::RefundProof).unwrap()
 }
 
-/// Fold received funds into spendable, then send them out with the selected
-/// pre-generated proof. `from` is this contract, which authorizes by invocation.
+/// Spend only the commitment fixed during funding, using the selected
+/// pre-verified proof. Unsolicited credits remain isolated in receiving.
+/// `from` is this contract, which authorizes by invocation.
 fn payout(e: &Env, proof: &Bytes, to: &Address) {
     let token = token(e);
     let this = e.current_contract_address();
-    token.merge(&this);
     token.confidential_transfer(&this, to, proof);
 }

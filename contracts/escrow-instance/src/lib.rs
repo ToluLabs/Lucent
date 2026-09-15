@@ -11,15 +11,11 @@
 //!   and pays out with a `confidential_transfer` where `from` is the instance
 //!   itself — a contract authorizes its own outgoing transfer by invocation, so
 //!   the recipient or arbiter can trigger a payout without holding any key.
-//! * Because a contract cannot prove on-chain, the depositor pre-generates the
-//!   two possible payout proofs (instance → recipient, instance → depositor)
-//!   and stores them via `store_payout_proofs` *before* calling `fund` — the
-//!   instance submits exactly the one the state machine selects, later. This
-//!   is two transactions, not one: four ~14KB UltraHonk proofs bundled into a
-//!   single `fund` call (register + transfer-in + both payout proofs) exceeds
-//!   Soroban's per-transaction size ceiling. `fund` refuses to run until the
-//!   payout proofs are already in place, so `Funded` is only ever reached with
-//!   a complete, working proof set — there's no reachable half-funded state.
+//! * The depositor prepares registration + funding inputs, then submits each
+//!   payout proof for on-chain verification against that future commitment.
+//!   Only after both branches validate can `fund` atomically register, receive
+//!   and merge the exact prepared transfer. Settlement never merges later credits.
+//!   Four transactions keep proof payloads within the transaction size limit.
 //!
 //! # Trust caveat
 //!
@@ -45,6 +41,14 @@ pub trait ConfidentialTokenInterface {
     fn register(env: Env, account: Address, auditor_id: u32, data: Bytes);
     fn confidential_transfer(env: Env, from: Address, to: Address, data: Bytes);
     fn merge(env: Env, account: Address);
+    fn verify_escrow_payout(
+        env: Env,
+        register_data: Bytes,
+        auditor_id: u32,
+        transfer_in: Bytes,
+        to: Address,
+        data: Bytes,
+    ) -> bool;
 }
 
 #[contracterror]
@@ -60,8 +64,10 @@ pub enum Error {
     ArbiterSet = 7,
     TooEarly = 8,
     NotFound = 9,
-    /// `fund` was called before `store_payout_proofs` — see instance.rs.
+    /// Both payout branches must be verified before `fund`.
     PayoutProofsMissing = 10,
+    FundingNotPrepared = 11,
+    InvalidPayoutProof = 12,
 }
 
 /// Lifecycle of an escrow, mirroring the Solidity reference exactly.
