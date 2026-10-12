@@ -105,7 +105,8 @@ fn setup() -> Fixture {
         proof: Bytes::new(&e),
     };
     let funding = transfer(&e);
-    let payout = transfer(&e);
+    let mut payout = transfer(&e);
+    payout.payload.c_spend_new = Grumpkin::identity(&e);
     e.as_contract(&token, || {
         e.storage().persistent().set(
             &ConfidentialTokenStorageKey::Account(from.clone()),
@@ -151,7 +152,8 @@ fn escrow_preflight_matches_real_token_transfer_public_inputs_without_moving_fun
         &1,
         &f.funding.to_xdr(&f.e),
         &f.to,
-        &f.payout.clone().to_xdr(&f.e)
+        &f.payout.clone().to_xdr(&f.e),
+        &BytesN::from_array(&f.e, &[0; 32])
     ));
     let expected = VerifierClient::new(&f.e, &f.verifier).inputs();
     assert_eq!(
@@ -173,7 +175,8 @@ fn escrow_preflight_propagates_verifier_rejection() {
             &1,
             &f.funding.to_xdr(&f.e),
             &f.to,
-            &f.payout.to_xdr(&f.e)
+            &f.payout.to_xdr(&f.e),
+            &BytesN::from_array(&f.e, &[0; 32])
         )
     );
 }
@@ -187,7 +190,8 @@ fn escrow_preflight_rejects_malformed_payload() {
             &1,
             &f.funding.to_xdr(&f.e),
             &f.to,
-            &Bytes::new(&f.e)
+            &Bytes::new(&f.e),
+            &BytesN::from_array(&f.e, &[0; 32])
         )
         .is_err());
 }
@@ -202,7 +206,24 @@ fn escrow_preflight_rejects_noncanonical_public_inputs() {
             &1,
             &f.funding.to_xdr(&f.e),
             &f.to,
-            &f.payout.to_xdr(&f.e)
+            &f.payout.to_xdr(&f.e),
+            &BytesN::from_array(&f.e, &[0; 32])
         )
         .is_err());
+}
+
+#[test]
+fn escrow_preflight_rejects_partial_payout_even_when_transfer_verifier_accepts() {
+    let mut f = setup();
+    f.payout.payload.c_spend_new = point(&f.e, 4);
+    assert!(
+        !ConfidentialTokenContractClient::new(&f.e, &f.token).verify_escrow_payout(
+            &f.registration.to_xdr(&f.e),
+            &1,
+            &f.funding.to_xdr(&f.e),
+            &f.to,
+            &f.payout.to_xdr(&f.e),
+            &BytesN::from_array(&f.e, &[0; 32]),
+        )
+    );
 }

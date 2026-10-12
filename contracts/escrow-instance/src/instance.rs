@@ -110,7 +110,12 @@ impl PrivateEscrowInstance {
     /// Verify one settlement branch against the EXACT prepared funding inputs
     /// before storing it. One proof per call keeps transaction size and proving
     /// verification cost bounded. A rejected proof never enables funding.
-    pub fn store_payout_proof(e: &Env, release: bool, proof: Bytes) -> Result<(), Error> {
+    pub fn store_payout_proof(
+        e: &Env,
+        release: bool,
+        proof: Bytes,
+        remaining_blinding: soroban_sdk::BytesN<32>,
+    ) -> Result<(), Error> {
         let esc = get(e);
         esc.depositor.require_auth();
         if esc.state != EscrowState::Created {
@@ -128,7 +133,14 @@ impl PrivateEscrowInstance {
         } else {
             &esc.depositor
         };
-        if !token(e).verify_escrow_payout(&register_data, &auditor_id, &transfer_in, to, &proof) {
+        if !token(e).verify_escrow_payout(
+            &register_data,
+            &auditor_id,
+            &transfer_in,
+            to,
+            &proof,
+            &remaining_blinding,
+        ) {
             return Err(Error::InvalidPayoutProof);
         }
         let key = if release {

@@ -48,6 +48,7 @@ pub trait ConfidentialTokenInterface {
         transfer_in: Bytes,
         to: Address,
         data: Bytes,
+        remaining_blinding: soroban_sdk::BytesN<32>,
     ) -> bool;
 }
 

@@ -147,6 +147,14 @@ per escrow). Funding takes four on-chain calls:
 3. `store_payout_proof(false, …)` verifies the depositor refund against the same commitment.
 4. `fund()` atomically registers the instance, transfers the funds in, and merges once.
 
+Each payout call also supplies the remaining balance blinding factor. The token
+checks that the remaining commitment opens to zero, so a partial-transfer proof
+cannot settle an escrow. Amounts remain confidential.
+
+The updated payout interface requires redeploying the token, escrow instance
+WASM, and factory together before using the updated SDK/app. Existing deployed
+instances retain their previous interface.
+
 No funds move until both proofs pass. Re-preparing clears both validated proofs.
 Separate calls keep the proof payloads within Soroban's transaction size limit.
 Settlement spends the fixed commitment without merging unsolicited later credits.
@@ -227,7 +235,7 @@ cargo test --manifest-path contracts/Cargo.toml
 
 | Crate | Coverage | Tests |
 |---|---|---|
-| `contracts/token` | Escrow preflight PI parity with upstream transfer, malformed inputs and verifier rejection | 4 |
+| `contracts/token` | Escrow preflight PI parity, zero-balance opening, partial-payout rejection, malformed inputs and verifier rejection | 6 |
 | `contracts/payroll` | State machine, employer auth, atomic batch payout, cancel paths | 10 |
 | `contracts/escrow-instance` | Every state transition, release-window timing, arbiter vs. no-arbiter branches, auth, pre-funding proof validation and unsolicited-credit regressions | 24 |
 | `contracts/escrow-factory` | Deploys a real instance and drives it through preparation → proof validation → funding → release | 1 |

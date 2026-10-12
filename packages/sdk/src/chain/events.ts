@@ -263,8 +263,11 @@ export async function fetchEvents(
     // there, returning a cursor at the end of the SCANNED range. Page until
     // that cursor catches up with the RPC's latest ledger.
     if (!resp.cursor) break;
-    if (cursorLedger(resp.cursor) >= resp.latestLedger) break;
-    if (resp.cursor === prevCursor) break; // defensive: no forward progress
+    if (cursorLedger(resp.cursor) >= resp.latestLedger && resp.events.length < limit) break;
+    if (resp.cursor === prevCursor) {
+      if (resp.events.length >= limit) throw new Error("event pagination made no forward progress");
+      break;
+    }
   }
 
   return { events: out, cursor: resumeCursor, latestLedger };
@@ -302,21 +305,25 @@ export async function resolveEventRef(
   client: ChainClient,
   ref: EventRef,
 ): Promise<ConfidentialEvent | null> {
-  const resp = await client.server.getEvents({
-    filters: [{ type: "contract", contractIds: [client.cfg.contracts.token] }],
-    startLedger: ref.ledger,
-    endLedger: ref.ledger + 1,
-    limit: 200,
-  });
-  // Match on the normalized id (parseEvent sets cursor = naturalEventId), so a
-  // ref pinned from either source resolves here.
-  const matches = resp.events
-    .map(parseEvent)
-    .filter((ev): ev is ConfidentialEvent => ev !== null && ev.cursor === ref.id);
-  if (matches.length !== 1) return null;
-  const ev = matches[0]!;
-  if (ev.txHash !== ref.txHash) return null;
-  return ev;
+  let cursor: string | undefined;
+  for (;;) {
+    const resp = await client.server.getEvents({
+      filters: [{ type: "contract", contractIds: [client.cfg.contracts.token] }],
+      ...(cursor ? { cursor } : { startLedger: ref.ledger, endLedger: ref.ledger + 1 }),
+      limit: 200,
+    });
+    const matches = resp.events.map(parseEvent).filter(
+      (ev): ev is ConfidentialEvent => ev !== null && ev.cursor === ref.id,
+    );
+    if (matches.length > 1) return null;
+    if (matches.length === 1) {
+      const ev = matches[0]!;
+      return ev.ledger === ref.ledger && ev.txHash === ref.txHash ? ev : null;
+    }
+    if (!resp.cursor || resp.events.length < 200 || resp.events.some((ev) => ev.ledger > ref.ledger)) return null;
+    if (resp.cursor === cursor) throw new Error("event resolution pagination made no forward progress");
+    cursor = resp.cursor;
+  }
 }
 
 /**

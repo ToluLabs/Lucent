@@ -33,6 +33,7 @@ impl MockToken {
         transfer_in: Bytes,
         _to: Address,
         data: Bytes,
+        _remaining_blinding: soroban_sdk::BytesN<32>,
     ) -> bool {
         !data.is_empty() && data == transfer_in
     }
@@ -131,8 +132,16 @@ fn b(f: &Fixture) -> Bytes {
 
 fn fund(f: &Fixture) {
     f.escrow.prepare_funding(&b(f), &0u32, &b(f));
-    f.escrow.store_payout_proof(&true, &b(f));
-    f.escrow.store_payout_proof(&false, &b(f));
+    f.escrow.store_payout_proof(
+        &true,
+        &b(f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
+    f.escrow.store_payout_proof(
+        &false,
+        &b(f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
     f.escrow.fund();
 }
 
@@ -261,8 +270,16 @@ fn fund_before_payout_proofs_blocked() {
 fn preparing_again_invalidates_both_payout_proofs() {
     let f = setup(false);
     f.escrow.prepare_funding(&b(&f), &0u32, &b(&f));
-    f.escrow.store_payout_proof(&true, &b(&f));
-    f.escrow.store_payout_proof(&false, &b(&f));
+    f.escrow.store_payout_proof(
+        &true,
+        &b(&f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
+    f.escrow.store_payout_proof(
+        &false,
+        &b(&f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
     f.escrow.prepare_funding(&b(&f), &1u32, &b(&f));
     assert_eq!(f.escrow.try_fund(), Err(Ok(Error::PayoutProofsMissing)));
 }
@@ -351,8 +368,12 @@ fn stranger_cannot_mark_completed() {
     e.mock_all_auths();
     let blob = Bytes::from_array(&e, &[1]);
     escrow.prepare_funding(&blob, &0u32, &blob);
-    escrow.store_payout_proof(&true, &blob);
-    escrow.store_payout_proof(&false, &blob);
+    escrow.store_payout_proof(&true, &blob, &soroban_sdk::BytesN::from_array(&e, &[0; 32]));
+    escrow.store_payout_proof(
+        &false,
+        &blob,
+        &soroban_sdk::BytesN::from_array(&e, &[0; 32]),
+    );
     escrow.fund();
 
     // Real auth required now: nobody authorized as the recipient.
@@ -364,16 +385,28 @@ fn stranger_cannot_mark_completed() {
 fn invalid_release_proof_cannot_enable_funding() {
     let f = setup(false);
     f.escrow.prepare_funding(&b(&f), &0u32, &b(&f));
-    f.escrow.store_payout_proof(&false, &b(&f));
+    f.escrow.store_payout_proof(
+        &false,
+        &b(&f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
     assert_eq!(
-        f.escrow.try_store_payout_proof(&true, &Bytes::new(&f.e)),
+        f.escrow.try_store_payout_proof(
+            &true,
+            &Bytes::new(&f.e),
+            &soroban_sdk::BytesN::from_array(&f.e, &[0; 32])
+        ),
         Err(Ok(Error::InvalidPayoutProof))
     );
     assert_eq!(f.escrow.try_fund(), Err(Ok(Error::PayoutProofsMissing)));
     assert_eq!(f.escrow.get_escrow().state, EscrowState::Created);
     assert!(MockTokenClient::new(&f.e, &f.token).xfers().is_empty());
     // A corrected proof can be submitted before funding, with no funds at risk.
-    f.escrow.store_payout_proof(&true, &b(&f));
+    f.escrow.store_payout_proof(
+        &true,
+        &b(&f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
     f.escrow.fund();
 }
 
@@ -381,10 +414,17 @@ fn invalid_release_proof_cannot_enable_funding() {
 fn invalid_refund_proof_cannot_enable_funding() {
     let f = setup(false);
     f.escrow.prepare_funding(&b(&f), &0u32, &b(&f));
-    f.escrow.store_payout_proof(&true, &b(&f));
+    f.escrow.store_payout_proof(
+        &true,
+        &b(&f),
+        &soroban_sdk::BytesN::from_array(&f.e, &[0; 32]),
+    );
     assert_eq!(
-        f.escrow
-            .try_store_payout_proof(&false, &Bytes::from_array(&f.e, &[1])),
+        f.escrow.try_store_payout_proof(
+            &false,
+            &Bytes::from_array(&f.e, &[1]),
+            &soroban_sdk::BytesN::from_array(&f.e, &[0; 32])
+        ),
         Err(Ok(Error::InvalidPayoutProof))
     );
     assert_eq!(f.escrow.try_fund(), Err(Ok(Error::PayoutProofsMissing)));
@@ -394,7 +434,11 @@ fn invalid_refund_proof_cannot_enable_funding() {
 fn payout_proof_requires_prepared_inputs() {
     let f = setup(false);
     assert_eq!(
-        f.escrow.try_store_payout_proof(&true, &b(&f)),
+        f.escrow.try_store_payout_proof(
+            &true,
+            &b(&f),
+            &soroban_sdk::BytesN::from_array(&f.e, &[0; 32])
+        ),
         Err(Ok(Error::FundingNotPrepared))
     );
 }
@@ -427,7 +471,11 @@ fn cannot_replace_prepared_inputs_or_proofs_after_funding() {
         Err(Ok(Error::BadState))
     );
     assert_eq!(
-        f.escrow.try_store_payout_proof(&true, &b(&f)),
+        f.escrow.try_store_payout_proof(
+            &true,
+            &b(&f),
+            &soroban_sdk::BytesN::from_array(&f.e, &[0; 32])
+        ),
         Err(Ok(Error::BadState))
     );
 }

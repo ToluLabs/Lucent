@@ -186,14 +186,33 @@ export class ConfidentialWallet {
     // indexer (if present), so a stale deployment no longer makes sync throw.
     const fromLedger: number = DEPLOYMENT.deployedAtLedger;
 
+    const store = new LocalStorageStore(`lucent:state:${DEPLOYMENT.networkPassphrase}:${DEPLOYMENT.contracts.token}:`);
     const engine = new StateEngine({
       client,
-      store: new LocalStorageStore(),
+      store,
       keys,
       address: signer.publicKey,
       fromLedger,
       indexer,
     });
+
+    // Preserve a legacy cache only when its openings and this deployment's
+    // registered keys match the chain. Never reuse its deployment-less cursor:
+    // capture a fresh chain cursor, then recheck before committing the migration.
+    if (!(await store.load(signer.publicKey))) {
+      const legacy = await new LocalStorageStore().load(signer.publicKey);
+      const acct = legacy ? await client.confidentialBalance(signer.publicKey) : null;
+      if (legacy && acct && acct.spendingKey.equals(keys.Y) && acct.viewingPublicKey.equals(keys.PVK)) {
+        const candidate = new StateEngine({ client, store: new LocalStorageStore(), keys,
+          address: signer.publicKey, fromLedger, indexer });
+        if ((await candidate.verifyAgainstChain()).ok) {
+          const tip = await hybridFetchEvents(client, undefined, { fromLedger: (await client.server.getHealth()).latestLedger });
+          if ((await candidate.verifyAgainstChain()).ok && tip.cursor) {
+            await store.save({ ...legacy, cursor: tip.cursor, syncedLedger: tip.latestLedger });
+          }
+        }
+      }
+    }
 
     return new ConfidentialWallet(signer.publicKey, signer, keys, client, engine, indexer, log);
   }
@@ -556,9 +575,9 @@ export class ConfidentialWallet {
       transferIn,
     });
     this.log("validating recipient payout…");
-    await submitStorePayoutProof(this.client, this.signer, instance, true, releaseProof);
+    await submitStorePayoutProof(this.client, this.signer, instance, true, releaseProof, rel.next.r);
     this.log("validating refund payout…");
-    await submitStorePayoutProof(this.client, this.signer, instance, false, refundProof);
+    await submitStorePayoutProof(this.client, this.signer, instance, false, refundProof, ref.next.r);
     this.log("submitting fund…");
     const r = await submitFund(this.client, this.signer, instance);
     await this.engine.setSpendable(tin.next);

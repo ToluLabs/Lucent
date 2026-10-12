@@ -38,6 +38,7 @@ impl MockToken {
         transfer_in: Bytes,
         _to: Address,
         data: Bytes,
+        _remaining_blinding: soroban_sdk::BytesN<32>,
     ) -> bool {
         !data.is_empty() && data == transfer_in
     }
@@ -73,8 +74,12 @@ fn create_escrow_deploys_a_working_instance() {
     let escrow = instance::Client::new(&e, &addr);
     let blob = Bytes::from_array(&e, &[7u8; 8]);
     escrow.prepare_funding(&blob, &0u32, &blob);
-    escrow.store_payout_proof(&true, &blob);
-    escrow.store_payout_proof(&false, &blob);
+    escrow.store_payout_proof(&true, &blob, &soroban_sdk::BytesN::from_array(&e, &[0; 32]));
+    escrow.store_payout_proof(
+        &false,
+        &blob,
+        &soroban_sdk::BytesN::from_array(&e, &[0; 32]),
+    );
     escrow.fund();
     escrow.mark_completed(&String::from_str(&e, "ipfs://x"));
     escrow.release();

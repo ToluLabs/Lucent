@@ -84,8 +84,8 @@ export async function hybridFetchEvents(
   // `next` is the first ledger we still need. Using cursorLedger+1 assumes the
   // previous sync consumed the cursor's ledger in full — true here because
   // fetchEvents pages all the way to the chain head, so a stored cursor only
-  // ever sits at a ledger boundary unless a single ledger emits more than
-  // pageLimit (100) token events, which this demo never produces.
+  // ever sits at a ledger boundary: full pages at the head are drained before
+  // fetchEvents accepts the final resume cursor.
   const next = opts.startCursor ? cursorLedger(opts.startCursor) + 1 : opts.fromLedger;
 
   // The retention floor is only needed to decide the indexer seam or to clamp a

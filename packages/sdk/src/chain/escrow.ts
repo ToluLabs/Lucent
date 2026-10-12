@@ -8,6 +8,8 @@ import { xdr, Address, nativeToScVal, scValToNative } from "@stellar/stellar-sdk
 
 import type { ChainClient, Signer, InvokeResult } from "./client.js";
 
+import { toBytes32BE } from "../crypto/field.js";
+
 const addr = (a: string): xdr.ScVal => new Address(a).toScVal();
 const u64 = (v: bigint): xdr.ScVal => nativeToScVal(v, { type: "u64" });
 const u32 = (v: number): xdr.ScVal => xdr.ScVal.scvU32(v);
@@ -70,16 +72,17 @@ export function submitPrepareFunding(
     [bytes(args.registerData), u32(args.auditorId), bytes(args.transferIn)], signer);
 }
 
-/** Validate and store one payout branch against the prepared funding commitment. */
+/** Validate a payout and its zero remaining-balance opening against the prepared funding commitment. */
 export function submitStorePayoutProof(
   client: ChainClient,
   signer: Signer,
   instance: string,
   release: boolean,
   proof: Uint8Array,
+  remainingBlinding: bigint,
 ): Promise<InvokeResult> {
   return client.invoke(instance, "store_payout_proof",
-    [xdr.ScVal.scvBool(release), bytes(proof)], signer);
+    [xdr.ScVal.scvBool(release), bytes(proof), bytes(toBytes32BE(remainingBlinding))], signer);
 }
 
 /** Atomically register, fund, and merge the prepared transfer after validation. */
