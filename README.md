@@ -15,6 +15,18 @@ Sender and receiver stay public and verifiable on-chain. Only the amount moves i
 
 </div>
 
+<div align="center">
+
+<h2>Watch the launch demo</h2>
+
+<a href="https://youtu.be/l7yIpmE0OqE">
+  <img src="https://img.youtube.com/vi/l7yIpmE0OqE/hqdefault.jpg" alt="Watch the Lucent launch demo on YouTube" />
+</a>
+
+<p><a href="https://youtu.be/l7yIpmE0OqE">Watch on YouTube</a> — a short animated walkthrough of shielding USDC, confidential transfers, payroll, escrow, and selective disclosure.</p>
+
+</div>
+
 Balances are Pedersen commitments on the Grumpkin curve. Every register,
 withdraw, and transfer carries an UltraHonk zero-knowledge proof, generated
 in the browser and verified natively on-chain by Soroban — no off-chain
