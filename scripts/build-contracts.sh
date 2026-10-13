@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
-# Builds the three demo contracts to wasm and copies the artifacts into
+# Builds the Lucent contracts to wasm and copies the artifacts into
 # packages/sdk/contracts/ so the SDK/deploy script can load them.
 #
 # Requires the pinned stable Rust toolchain with the wasm32v1-none target
 # (see contracts/rust-toolchain.toml) and a local checkout of
-# OpenZeppelin/stellar-contracts @ feat/confidential-verifier-ultrahonk at the
-# path declared in contracts/Cargo.toml.
+# OpenZeppelin dependencies pinned by contracts/Cargo.lock.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -40,5 +39,8 @@ for pair in "${WASMS[@]}"; do
   cp "$WASM_DIR/${src}.wasm" "$OUT_DIR/${dst}.wasm"
   echo "    wrote $OUT_DIR/${dst}.wasm ($(wc -c < "$OUT_DIR/${dst}.wasm") bytes)"
 done
+
+# Keep the factory integration test on the same instance bytecode we ship.
+cp "$OUT_DIR/private_escrow_instance.wasm" "$ROOT/contracts/escrow-factory/testdata/private_escrow_instance.wasm"
 
 echo "Done."

@@ -4,7 +4,7 @@
  * representative" lives here.
  */
 
-import { FR_MODULUS } from "./constants.js";
+import { FR_MODULUS, FP_MODULUS } from "./constants.js";
 
 /** Reduce into `[0, r)`. */
 export function frMod(x: bigint): bigint {
@@ -20,6 +20,12 @@ export function frAdd(a: bigint, b: bigint): bigint {
 /** Field subtraction mod `r`. */
 export function frSub(a: bigint, b: bigint): bigint {
   return frMod(a - b);
+}
+
+/** Add commitment blindings modulo the Grumpkin group order (not its base field). */
+export function fpAdd(a: bigint, b: bigint): bigint {
+  const sum = (a + b) % FP_MODULUS;
+  return sum < 0n ? sum + FP_MODULUS : sum;
 }
 
 /** True iff `x` is a canonical representative (`0 <= x < r`). */

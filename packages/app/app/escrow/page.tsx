@@ -278,8 +278,8 @@ export default function EscrowPage() {
         />
         <p className="text-xs leading-relaxed text-text-muted">
           Funding generates a register proof for the escrow&apos;s confidential account, plus the
-          transfer-in and two payout proofs — all in your browser. This needs two wallet
-          confirmations, submitted one after the other.
+          transfer-in and two payout proofs — all in your browser. Four wallet confirmations
+          prepare funding, verify both payouts, and finally move the funds.
         </p>
         <Button
           fullWidth
