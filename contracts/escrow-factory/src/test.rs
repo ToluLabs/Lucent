@@ -23,10 +23,24 @@ impl MockToken {
     }
     pub fn confidential_transfer(e: &Env, from: Address, to: Address, _data: Bytes) {
         from.require_auth();
-        let mut log: Vec<(Address, Address)> =
-            e.storage().instance().get(&symbol_short!("xfers")).unwrap_or(Vec::new(e));
+        let mut log: Vec<(Address, Address)> = e
+            .storage()
+            .instance()
+            .get(&symbol_short!("xfers"))
+            .unwrap_or(Vec::new(e));
         log.push_back((from, to));
         e.storage().instance().set(&symbol_short!("xfers"), &log);
+    }
+    pub fn verify_escrow_payout(
+        _e: &Env,
+        _register_data: Bytes,
+        _auditor_id: u32,
+        transfer_in: Bytes,
+        _to: Address,
+        data: Bytes,
+        _remaining_blinding: soroban_sdk::BytesN<32>,
+    ) -> bool {
+        !data.is_empty() && data == transfer_in
     }
     pub fn merge(_e: &Env, account: Address) {
         account.require_auth();
@@ -59,14 +73,21 @@ fn create_escrow_deploys_a_working_instance() {
     // through fund -> mark_completed -> release.
     let escrow = instance::Client::new(&e, &addr);
     let blob = Bytes::from_array(&e, &[7u8; 8]);
-    escrow.store_payout_proofs(&blob, &blob);
-    escrow.fund(&blob, &0u32, &blob);
+    escrow.prepare_funding(&blob, &0u32, &blob);
+    escrow.store_payout_proof(&true, &blob, &soroban_sdk::BytesN::from_array(&e, &[0; 32]));
+    escrow.store_payout_proof(
+        &false,
+        &blob,
+        &soroban_sdk::BytesN::from_array(&e, &[0; 32]),
+    );
+    escrow.fund();
     escrow.mark_completed(&String::from_str(&e, "ipfs://x"));
     escrow.release();
     assert_eq!(escrow.get_escrow().state, instance::EscrowState::Released);
 
     // Second escrow gets a distinct address.
-    let (id2, addr2) = factory.create_escrow(&depositor, &recipient, &Some(recipient.clone()), &10u64);
+    let (id2, addr2) =
+        factory.create_escrow(&depositor, &recipient, &Some(recipient.clone()), &10u64);
     assert_eq!(id2, 2);
     assert_ne!(addr, addr2);
 }

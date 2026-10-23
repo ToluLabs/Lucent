@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { StrKey } from "@stellar/stellar-sdk";
 import { CheckCircle, ExternalLink, Lock } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -20,30 +21,53 @@ import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { useAction } from "@/lib/use-action";
 import { toBaseUnits, formatAmount, DECIMALS } from "@/lib/amount";
-import { errMsg } from "@/lib/err";
 
 type Step = "recipient" | "amount" | "confirm";
+type RecipientCheck = {
+  address: string;
+  wallet: object;
+  status: "checking" | "registered" | "unregistered" | "error";
+};
 
 export default function SendPage() {
   const wallet = useRequireWallet();
   const { view, error, setError } = useWallet();
   const { run, busy, phase } = useAction();
   const [step, setStep] = useState<Step>("recipient");
-  const [recipients, setRecipients] = useState<string[] | null>(null);
   const [to, setTo] = useState("");
+  const [recipientCheck, setRecipientCheck] = useState<RecipientCheck | null>(null);
+  const [checkAttempt, setCheckAttempt] = useState(0);
   const [amount, setAmount] = useState("");
   const [txHash, setTxHash] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!wallet) return;
-    wallet
-      .registeredRecipients()
-      .then(setRecipients)
-      .catch((e) => {
-        setError(errMsg(e));
-        setRecipients([]);
-      });
-  }, [wallet, setError]);
+    const address = to.trim();
+    if (!wallet || !StrKey.isValidEd25519PublicKey(address)) return;
+    let cancelled = false;
+    setRecipientCheck({ address, wallet, status: "checking" });
+    const timer = setTimeout(async () => {
+      try {
+        const registered = await wallet.isRecipientRegistered(address);
+        if (!cancelled) setRecipientCheck({ address, wallet, status: registered ? "registered" : "unregistered" });
+      } catch {
+        if (!cancelled) setRecipientCheck({ address, wallet, status: "error" });
+      }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [wallet, to, checkAttempt]);
+
+  const recipientAddress = to.trim();
+  const validAddress = StrKey.isValidEd25519PublicKey(recipientAddress);
+  const recipientStatus = recipientCheck?.wallet === wallet && recipientCheck.address === recipientAddress
+    ? recipientCheck.status : null;
+  const recipientReady = validAddress && recipientStatus === "registered";
+  const recipientError = recipientAddress && !validAddress
+    ? "Enter a valid Stellar public address beginning with G."
+    : recipientStatus === "unregistered"
+      ? "This address is not registered with Lucent on Testnet. Ask the recipient to connect and register first."
+      : recipientStatus === "error"
+        ? "Could not check registration. Retry to continue."
+        : undefined;
 
   if (!wallet) {
     return (
@@ -55,6 +79,7 @@ export default function SendPage() {
   }
 
   async function submit() {
+    if (!recipientReady) { setStep("recipient"); return; }
     setTxHash(null);
     await run("send", async (sp) => {
       const r = await wallet!.transfer(to.trim(), toBaseUnits(amount || "0"), sp);
@@ -138,26 +163,22 @@ export default function SendPage() {
                 placeholder="G…"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                className="font-mono"
+                className={`font-mono ${recipientError ? "border-error/50" : ""}`}
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={!!recipientError}
+                aria-describedby="recipient-status"
               />
+              <div id="recipient-status" role="status" aria-live="polite" className="mt-3 text-xs">
+                {recipientError ? <p className="text-error">{recipientError}</p> :
+                  recipientReady ? <p className="text-success">Registered with Lucent on Testnet.</p> :
+                  validAddress ? <p className="text-text-muted">Checking registration…</p> :
+                  <p className="text-text-muted">Paste the recipient’s Stellar public address. We’ll check their Lucent registration before you continue.</p>}
+                {recipientStatus === "error" && <button type="button" className="mt-2 text-accent underline" onClick={() => setCheckAttempt(n => n + 1)}>Retry registration check</button>}
+              </div>
             </GlassCard>
 
-            {recipients && recipients.length > 0 && (
-              <>
-                <SectionLabel>Registered accounts</SectionLabel>
-                <div className="flex flex-col gap-2">
-                  {recipients.map((a) => (
-                    <button key={a} onClick={() => setTo(a)} className="w-full text-left">
-                      <GlassCard hover padding="sm">
-                        <AddressDisplay address={a} chars={8} showCopy={false} />
-                      </GlassCard>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <Button fullWidth size="lg" disabled={!to.trim() || !registered} onClick={() => setStep("amount")}>
+            <Button fullWidth size="lg" disabled={!recipientReady || !registered} onClick={() => setStep("amount")}>
               Continue
             </Button>
           </>
@@ -186,7 +207,7 @@ export default function SendPage() {
               <ProofStatusPill status="idle" />
             </div>
 
-            <Button fullWidth size="lg" disabled={!amount || amount === "0"} onClick={() => setStep("confirm")}>
+            <Button fullWidth size="lg" disabled={!recipientReady || !amount || amount === "0"} onClick={() => setStep("confirm")}>
               Preview Send
             </Button>
           </>
@@ -224,7 +245,7 @@ export default function SendPage() {
               </div>
             </GlassCard>
 
-            <Button fullWidth size="lg" isLoading={busy === "send"} onClick={submit}>
+            <Button fullWidth size="lg" disabled={!recipientReady} isLoading={busy === "send"} onClick={submit}>
               Send
             </Button>
           </>

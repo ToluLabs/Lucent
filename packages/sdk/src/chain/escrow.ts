@@ -1,20 +1,14 @@
 /**
- * Submitters for the PrivateEscrow factory and the per-escrow instance it
- * deploys.
- *
- * `create_escrow` (factory) deploys a fresh instance contract — its own
- * confidential account. Funding an instance is two calls, not one:
- * `store_payout_proofs` stores the two pre-generated payout proofs (instance ->
- * recipient and instance -> depositor) the state machine later selects between,
- * then `fund` carries the register proof for the instance's Grumpkin identity
- * plus the depositor's transfer-in. They're split because all four ~14KB
- * UltraHonk proofs together exceed Soroban's per-transaction size ceiling. All
- * blobs are built in the browser; this module only submits them.
+ * Private escrow submitters. Funding takes four transactions: prepare the
+ * registration/funding inputs, validate each payout proof, then fund. No value
+ * moves until both settlement branches have been verified on-chain.
  */
 
 import { xdr, Address, nativeToScVal, scValToNative } from "@stellar/stellar-sdk";
 
 import type { ChainClient, Signer, InvokeResult } from "./client.js";
+
+import { toBytes32BE } from "../crypto/field.js";
 
 const addr = (a: string): xdr.ScVal => new Address(a).toScVal();
 const u64 = (v: bigint): xdr.ScVal => nativeToScVal(v, { type: "u64" });
@@ -67,41 +61,33 @@ export async function readEscrowAddress(
 
 // ---- instance --------------------------------------------------------------
 
-/**
- * `store_payout_proofs(release_proof, refund_proof)`. Must be submitted before
- * `submitFund` — see the module doc comment for why this is a separate call.
- */
-export function submitStorePayoutProofs(
+/** Store the exact registration and transfer inputs to validate and later execute. */
+export function submitPrepareFunding(
   client: ChainClient,
   signer: Signer,
   instance: string,
-  args: { releaseProof: Uint8Array; refundProof: Uint8Array },
+  args: { registerData: Uint8Array; auditorId: number; transferIn: Uint8Array },
 ): Promise<InvokeResult> {
-  return client.invoke(
-    instance,
-    "store_payout_proofs",
-    [bytes(args.releaseProof), bytes(args.refundProof)],
-    signer,
-  );
+  return client.invoke(instance, "prepare_funding",
+    [bytes(args.registerData), u32(args.auditorId), bytes(args.transferIn)], signer);
 }
 
-/** `fund(register_data, auditor_id, transfer_in)`. Call `submitStorePayoutProofs` first. */
-export function submitFund(
+/** Validate a payout and its zero remaining-balance opening against the prepared funding commitment. */
+export function submitStorePayoutProof(
   client: ChainClient,
   signer: Signer,
   instance: string,
-  args: {
-    registerData: Uint8Array;
-    auditorId: number;
-    transferIn: Uint8Array;
-  },
+  release: boolean,
+  proof: Uint8Array,
+  remainingBlinding: bigint,
 ): Promise<InvokeResult> {
-  return client.invoke(
-    instance,
-    "fund",
-    [bytes(args.registerData), u32(args.auditorId), bytes(args.transferIn)],
-    signer,
-  );
+  return client.invoke(instance, "store_payout_proof",
+    [xdr.ScVal.scvBool(release), bytes(proof), bytes(toBytes32BE(remainingBlinding))], signer);
+}
+
+/** Atomically register, fund, and merge the prepared transfer after validation. */
+export function submitFund(client: ChainClient, signer: Signer, instance: string): Promise<InvokeResult> {
+  return client.invoke(instance, "fund", [], signer);
 }
 
 /** `mark_completed(proof_uri)` — recipient. */

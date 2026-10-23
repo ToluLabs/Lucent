@@ -42,6 +42,7 @@ import { shortAddress, timeAgo } from "@/lib/format";
 import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
+import { errMsg } from "@/lib/err";
 
 const QUICK_ACTIONS = [
   { href: "/shield", icon: ArrowDownUp, label: "Shield", tint: "text-accent bg-accent-bg" },
@@ -358,13 +359,15 @@ export function HomeClient() {
   }
 
   async function handleRegister() {
+    setError(null);
     setRegisterSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
     setRegistering(true);
     try {
       await wallet!.register();
       setRegisterSteps((s) => s.map((x) => ({ ...x, status: "done" })));
       await refresh();
-    } catch {
+    } catch (e) {
+      setError(errMsg(e));
       setRegisterSteps((s) => s.map((x) => ({ ...x, status: "error" })));
     } finally {
       setRegistering(false);
@@ -407,6 +410,19 @@ export function HomeClient() {
   const registered = view?.registered ?? false;
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  if (!view) {
+    return (
+      <AppShell>
+        <PageHeader title="Home" showBack={false} />
+        <div className="flex flex-col gap-5 px-4 py-12 md:mx-auto md:max-w-2xl">
+          <ErrorBanner error={error} onDismiss={() => setError(null)} />
+          <p className="text-sm text-text-secondary">{connecting ? "Checking your on-chain account…" : "Account status is unavailable. Retry before registering or transacting."}</p>
+          <Button onClick={refresh} disabled={connecting}>Retry account check</Button>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!registered) {
     return (

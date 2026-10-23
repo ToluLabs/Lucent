@@ -52,7 +52,8 @@ import {
   // escrow
   submitCreateEscrow,
   parseCreatedEscrow,
-  submitStorePayoutProofs,
+  submitPrepareFunding,
+  submitStorePayoutProof,
   submitFund,
   submitMarkCompleted,
   submitRelease,
@@ -185,14 +186,33 @@ export class ConfidentialWallet {
     // indexer (if present), so a stale deployment no longer makes sync throw.
     const fromLedger: number = DEPLOYMENT.deployedAtLedger;
 
+    const store = new LocalStorageStore(`lucent:state:${DEPLOYMENT.networkPassphrase}:${DEPLOYMENT.contracts.token}:`);
     const engine = new StateEngine({
       client,
-      store: new LocalStorageStore(),
+      store,
       keys,
       address: signer.publicKey,
       fromLedger,
       indexer,
     });
+
+    // Preserve a legacy cache only when its openings and this deployment's
+    // registered keys match the chain. Never reuse its deployment-less cursor:
+    // capture a fresh chain cursor, then recheck before committing the migration.
+    if (!(await store.load(signer.publicKey))) {
+      const legacy = await new LocalStorageStore().load(signer.publicKey);
+      const acct = legacy ? await client.confidentialBalance(signer.publicKey) : null;
+      if (legacy && acct && acct.spendingKey.equals(keys.Y) && acct.viewingPublicKey.equals(keys.PVK)) {
+        const candidate = new StateEngine({ client, store: new LocalStorageStore(), keys,
+          address: signer.publicKey, fromLedger, indexer });
+        if ((await candidate.verifyAgainstChain()).ok) {
+          const tip = await hybridFetchEvents(client, undefined, { fromLedger: (await client.server.getHealth()).latestLedger });
+          if ((await candidate.verifyAgainstChain()).ok && tip.cursor) {
+            await store.save({ ...legacy, cursor: tip.cursor, syncedLedger: tip.latestLedger });
+          }
+        }
+      }
+    }
 
     return new ConfidentialWallet(signer.publicKey, signer, keys, client, engine, indexer, log);
   }
@@ -211,7 +231,20 @@ export class ConfidentialWallet {
     return this.client.confidentialBalance(this.address);
   }
 
+  /** Direct lookup, independent of event-history retention or local caches. */
+  async isRecipientRegistered(address: string): Promise<boolean> {
+    return this.client.isRegistered(address);
+  }
+
   async register(onPhase?: (p: TxPhase) => void): Promise<void> {
+    const existing = await this.account();
+    if (existing) {
+      if (!existing.spendingKey.equals(this.keys.Y) || !existing.viewingPublicKey.equals(this.keys.PVK)) {
+        throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
+      }
+      this.log("already registered on-chain; refreshing account state");
+      return;
+    }
     const w = buildRegisterWitness(this.keys);
     onPhase?.("proving");
     this.log("proving register…");
@@ -546,19 +579,20 @@ export class ConfidentialWallet {
     const refundProof = new Uint8Array(encodeTransferData(ref, refProof).bytes());
 
     onPhase?.("submitting");
-    // Two transactions, not one: all four proofs together exceed Soroban's
-    // per-transaction size ceiling (see the contract's `fund` doc comment).
-    this.log("submitting payout proofs…");
-    await submitStorePayoutProofs(this.client, this.signer, instance, {
-      releaseProof,
-      refundProof,
-    });
-    this.log("submitting fund…");
-    const r = await submitFund(this.client, this.signer, instance, {
+    // Validate both branches before moving funds. Separate proof transactions
+    // stay below Soroban's transaction size limit.
+    this.log("preparing escrow funding…");
+    await submitPrepareFunding(this.client, this.signer, instance, {
       registerData,
       auditorId: DEPLOYMENT.auditorId,
       transferIn,
     });
+    this.log("validating recipient payout…");
+    await submitStorePayoutProof(this.client, this.signer, instance, true, releaseProof, rel.next.r);
+    this.log("validating refund payout…");
+    await submitStorePayoutProof(this.client, this.signer, instance, false, refundProof, ref.next.r);
+    this.log("submitting fund…");
+    const r = await submitFund(this.client, this.signer, instance);
     await this.engine.setSpendable(tin.next);
     this.log(`escrow funded (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -810,8 +844,11 @@ export class ConfidentialWallet {
 
   /** Sync from RPC events, verify against chain, and return a UI view. */
   async refresh(): Promise<WalletView> {
-    const state: AccountState = await this.engine.sync();
     const onchain = await this.account();
+    if (onchain && (!onchain.spendingKey.equals(this.keys.Y) || !onchain.viewingPublicKey.equals(this.keys.PVK))) {
+      throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
+    }
+    const state: AccountState = await this.engine.sync();
     let matchesChain: boolean | null = null;
     if (onchain) {
       matchesChain = (await this.engine.verifyAgainstChain()).ok;

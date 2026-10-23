@@ -36,6 +36,11 @@ use stellar_tokens::confidential::{
     storage as token_storage, ConfidentialAccount, ConfidentialToken, SpenderDelegation,
 };
 
+mod escrow;
+
+#[cfg(test)]
+mod test;
+
 #[contract]
 pub struct ConfidentialTokenContract;
 

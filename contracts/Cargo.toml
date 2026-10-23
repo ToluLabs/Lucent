@@ -10,8 +10,9 @@ license = "MIT"
 # The confidential token, access-control, and proc-macro crates are consumed as
 # git dependencies from the `feat/confidential-verifier-ultrahonk` branch of
 # OpenZeppelin/stellar-contracts (they are NOT published to crates.io). Cargo.lock
-# pins the exact resolved commit; this branch was validated at rev 539968f. Run
-# `cargo update -p stellar-tokens` to move to the branch tip.
+# pins the exact resolved commit; this branch was validated at rev 539968f.
+# Do not update independently of SDK/circuits/VKs: newer branch revisions change
+# the proof protocol. See ../UPSTREAM_RECONCILIATION.md.
 #
 # Transitive deps (soroban-poseidon, stellar-contract-utils, stellar-governance,
 # and the pinned `ultrahonk-soroban-verifier` git rev) are resolved through that
@@ -25,6 +26,7 @@ soroban-sdk = { version = "26.0.0" }
 stellar-access = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "feat/confidential-verifier-ultrahonk" }
 stellar-macros = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "feat/confidential-verifier-ultrahonk" }
 stellar-tokens = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "feat/confidential-verifier-ultrahonk" }
+stellar-contract-utils = { git = "https://github.com/OpenZeppelin/stellar-contracts", branch = "feat/confidential-verifier-ultrahonk" }
 
 # Soroban release profile: optimize for wasm code size and determinism.
 [profile.release]

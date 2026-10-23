@@ -15,6 +15,18 @@ Sender and receiver stay public and verifiable on-chain. Only the amount moves i
 
 </div>
 
+<div align="center">
+
+<h2>Watch the launch demo</h2>
+
+<a href="https://youtu.be/l7yIpmE0OqE">
+  <img src="https://img.youtube.com/vi/l7yIpmE0OqE/hqdefault.jpg" alt="Watch the Lucent launch demo on YouTube" />
+</a>
+
+<p><a href="https://youtu.be/l7yIpmE0OqE">Watch on YouTube</a> — a short animated walkthrough of shielding USDC, confidential transfers, payroll, escrow, and selective disclosure.</p>
+
+</div>
+
 Balances are Pedersen commitments on the Grumpkin curve. Every register,
 withdraw, and transfer carries an UltraHonk zero-knowledge proof, generated
 in the browser and verified natively on-chain by Soroban — no off-chain
@@ -140,13 +152,24 @@ salary stays decryptable to them and opaque to everyone else.
 **PrivateEscrow** is custodial: each escrow deploys its own **instance
 contract**, giving it its own isolated confidential account (a confidential
 balance is keyed by contract address, so custody requires a dedicated address
-per escrow). Funding an instance is two on-chain calls, not one —
-`store_payout_proofs` stores the two pre-generated payout proofs
-(instance→recipient, instance→depositor), then `fund` registers the instance
-and transfers the amount in, refusing to run until the payout proofs are
-already stored. They're split because all four proofs together (register +
-transfer-in + both payout proofs, each a ~14KB UltraHonk proof) exceed what
-fits in one Soroban transaction.
+per escrow). Funding takes four on-chain calls:
+
+1. `prepare_funding` stores the exact registration and transfer-in inputs.
+2. `store_payout_proof(true, …)` verifies the recipient payout against the future funded commitment.
+3. `store_payout_proof(false, …)` verifies the depositor refund against the same commitment.
+4. `fund()` atomically registers the instance, transfers the funds in, and merges once.
+
+Each payout call also supplies the remaining balance blinding factor. The token
+checks that the remaining commitment opens to zero, so a partial-transfer proof
+cannot settle an escrow. Amounts remain confidential.
+
+The updated payout interface requires redeploying the token, escrow instance
+WASM, and factory together before using the updated SDK/app. Existing deployed
+instances retain their previous interface.
+
+No funds move until both proofs pass. Re-preparing clears both validated proofs.
+Separate calls keep the proof payloads within Soroban's transaction size limit.
+Settlement spends the fixed commitment without merging unsolicited later credits.
 
 At settlement, the instance's own state machine (created → funded →
 completed → released / disputed / refunded / cancelled) submits exactly the
@@ -224,9 +247,10 @@ cargo test --manifest-path contracts/Cargo.toml
 
 | Crate | Coverage | Tests |
 |---|---|---|
+| `contracts/token` | Escrow preflight PI parity, zero-balance opening, partial-payout rejection, malformed inputs and verifier rejection | 6 |
 | `contracts/payroll` | State machine, employer auth, atomic batch payout, cancel paths | 10 |
-| `contracts/escrow-instance` | Every state transition, release-window timing, arbiter vs. no-arbiter branches, auth, the two-step `store_payout_proofs` → `fund` guard | 18 |
-| `contracts/escrow-factory` | Deploys a real instance and drives it through `store_payout_proofs` → `fund` → `mark_completed` → `release` | 1 |
+| `contracts/escrow-instance` | Every state transition, release-window timing, arbiter vs. no-arbiter branches, auth, pre-funding proof validation and unsolicited-credit regressions | 24 |
+| `contracts/escrow-factory` | Deploys a real instance and drives it through preparation → proof validation → funding → release | 1 |
 | `contracts/policy` | Allowlist add/remove/is_authorized round-trip, admin auth rejection | 3 |
 
 ## Deploying
@@ -262,7 +286,7 @@ A full end-to-end walkthrough, real proofs on testnet:
 2. **Send** — confidential transfer to a second registered account.
 3. **Payroll** — create a template of employees, open + confirm a run, enter
    salaries, execute; then **Auditor** decrypts every salary amount.
-4. **Escrow** — deploy + fund an escrow (two wallet confirmations); walk it
+4. **Escrow** — deploy + fund an escrow (four funding confirmations); walk it
    through mark-completed → release (or dispute → resolve).
 5. **Selective disclosure** — mint a request on the Verify screen, disclose
    the matching transfer from Home's activity feed, verify the returned

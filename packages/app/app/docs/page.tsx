@@ -384,27 +384,31 @@ No delivery -> depositor waits for timeout -> reclaims (REFUNDED)`}</Pre>
             (Timeout Refund / Claim / Dispute) until it actually opens, so there&apos;s no guessing at
             when a call will succeed.
           </P>
-          <H3>Funding: two calls, not one</H3>
+          <H3>Funding and payout validation</H3>
           <P>
             Funding is the expensive step, proof-wise — the depositor derives a one-time Grumpkin
             identity for the instance itself and builds four proofs: a register proof for that identity,
             a transfer-in proof (depositor → instance), and — because the instance can never generate a
             proof on its own later — both possible payout proofs up front, instance → recipient and
             instance → depositor. At roughly 14KB each, all four together exceed what fits in one
-            Soroban transaction, so funding is two calls (two wallet confirmations, back to back):
+            Soroban transaction. Four wallet confirmations prepare the inputs, verify each payout, and fund:
           </P>
-          <Pre>{`store_payout_proofs(release_proof, refund_proof)   // stored first
-fund(register_data, auditor_id, transfer_in)       // then this moves the money`}</Pre>
+          <Pre>{`prepare_funding(register_data, auditor_id, transfer_in)
+store_payout_proof(true, release_proof)    // verifies recipient payout
+store_payout_proof(false, refund_proof)    // verifies depositor refund
+fund()                                   // atomically registers, transfers and merges`}</Pre>
           <P>
-            <Code>fund</Code> checks the payout proofs are already stored before it will run, so the
-            escrow can never end up <Code>Funded</Code> without a working settlement path already in
-            place. Once funding completes, the depositor discards the instance&apos;s one-time secret —
+            <Code>fund</Code> requires both payout proofs to have passed verification against the exact
+            prepared funding commitment. Replacing the funding inputs clears both approvals. Funds
+            move only in the last call; a rejected proof leaves the escrow unfunded. Once funding completes, the depositor discards the instance&apos;s one-time secret —
             see the trust caveat below.
           </P>
           <H3>Settlement</H3>
           <P>
             Every payout proof was generated once, at funding time, against a fixed opening. That&apos;s
-            what lets the instance submit one of them unattended, whenever the state machine says so: no
+            what lets the instance submit one of them unattended, whenever the state machine says so.
+            Funding merges once, atomically; settlement never merges later deposits, so unsolicited
+            credits cannot change that fixed opening. No
             one needs to be online or hold a key at settlement time. On the happy path the recipient
             marks delivery, a 10-minute release window opens, and the depositor releases. If the
             depositor stalls, the recipient either self-serves after the window (no arbiter) or escalates

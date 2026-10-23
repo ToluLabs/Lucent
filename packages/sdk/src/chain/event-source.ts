@@ -16,8 +16,10 @@
  * belt-and-suspenders guard for the boundary ledger (and because
  * `StateEngine.apply` is not idempotent, a stray duplicate would double-count).
  *
- * The indexer is OPTIONAL: when `indexer` is `undefined` or a call throws, this
- * degrades to today's RPC-only behavior (pre-window history simply unavailable).
+ * The indexer is OPTIONAL: when `indexer` is `undefined`, this
+ * degrades to RPC-only behavior (pre-window history simply unavailable). A
+ * configured indexer failing or lagging behind the seam must fail the sync,
+ * preserving the stored cursor so the missing history can be retried.
  */
 
 import {
@@ -82,8 +84,8 @@ export async function hybridFetchEvents(
   // `next` is the first ledger we still need. Using cursorLedger+1 assumes the
   // previous sync consumed the cursor's ledger in full — true here because
   // fetchEvents pages all the way to the chain head, so a stored cursor only
-  // ever sits at a ledger boundary unless a single ledger emits more than
-  // pageLimit (100) token events, which this demo never produces.
+  // ever sits at a ledger boundary: full pages at the head are drained before
+  // fetchEvents accepts the final resume cursor.
   const next = opts.startCursor ? cursorLedger(opts.startCursor) + 1 : opts.fromLedger;
 
   // The retention floor is only needed to decide the indexer seam or to clamp a
@@ -102,19 +104,17 @@ export async function hybridFetchEvents(
     // [seam, head], disjoint by construction. The stale cursor (if any) is
     // discarded — it points before the window and the RPC would reject it.
     const seam = rpcOldest + RPC_SEAM_MARGIN;
-    try {
-      const res = await indexer.fetchEvents({
-        contractId: tokenId,
-        startLedger: next,
-        endLedger: seam - 1,
-      });
-      old = res.events;
-    } catch (e) {
-      console.warn(
-        `[ctd] indexer backfill failed (${String((e as Error)?.message ?? e)}); ` +
-          `pre-window history before ledger ${seam} is unavailable this sync`,
-      );
+    // Do not advance the durable cursor past missing history (upstream
+    // stellar-confidential-token-demo deadce9). Also reject incomplete backfill.
+    const res = await indexer.fetchEvents({
+      contractId: tokenId,
+      startLedger: next,
+      endLedger: seam - 1,
+    });
+    if (res.latestLedger < seam - 1) {
+      throw new Error(`indexer backfill incomplete: synced ${res.latestLedger}, need ${seam - 1}`);
     }
+    old = res.events;
     recent = await fetchEvents(client, { startLedger: seam });
   } else if (opts.startCursor) {
     // Warm path: resume RPC from the stored cursor. Indexer untouched.

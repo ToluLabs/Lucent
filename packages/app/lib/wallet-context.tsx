@@ -82,6 +82,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setConnecting(true);
     try {
       const w = await ConfidentialWallet.connect(log);
+      setView(null);
+      setLastSync(null);
       setWallet(w);
       const v = await w.refresh();
       setView(v);
@@ -111,15 +113,15 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (localStorage.getItem(MANUALLY_DISCONNECTED_KEY)) return;
     freighterIsAllowed().then(async (allowed) => {
       if (!allowed) return;
-      const w = await connect();
-      // Unprompted attempt — if it failed, clear the error connect() set
-      // rather than surfacing it for something the user didn't initiate.
-      if (!w) setError(null);
+      await connect();
+      // Preserve account-read/recovery errors so a connected wallet never
+      // silently falls into the registration screen after a failed refresh.
     });
   }, [connect]);
 
   const refresh = useCallback(async () => {
     if (!wallet) return;
+    setError(null);
     try {
       const v = await wallet.refresh();
       setView(v);
