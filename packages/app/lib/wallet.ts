@@ -231,7 +231,20 @@ export class ConfidentialWallet {
     return this.client.confidentialBalance(this.address);
   }
 
+  /** Direct lookup, independent of event-history retention or local caches. */
+  async isRecipientRegistered(address: string): Promise<boolean> {
+    return this.client.isRegistered(address);
+  }
+
   async register(onPhase?: (p: TxPhase) => void): Promise<void> {
+    const existing = await this.account();
+    if (existing) {
+      if (!existing.spendingKey.equals(this.keys.Y) || !existing.viewingPublicKey.equals(this.keys.PVK)) {
+        throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
+      }
+      this.log("already registered on-chain; refreshing account state");
+      return;
+    }
     const w = buildRegisterWitness(this.keys);
     onPhase?.("proving");
     this.log("proving register…");
@@ -831,8 +844,11 @@ export class ConfidentialWallet {
 
   /** Sync from RPC events, verify against chain, and return a UI view. */
   async refresh(): Promise<WalletView> {
-    const state: AccountState = await this.engine.sync();
     const onchain = await this.account();
+    if (onchain && (!onchain.spendingKey.equals(this.keys.Y) || !onchain.viewingPublicKey.equals(this.keys.PVK))) {
+      throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
+    }
+    const state: AccountState = await this.engine.sync();
     let matchesChain: boolean | null = null;
     if (onchain) {
       matchesChain = (await this.engine.verifyAgainstChain()).ok;

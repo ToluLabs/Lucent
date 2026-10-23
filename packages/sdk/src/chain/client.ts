@@ -16,6 +16,10 @@ import {
   TransactionBuilder,
   BASE_FEE,
   rpc,
+  scValToNative,
+  Operation,
+  SorobanDataBuilder,
+  type Transaction,
 } from "@stellar/stellar-sdk";
 
 import { pointFromBytes, type Point } from "../crypto/grumpkin.js";
@@ -123,8 +127,14 @@ export class ChainClient {
         new Address(address).toScVal(),
       ]);
       return parseAccount(retval);
-    } catch {
-      return null;
+    } catch (error) {
+      // Only the token's explicit AccountNotRegistered error means absence.
+      // RPC outages, archived entries and malformed responses must stay errors.
+      if (error instanceof Error &&
+          /^simulate confidential_balance failed: HostError: Error\(Contract, #3501\)/.test(error.message)) {
+        return null;
+      }
+      throw error;
     }
   }
 
@@ -156,6 +166,7 @@ export class ChainClient {
     method: string,
     args: xdr.ScVal[],
     signer: Signer,
+    restored = false,
   ): Promise<InvokeResult> {
     const source = await this.server.getAccount(signer.publicKey);
     const tx = new TransactionBuilder(source, {
@@ -170,14 +181,56 @@ export class ChainClient {
     if (rpc.Api.isSimulationError(sim)) {
       throw new Error(`simulate ${method} failed: ${sim.error}`);
     }
+    const data = sim.transactionData.build();
+    const archived = data.ext().switch() === 1
+      ? data.ext().resourceExt().archivedSorobanEntries()
+      : [];
+    if (archived.length) {
+      if (restored) throw new Error(`${method}: ledger entries are still archived after restoration; retry the account operation`);
+      // Auto-restoration plus the invocation can exceed the network write
+      // limit even when each operation fits separately. Restore first, then
+      // rebuild from a fresh sequence number and fresh simulation.
+      const footprint = data.resources().footprint().readWrite();
+      const restoreTx = new TransactionBuilder(await this.server.getAccount(signer.publicKey), {
+        fee: BASE_FEE,
+        networkPassphrase: this.cfg.networkPassphrase,
+      })
+        .setSorobanData(new SorobanDataBuilder().setReadWrite(archived.map(index => {
+          const key = footprint[index];
+          if (!key) throw new Error("Simulation returned an invalid archived entry index");
+          return key;
+        })).build())
+        .addOperation(Operation.restoreFootprint({}))
+        .setTimeout(180)
+        .build();
+      const restoreSim = await this.server.simulateTransaction(restoreTx);
+      if (rpc.Api.isSimulationError(restoreSim)) {
+        throw new Error(`simulate restore for ${method} failed: ${restoreSim.error}`);
+      }
+      await this.submit(rpc.assembleTransaction(restoreTx, restoreSim).build(), signer, `restore for ${method}`);
+      return this.invoke(contractId, method, args, signer, true);
+    }
     const assembled = rpc.assembleTransaction(tx, sim).build();
+    return this.submit(assembled, signer, method);
+  }
 
+  private async submit(assembled: Transaction, signer: Signer, method: string): Promise<InvokeResult> {
     const signedXdr = await signer.sign(assembled.toXDR());
     const signedTx = TransactionBuilder.fromXDR(signedXdr, this.cfg.networkPassphrase);
 
     const send = await this.server.sendTransaction(signedTx);
     if (send.status === "ERROR") {
-      throw new Error(`send ${method} rejected: ${JSON.stringify(send.errorResult)}`);
+      const diagnostics = (send.diagnosticEvents ?? []).map((diagnostic) => {
+        const event = diagnostic.event().body().v0();
+        return JSON.stringify({
+          topics: event.topics().map((topic) => scValToNative(topic)),
+          data: scValToNative(event.data()),
+        }, (_, value) => typeof value === "bigint" ? value.toString() : value);
+      });
+      throw new Error(
+        `send ${method} rejected (${send.errorResult?.result().switch().name ?? "unknown"}, tx ${send.hash})` +
+        (diagnostics.length ? `: ${diagnostics.join("; ")}` : `: ${JSON.stringify(send.errorResult)}`),
+      );
     }
 
     for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
