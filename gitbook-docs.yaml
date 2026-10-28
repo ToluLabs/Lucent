@@ -1,0 +1,15 @@
+$schema: https://api.gitbook.com/gitbook-docs.yaml
+version: 1
+site:
+  title: Lucent
+  structure:
+    # Keep the root README and package documentation in one book.
+    # No docs/ directory exists on main; avoid overlapping content mappings.
+    - type: space
+      key: lucent-docs
+      title: Lucent
+      path: docs
+      default: true
+      content:
+        directory: ./
+        language: en
