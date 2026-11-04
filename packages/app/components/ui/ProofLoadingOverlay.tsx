@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 
 interface ProofLoadingOverlayProps {
   open: boolean;
-  /** Estimated proof-generation time in seconds — drives the progress-bar fill. */
+  /** Estimated proof-generation time in seconds, drives the progress-bar fill. */
   estSeconds?: number;
   message?: string;
   /** Render as a fixed full-screen overlay instead of an inline card. */
@@ -52,7 +52,7 @@ export function ProofLoadingOverlay({
 
       <div className="h-1 w-full overflow-hidden rounded-full bg-card">
         <motion.div
-          className="h-full rounded-full bg-accent"
+          className="h-full rounded-full bg-accent-solid"
           initial={{ width: "0%" }}
           animate={{ width: "92%" }}
           transition={{ duration: estSeconds, ease: "easeOut" }}

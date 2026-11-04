@@ -1,40 +1,47 @@
 "use client";
 
+import { createContext, useContext } from "react";
 import { motion } from "framer-motion";
 import { BottomNav } from "./BottomNav";
 import { Sidebar } from "./Sidebar";
-import { WalletBar } from "./WalletBar";
+import { TopBar } from "./TopBar";
 import { cn } from "@/lib/cn";
+
+const WideContext = createContext(false);
+/** True when the surrounding AppShell is in dashboard (wide) mode. */
+export const useShellWide = () => useContext(WideContext);
 
 interface AppShellProps {
   children: React.ReactNode;
   showNav?: boolean;
+  /** Dashboard layout: lets the page use the full desktop width. */
+  wide?: boolean;
 }
 
-export function AppShell({ children, showNav = true }: AppShellProps) {
+export function AppShell({ children, showNav = true, wide = false }: AppShellProps) {
   return (
-    <div className="min-h-dvh bg-void">
-      <div className={cn("min-h-dvh flex flex-col", "md:flex-row md:h-dvh md:max-w-[1280px] md:mx-auto md:overflow-hidden")}>
-        <div className="hidden md:flex">
+    <WideContext.Provider value={wide}>
+      <div className="min-h-dvh bg-void md:flex">
+        <div className="hidden md:block md:w-64 md:shrink-0">
           <Sidebar />
         </div>
 
-        <motion.div
-          className={cn("flex-1 overflow-y-auto", showNav ? "pb-24 md:pb-0" : "")}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: "easeOut" }}
-        >
-          <div className="mx-auto w-full max-w-[430px] md:max-w-2xl">
-            {/* <div className="pt-3 md:pt-6"> */}
-              <WalletBar />
-            {/* </div> */}
-            {children}
-          </div>
-        </motion.div>
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <TopBar />
+          <motion.main
+            className={cn("flex-1", showNav && "pb-28 md:pb-12")}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: "easeOut" }}
+          >
+            <div className={cn("mx-auto w-full", wide ? "max-w-[480px] md:max-w-[1040px]" : "max-w-[480px] md:max-w-[760px]")}>
+              {children}
+            </div>
+          </motion.main>
+        </div>
       </div>
 
       {showNav && <BottomNav />}
-    </div>
+    </WideContext.Provider>
   );
 }

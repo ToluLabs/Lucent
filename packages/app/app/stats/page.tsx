@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ArrowDownUp, ArrowUpRight, Send, Layers, UserCheck, ScanLine, Lock, ExternalLink } from "lucide-react";
+import { ArrowDownUp, ArrowUpRight, Send, Layers, UserCheck, ScanLine, ExternalLink } from "lucide-react";
 import { ChainClient, fetchEvents, type RegisterEvent } from "@lucent/sdk";
-import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
+import { MarketingFooter, MarketingNav } from "@/components/layout/MarketingNav";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
@@ -25,7 +25,7 @@ const STAT_DEFS = [
   {
     key: "transfers",
     label: "Confidential Transfers",
-    sub: "Send, payroll, and escrow payments — amount hidden",
+    sub: "Send, payroll, and escrow payments, amount hidden",
     icon: Send,
     color: "text-accent bg-accent-bg",
   },
@@ -78,7 +78,7 @@ export default function StatsPage() {
         const { events } = await fetchEvents(client, { startLedger: DEPLOYMENT.deployedAtLedger });
         if (cancelled) return;
         const count = (t: string) => events.filter((e) => e.type === t).length;
-        // G... keypair accounts only — every PrivateEscrow instance also
+        // G... keypair accounts only, every PrivateEscrow instance also
         // registers as its own confidential account (C...) to hold a
         // balance, but that's custody plumbing, not a person or org.
         const registered = new Set(
@@ -93,7 +93,7 @@ export default function StatsPage() {
           withdrawals: count("withdraw"),
           merges: count("merge"),
           // register/withdraw/transfer are the only entry points that carry
-          // a proof argument — deposit and merge move funds without one.
+          // a proof argument, deposit and merge move funds without one.
           verifies: count("register") + count("withdraw") + count("transfer"),
         });
       } catch {
@@ -109,90 +109,69 @@ export default function StatsPage() {
 
   return (
     <div className="min-h-dvh bg-void text-text-primary">
-      <nav className="fixed left-0 right-0 top-0 z-40 border-b border-border bg-void/80 backdrop-blur-2xl">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
-            <LucentLogoMark size={24} />
-            <span className="text-sm font-semibold">Lucent</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/docs" className="text-sm text-text-secondary transition-colors hover:text-text-primary">
-              Docs
-            </Link>
-            <Link
-              href="/home"
-              className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-accent-hover"
-            >
-              Launch App <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <MarketingNav />
 
-      <div className="mx-auto max-w-4xl px-6 pb-24 pt-32">
-        <motion.div
-          className="flex flex-col gap-3"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <p className="font-mono text-xs uppercase tracking-widest text-accent/70">Protocol Stats</p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            Activity on Stellar testnet
-          </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-text-secondary">
-            Every count below is read directly from on-chain events, verifiable on Stellar Expert.
-            Amounts are never revealed — not even here.
-          </p>
-          <div className="mt-1 flex items-center gap-1.5">
-            <Lock className="h-3 w-3 text-accent/60" />
-            <span className="font-mono text-xs text-text-muted">Every encrypted amount stays private</span>
-          </div>
-        </motion.div>
+      <section className="brand-wash border-b border-border px-6 pb-16 pt-20 lg:px-12 lg:pt-28">
+        <p className="mb-4 font-mono text-xs uppercase tracking-[0.16em] text-text-muted">Protocol stats</p>
+        <h1 className="max-w-4xl font-serif text-[clamp(2.8rem,6.5vw,6rem)] leading-[0.95] tracking-[-0.02em]">
+          Activity on Stellar <span className="italic text-accent">testnet.</span>
+        </h1>
+        <p className="mt-8 max-w-xl leading-relaxed text-text-secondary">
+          Every count is read from on-chain events and can be checked on Stellar Expert. Amounts are
+          never revealed, not even here.
+        </p>
+      </section>
 
-        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {STAT_DEFS.map(({ key, label, sub, icon: Icon, color }, i) => (
-            <motion.div
-              key={key}
-              className="glass-card flex flex-col items-center gap-3 p-5 text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: i * 0.06 }}
-            >
-              <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", color)}>
-                <Icon className="h-4 w-4" strokeWidth={1.8} />
-              </div>
-              {loading ? (
-                <Skeleton className="h-8 w-20" />
-              ) : (
-                <span className="font-mono text-3xl font-semibold tabular-nums text-text-primary">
-                  {(stats?.[key] ?? 0).toLocaleString()}
-                </span>
-              )}
-              <div>
-                <h3 className="text-sm font-medium text-text-primary">{label}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-text-muted">{sub}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-
-        <div className="mt-12 flex flex-col gap-3 border-t border-border pt-8">
-          <p className="text-xs leading-relaxed text-text-muted">
-            Stats are read directly from the confidential token contract&apos;s event log, starting at
-            deploy ledger {DEPLOYMENT.deployedAtLedger.toLocaleString()}. Payroll and escrow activity
-            surfaces here too — both settle through the same confidential transfers.
-          </p>
-          <a
-            href={contractUrl(DEPLOYMENT.contracts.token)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-accent"
+      <section className="grid grid-cols-1 border-b border-border sm:grid-cols-2 lg:grid-cols-3">
+        {STAT_DEFS.map(({ key, label, sub }, i) => (
+          <motion.div
+            key={key}
+            className={cn(
+              "flex flex-col justify-between gap-10 border-border px-6 py-10 lg:px-12 lg:py-12",
+              i > 0 && "border-t sm:border-t-0",
+              i >= 2 && "sm:border-t",
+              i % 2 === 1 && "sm:border-l",
+              i % 3 !== 0 && "lg:border-l",
+              i % 3 === 0 && "lg:border-l-0",
+              i >= 3 && "lg:border-t",
+              i === 2 && "lg:border-t-0",
+            )}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: i * 0.05 }}
           >
-            View confidential token contract <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-      </div>
+            <div>
+              <h2 className="font-display text-lg font-semibold tracking-tight">{label}</h2>
+              <p className="mt-1 max-w-xs text-sm leading-relaxed text-text-muted">{sub}</p>
+            </div>
+            {loading ? (
+              <Skeleton className="h-14 w-32" />
+            ) : (
+              <span className="font-serif text-7xl leading-none tabular-nums tracking-tight">
+                {(stats?.[key] ?? 0).toLocaleString()}
+              </span>
+            )}
+          </motion.div>
+        ))}
+      </section>
+
+      <section className="flex flex-col gap-5 px-6 py-12 lg:px-12">
+        <p className="max-w-2xl text-sm leading-relaxed text-text-muted">
+          Read from the confidential token contract's event log, starting at deploy ledger{" "}
+          {DEPLOYMENT.deployedAtLedger.toLocaleString()}. Payroll and escrow activity appears here too, since
+          both settle through the same confidential transfers.
+        </p>
+        <a
+          href={contractUrl(DEPLOYMENT.contracts.token)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-10 w-fit items-center gap-2 rounded-lg border border-border bg-panel px-4 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
+        >
+          View token contract <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </section>
+
+      <MarketingFooter />
     </div>
   );
 }

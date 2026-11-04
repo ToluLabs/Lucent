@@ -10,7 +10,7 @@ export function Callout({
   const Icon = tone === "key" ? KeyRound : AlertTriangle;
   return (
     <div
-      className={`mb-0 flex items-start gap-2.5 rounded-2xl border px-4 py-3.5 ${
+      className={`mb-0 flex items-start gap-2.5 rounded-lg border px-4 py-3.5 ${
         tone === "key" ? "border-accent/25 bg-accent/[0.06]" : "border-warning/25 bg-warning/[0.08]"
       }`}
     >

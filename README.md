@@ -23,20 +23,20 @@ Sender and receiver stay public and verifiable on-chain. Only the amount moves i
   <img src="https://img.youtube.com/vi/l7yIpmE0OqE/hqdefault.jpg" alt="Watch the Lucent launch demo on YouTube" />
 </a>
 
-<p><a href="https://youtu.be/l7yIpmE0OqE">Watch on YouTube</a> — a short animated walkthrough of shielding USDC, confidential transfers, payroll, escrow, and selective disclosure.</p>
+<p><a href="https://youtu.be/l7yIpmE0OqE">Watch on YouTube</a>, a short animated walkthrough of shielding USDC, confidential transfers, payroll, escrow, and selective disclosure.</p>
 
 </div>
 
 Balances are Pedersen commitments on the Grumpkin curve. Every register,
 withdraw, and transfer carries an UltraHonk zero-knowledge proof, generated
-in the browser and verified natively on-chain by Soroban — no off-chain
+in the browser and verified natively on-chain by Soroban, no off-chain
 operators, no relayers, no custodians.
 
 On top of that primitive, Lucent ships a full payments product: shielded
 deposits and withdrawals, confidential transfers, confidential payroll,
 confidential escrow, an auditor console for compliance, and off-chain
-selective disclosure — plus a complete Next.js front-end and a Freighter
-wallet integration.
+selective disclosure, plus a complete Next.js front-end with Stellar wallet
+integration.
 
 <a id="not-production-ready"></a>
 > ⚠️ **Not production ready.** The UltraHonk verifier backend and the circuits
@@ -70,16 +70,16 @@ pnpm dev                     # http://localhost:3000
 
 `pnpm dev` and `pnpm build` both build `@lucent/sdk` first automatically (it's
 a workspace package the app imports from its compiled `dist/`, not from
-source) — no separate build step needed.
+source), no separate build step needed.
 
-Install [Freighter](https://freighter.app/), switch it to **Testnet**, and
-fund your account (Freighter's built-in friendbot). `next dev` already serves
+Install a Stellar wallet that supports message signing, switch it to
+**Testnet**, and fund your account with the friendbot. `next dev` already serves
 the cross-origin-isolation headers in-browser proving needs, so there's
 nothing extra to configure locally.
 
 Home, Shield, Send, Auditor, and Verify work immediately against the
 deployment in `deployments/testnet.json`. **Payroll and Escrow** show a "not configured"
-notice until their contracts are deployed ([below](#deploying)) — after which
+notice until their contracts are deployed ([below](#deploying)), after which
 they light up automatically, no code change needed. Want to see the
 compliance view without deploying anything yourself? The in-app **Docs**
 page's Auditor section has a demo key you can paste straight in.
@@ -89,19 +89,19 @@ page's Auditor section has a demo key you can paste straight in.
 | | |
 |---|---|
 | **Shield** | Deposit public USDC into a confidential balance, merge receiving into spendable, withdraw back to public USDC. Registration binds a Grumpkin key set to the account, one time. |
-| **Send** | Confidential transfers to any registered account. The amount never appears in plaintext anywhere on-chain — not in the transaction, not in an event, not in contract storage. |
+| **Send** | Confidential transfers to any registered account. The amount never appears in plaintext anywhere on-chain, not in the transaction, not in an event and not in contract storage. |
 | **Payroll** | An employer distributes salaries to a set of employees in one atomic run. No employee can read another's amount; the vault itself never sees a plaintext salary either. |
 | **Escrow** | Two-party (optionally arbitrated) escrow whose locked amount stays confidential through creation, funding, delivery, dispute, and release. Each escrow is its own isolated confidential account. |
 | **Auditor console** | The party holding the registered Grumpkin auditor key decrypts every transfer amount and balance checkpoint across the deployment, for every account, without needing anyone's cooperation. |
-| **Compliance** | An allowlist policy and per-account freezing, both enforced on-chain by the token contract itself and gated behind a single compliance admin. An account off the allowlist, or frozen, is rejected before any amount is touched — the primitive KYC-gated payroll needs. Managed from the Auditor screen. |
+| **Compliance** | An allowlist policy and per-account freezing, both enforced on-chain by the token contract itself and gated behind a single compliance admin. An account off the allowlist, or frozen, is rejected before any amount is touched, the primitive KYC-gated payroll needs. Managed from the Auditor screen. |
 | **Selective disclosure** | A holder proves that one specific transfer paid exactly one amount to one counterparty, off-chain, revealing nothing else. The counterparty verifies the proof against the chain itself. |
-| **Freighter wallet** | The only supported signer. Confidential keys are derived deterministically from a Freighter message signature and cached locally, so the signing prompt only appears once per account. |
-| **Local state engine** | Every balance read goes through a client-side reconstruction layer that persists decrypted openings and re-verifies them against on-chain commitments — load-bearing, not a cache, since the Soroban RPC only serves ~7 days of event history. |
+| **Wallet** | The only supported signer. Confidential keys are derived deterministically from a wallet message signature and cached locally, so the signing prompt only appears once per account. |
+| **Local state engine** | Every balance read goes through a client-side reconstruction layer that persists decrypted openings and re-verifies them against on-chain commitments, so it is load-bearing, not a cache, since the Soroban RPC only serves ~7 days of event history. |
 | **Proof UX** | Every proof-carrying action shows a progress state immediately on tap; nothing ever looks frozen while a proof generates in-browser (typically a few seconds, up to tens of seconds for multi-proof flows like escrow funding). |
 
 ## How value moves
 
-A balance is a commitment `C = v·G + r·H` — the chain only ever sees
+A balance is a commitment `C = v·G + r·H`. The chain only ever sees
 commitments and proofs, never plaintext amounts. Every confidential account
 holds a **spendable** balance (what you can send or withdraw) and a
 **receiving** balance (where deposits and incoming transfers land); `merge`
@@ -110,25 +110,25 @@ folds one into the other homomorphically, with no proof needed.
 | Operation | Proof? | Effect |
 |---|---|---|
 | `register` | ✔ | Bind a Grumpkin key set to the contract (one-time) |
-| `deposit` | — | Public USDC → receiving balance |
-| `merge` | — | Receiving → spendable |
+| `deposit` | none | Public USDC → receiving balance |
+| `merge` | none | Receiving → spendable |
 | `withdraw` | ✔ | Spendable → public USDC |
 | `confidential_transfer` | ✔ | Spendable → another account's receiving balance |
 
 `deposit` is the one public amount: a plaintext `i128` argument in USDC base
-units (7 decimals, so 1 USDC = 10,000,000 base units) — deliberately, so the
+units (7 decimals, so 1 USDC = 10,000,000 base units). This is deliberate, so the
 on-chain reserve backing the confidential supply stays auditable. Every other
 operation hides the amount behind a commitment and a proof.
 
-Every transfer also emits **dual auditor ciphertexts** — one for the sender's
-channel, one for the recipient's — encrypted to the registered auditor's
+Every transfer also emits **dual auditor ciphertexts**, one for the sender's
+channel, one for the recipient's, encrypted to the registered auditor's
 Grumpkin public key. That's the compliance channel Payroll and Auditor build
 on: register an employer as the auditor, and every salary transfer becomes
 decryptable to them alone.
 
 Because a Soroban contract cannot generate a ZK proof, confidential value can
 only move via a `confidential_transfer` proven by whoever holds the sender's
-key — a contract can never silently move funds on someone's behalf. That
+key, so a contract can never silently move funds on someone's behalf. That
 single constraint is what shapes Payroll and Escrow into the design below.
 
 ## Protocol contracts
@@ -144,7 +144,7 @@ single constraint is what shapes Payroll and Escrow into the design below.
 
 **PayrollVault** is an orchestrator, not a custodian: an employer creates a
 template of employees and opens a run against it. Salaries are never written
-to chain storage — at `execute_run` the employer's browser proves one
+to chain storage. At `execute_run`, the employer's browser proves one
 `confidential_transfer` per employee, and the vault routes them atomically
 and records run state. The employer registers as the run's auditor, so every
 salary stays decryptable to them and opaque to everyone else.
@@ -173,7 +173,7 @@ Settlement spends the fixed commitment without merging unsolicited later credits
 
 At settlement, the instance's own state machine (created → funded →
 completed → released / disputed / refunded / cancelled) submits exactly the
-one pre-generated proof it selects — the instance self-authorizes its own
+one pre-generated proof it selects. The instance self-authorizes its own
 outgoing `confidential_transfer` by invocation, so no one needs to hold its
 key at settlement time. See the in-app Docs page for the full
 funding-to-settlement flow.
@@ -187,11 +187,11 @@ funding-to-settlement flow.
 **Compliance Policy** is a separate, admin-gated allowlist contract, wired
 onto the token via `ComplianceConfig` (from OpenZeppelin's confidential
 token compliance extension). When the gate is on, every register, deposit,
-transfer, receive, and withdraw checks the policy first — an account off the
+transfer, receive, and withdraw checks the policy first, and an account off the
 allowlist is rejected on-chain before any amount is touched. The same admin
 can also freeze a specific account outright, independent of the allowlist
-and independent of whether the gate is on. All three — the gate itself,
-allowlist membership, and freezing — are toggled live from the Auditor
+and independent of whether the gate is on. All three (the gate itself,
+allowlist membership, and freezing) are toggled live from the Auditor
 screen's Compliance panel by whoever holds the compliance-admin wallet set
 at deploy time; the contract enforces that itself, not the app. Turning the
 gate off is the practical default for demos: it makes every address free to
@@ -199,8 +199,8 @@ register and transact immediately, with freeze still available as the
 exception mechanism, rather than requiring every tester to be allowlisted
 first.
 
-Lucent's confidential-token layer — the commitment scheme, the UltraHonk
-circuits, and the Poseidon2/Grumpkin crypto — is built on
+Lucent's confidential-token layer (the commitment scheme, the UltraHonk
+circuits, and the Poseidon2/Grumpkin crypto) is built on
 [OpenZeppelin `stellar-contracts`](https://github.com/OpenZeppelin/stellar-contracts)
 (`feat/confidential-verifier-ultrahonk`), consumed as a git dependency; the
 on-chain verifier backend is
@@ -210,28 +210,45 @@ the entire product front-end are Lucent's own.
 
 ## Product
 
-The front-end (`packages/app`) is a dark, gold-accented Next.js app:
+The front-end (`packages/app`) is a Next.js app with a dark and a light theme
+(it follows your system setting, with a toggle in every header). It is built
+for desktop and mobile alike.
 
-- **Landing, Docs, About** — the public marketing surface.
-- **Home · Shield · Send · Payroll · Escrow · Auditor · Verify · Profile** —
-  the app, reachable from a sidebar (desktop) or bottom nav (mobile: five
-  primary tabs plus a "More" sheet for Escrow, Verify, Auditor, and Profile),
-  all one tap from each other — none of them redirect. Home is the default
-  landing screen after connecting: balances, quick actions, and recent
-  activity at a glance, including a "Prove" action on your own transfers
-  right where they are in the feed. Shield, Send, Payroll, Escrow, Home, and
-  Profile need a connected wallet and show an inline connect prompt in place
-  of their content until one's attached; Auditor and Verify need no wallet
-  at all — Verify is purely the verifier side of selective disclosure now
-  (mint a request, check a returned bundle), since the holder side (proving)
-  lives on Home, next to the transfer it's about.
-- A shared component library (glass cards, proof-loading overlays, encrypted
-  badges, a numeric keypad, tx-status steppers) and a `ConfidentialWallet`
-  client class wrapping the SDK's crypto, proving, chain, and state layers.
+- **Landing, Docs, About, Stats**: the public site. The landing page opens
+  with a live ledger demo that flips between what a public explorer sees (an
+  address pair and an encrypted amount) and what the auditor key sees.
+- **Home, Shield, Send, Payroll, Escrow, Auditor, Verify, Profile**: the app.
+  Desktop gets a fixed sidebar grouped into Money, Programs and Compliance;
+  mobile gets a bottom bar with the main tabs plus a "More" sheet. Pages never
+  redirect, so everything is one tap from everything else.
+  - **Home** is the overview: total, spendable and receiving balances, a merge
+    prompt when funds are waiting, and an activity table with a "Prove" action
+    on your own transfers.
+  - **Shield** and **Send** pair a form with a live summary. Desktop uses a
+    large amount field; phones get an on-screen keypad.
+  - **Payroll** and **Escrow** list templates, runs and escrows as tables, each
+    expandable into the full state machine.
+  - Shield, Send, Payroll, Escrow, Home and Profile need a connected wallet and
+    show an inline connect prompt until one is attached. Auditor and Verify
+    need no wallet. Verify is the verifier side of selective disclosure (mint
+    a request, check a returned bundle); the holder side lives on Home, next to
+    the transfer it is about.
+- A shared component library (panels, segmented controls, amount field,
+  proof-loading overlays, encrypted badges, tx-status steppers) styled by CSS
+  variable design tokens in `app/globals.css`, and a `ConfidentialWallet`
+  client class wrapping the SDK's crypto, proving, chain and state layers.
 
-For a full walkthrough of what each flow actually does on-chain, see the
-in-app **Docs** page (`/docs`) — it covers Shield, Send, Payroll, Escrow, the
-auditor model, and selective disclosure in depth.
+### Demo mode
+
+In development, add `?demo=1` to any URL (for example
+`http://localhost:3000/home?demo=1`) to run the app against a fake connected
+wallet with sample balances, activity, escrows and payroll runs. It is meant
+for UI work and screenshots, needs no wallet or chain access, and is compiled
+out of production builds. `?demo=0` turns it off.
+
+For a full walkthrough of what each flow does on-chain, see the in-app
+**Docs** page (`/docs`). It covers Shield, Send, Payroll, Escrow, the auditor
+model and selective disclosure in depth.
 
 ## Building and testing the contracts
 
@@ -255,7 +272,7 @@ cargo test --manifest-path contracts/Cargo.toml
 
 ## Deploying
 
-The confidential token wraps a SEP-41 asset — **USDC**. Point the deploy at
+The confidential token wraps a SEP-41 asset, **USDC**. Point the deploy at
 the USDC Stellar Asset Contract via `UNDERLYING_TOKEN`:
 
 ```bash
@@ -266,15 +283,15 @@ stellar contract id asset --asset USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4
 UNDERLYING_TOKEN=CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA pnpm deploy:contracts
 ```
 
-Deploys the full stack — token, verifier, auditor, compliance policy,
-PayrollVault, and the PrivateEscrow factory — under your `admin` stellar CLI
+Deploys the full stack, token, verifier, auditor, compliance policy,
+PayrollVault, and the PrivateEscrow factory, under your `admin` stellar CLI
 identity, and writes both `deployments/testnet.json` and
 `packages/app/lib/deployment.json`. The token deploys with the compliance
 hooks enabled and `admin` set as the compliance admin, and the script wires
 the policy contract onto it via `set_compliance_config` right after deploy
-(with `sac_passthrough: false` — the allowlist is the only gate). The app
+(with `sac_passthrough: false`, the allowlist is the only gate). The app
 reads the deployment file directly, so a redeploy takes effect with **no
-code edit and no env var** — just rebuild and run. (`NEXT_PUBLIC_PAYROLL_ID` /
+code edit and no env var**, just rebuild and run. (`NEXT_PUBLIC_PAYROLL_ID` /
 `NEXT_PUBLIC_ESCROW_FACTORY_ID` exist only to override those two ids ahead of
 a redeploy, e.g. to point at someone else's.)
 
@@ -282,16 +299,16 @@ a redeploy, e.g. to point at someone else's.)
 
 A full end-to-end walkthrough, real proofs on testnet:
 
-1. **Shield** — connect Freighter, register, deposit, merge.
-2. **Send** — confidential transfer to a second registered account.
-3. **Payroll** — create a template of employees, open + confirm a run, enter
+1. **Shield**: connect your wallet, register, deposit, merge.
+2. **Send**, confidential transfer to a second registered account.
+3. **Payroll**, create a template of employees, open + confirm a run, enter
    salaries, execute; then **Auditor** decrypts every salary amount.
-4. **Escrow** — deploy + fund an escrow (four funding confirmations); walk it
+4. **Escrow**, deploy + fund an escrow (four funding confirmations); walk it
    through mark-completed → release (or dispute → resolve).
-5. **Selective disclosure** — mint a request on the Verify screen, disclose
+5. **Selective disclosure**, mint a request on the Verify screen, disclose
    the matching transfer from Home's activity feed, verify the returned
    bundle back on Verify.
-6. **Compliance** — on the Auditor screen's Compliance panel (connected as
+6. **Compliance**, on the Auditor screen's Compliance panel (connected as
    the compliance admin), allowlist an account, confirm Send/Shield reject
    it before allowlisting; freeze an account and confirm the same.
 
@@ -309,7 +326,7 @@ contracts/                    Rust/Soroban (separate Cargo workspace)
 packages/
   sdk/        @lucent/sdk        crypto · witness · proving · chain (incl. payroll/escrow) · state · auditor · disclosure
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
-  app/        @lucent/app        Next.js product front-end (Freighter wallet)
+  app/        @lucent/app        Next.js product front-end (Stellar wallet)
   indexer/    @lucent/indexer    optional Goldsky indexer for full event history
 scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
 ```
@@ -324,15 +341,15 @@ Read from `deployments/testnet.json`, rewritten automatically by
 | Underlying | USDC SAC `CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA` (issuer `GBBD47IF…FLA5`) |
 | Confidential token | `CACKEFUKVPBGDJM6Z4NOTY3H44MUMJDYIRNBLH6MDFN3QUSFWENXAABF` |
 | Verifier | `CAL32C7RZ5AB4IIYJBAH6XHPFZPFMUGMJ4ZDYQPOA3X7LX6EOJCZSTYN` |
-| Auditor | `CB6FOYTSTRCCBYZGOZJVNY5RGCT5LXEEPV5D2BZK7O3LMKSLLLQ7QRUQ` (id `0` — demo key in the Docs page) |
+| Auditor | `CB6FOYTSTRCCBYZGOZJVNY5RGCT5LXEEPV5D2BZK7O3LMKSLLLQ7QRUQ` (id `0`, demo key in the Docs page) |
 | PayrollVault | `CCO6LMKLPJCWUQYDEHOY2EHYPITYOGT6JPKXIRHDXKEUYTXQEAJPPVVS` |
 | PrivateEscrow factory | `CCGJ5XEZDFSKJSLWEO7D22KZXOSPRNWE4R3RFO4SQBWPQ5RZ3WK7I2XS` |
 | PrivateEscrow instance wasm | `44c5852692374c24c5fe2cc6c9e7fcfa936418365ae352266182743794501306` |
-| Compliance Policy | `CB6Z7YIWYMKU3QUALYBJZMJEF72QRKBPFOCDHECPD3V5DCIRMU674UME` (gate is toggleable live from Auditor → Compliance — see the Compliance Policy section) |
+| Compliance Policy | `CB6Z7YIWYMKU3QUALYBJZMJEF72QRKBPFOCDHECPD3V5DCIRMU674UME` (gate is toggleable live from Auditor → Compliance, see the Compliance Policy section) |
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for dev
+Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md) for dev
 setup, the test/lint commands CI runs, and PR expectations. Please also read
 the [Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? Follow
 [SECURITY.md](SECURITY.md) instead of opening a public issue.

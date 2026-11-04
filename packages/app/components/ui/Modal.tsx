@@ -16,7 +16,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
       {open && (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-black/60"
+            className="fixed inset-0 z-40 bg-[rgb(var(--scrim))]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -35,12 +35,12 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
               exit={{ y: "100%" }}
               transition={{ type: "spring", damping: 30, stiffness: 300 }}
             >
-              <div className="glass-card flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-t-3xl p-5 md:rounded-3xl">
+              <div className="glass-card flex max-h-[85dvh] flex-col gap-4 overflow-y-auto rounded-t-2xl p-5 md:rounded-2xl">
                 <div className="flex shrink-0 items-center justify-between">
                   <h3 className="font-display font-semibold text-text-primary">{title}</h3>
                   <button
                     onClick={onClose}
-                    className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-white/[0.06] hover:text-text-secondary"
+                    className="rounded-lg p-1.5 text-text-muted transition-colors hover:bg-fg/[0.06] hover:text-text-secondary"
                   >
                     <X className="h-4 w-4" />
                   </button>

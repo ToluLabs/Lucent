@@ -10,7 +10,7 @@ interface AddressDisplayProps {
   chars?: number;
   className?: string;
   showCopy?: boolean;
-  /** Recipient identity is itself encrypted — show a lock instead of the address. */
+  /** Recipient identity is itself encrypted, show a lock instead of the address. */
   encrypted?: boolean;
 }
 

@@ -29,7 +29,7 @@ export function ProofStatusPill({ status, className }: ProofStatusPillProps) {
       )}
       {status === "encrypting" && (
         <>
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-solid" />
           Generating proof...
         </>
       )}

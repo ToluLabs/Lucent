@@ -13,7 +13,7 @@ export function ErrorBanner({ error, onDismiss, className = "", size = "md" }: E
   if (!error) return null;
   return (
     <div
-      className={`flex items-start justify-between gap-2 rounded-xl border border-error/30 bg-error/10 p-3 ${className}`}
+      className={`flex items-start justify-between gap-2 rounded-lg border border-error/30 bg-error/10 px-4 py-3 ${className}`}
     >
       <p className={`${size === "sm" ? "text-xs" : "text-sm"} text-error`}>{error}</p>
       <button

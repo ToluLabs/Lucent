@@ -24,6 +24,7 @@ import { DEPLOYMENT } from "@/lib/deployment";
 import { ESCROW_STATE_LABEL, formatCountdown } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { Segmented } from "@/components/ui/Segmented";
 
 type Row = { id: bigint; address: string; info: EscrowInfo };
 type Filter = "all" | "depositor" | "recipient" | "arbiter";
@@ -55,7 +56,7 @@ const TIMEOUT_OPTIONS = [
 /**
  * Time the depositor has to `release()` after the recipient marks delivery,
  * before the recipient can claim (no arbiter) or dispute (arbiter set).
- * Matches `RELEASE_WINDOW` in contracts/escrow-instance/src/lib.rs — fixed by
+ * Matches `RELEASE_WINDOW` in contracts/escrow-instance/src/lib.rs, fixed by
  * the contract, not configurable per-escrow the way the timeout is.
  */
 const RELEASE_WINDOW_SECONDS = 600;
@@ -171,6 +172,7 @@ export default function EscrowPage() {
     <AppShell>
       <PageHeader
         title="Escrow"
+        subtitle="Two-party escrows where the locked amount stays confidential."
         showBack={false}
         right={
           <Button size="sm" variant="secondary" disabled={!registered} onClick={() => setShowCreate(true)}>
@@ -184,25 +186,22 @@ export default function EscrowPage() {
 
         {!registered && (
           <Callout>
-            You need to register your confidential account before you can create an escrow — head to{" "}
-            <strong>Home</strong> to register, a one-time proof.
+            You need to register your confidential account before you can create an escrow, head to{" "}
+            <strong>Home</strong>{" "}to register, a one-time proof.
           </Callout>
         )}
 
-        <div className="flex flex-wrap gap-2">
-          {(["all", "depositor", "recipient", "arbiter"] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-xs font-medium capitalize transition-colors",
-                filter === f ? "bg-accent-bg text-accent" : "border border-border text-text-muted hover:text-text-secondary",
-              )}
-            >
-              {f === "all" ? "All" : `As ${f}`}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          value={filter}
+          onChange={setFilter}
+          ariaLabel="Escrow role filter"
+          options={[
+            { value: "all", label: "All" },
+            { value: "depositor", label: "Depositor" },
+            { value: "recipient", label: "Recipient" },
+            { value: "arbiter", label: "Arbiter" },
+          ]}
+        />
 
         {rows === null ? (
           <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
@@ -240,21 +239,21 @@ export default function EscrowPage() {
             <div className="flex items-start gap-2 rounded-xl border border-warning/20 bg-warning/[0.08] px-3 py-2.5">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
               <p className="text-xs leading-relaxed text-warning/80">
-                Without an arbiter the recipient has <strong>no on-chain recourse</strong> if you withhold payment.
+                Without an arbiter the recipient has <strong>no on-chain recourse</strong>{" "}if you withhold payment.
               </p>
             </div>
           )}
         </div>
         <div className="flex flex-col gap-2">
           <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
-            Timeout — depositor reclaims if no delivery
+            Timeout, depositor reclaims if no delivery
           </span>
           <div className="grid grid-cols-4 gap-2">
             {TIMEOUT_OPTIONS.map((o, i) => (
               <button
                 key={o.label}
                 onClick={() => setTimeoutIdx(i)}
-                className={cn("rounded-xl py-2 text-sm font-medium transition-all", i === timeoutIdx ? "bg-accent text-black" : "bg-card text-text-muted hover:text-text-secondary")}
+                className={cn("rounded-xl py-2 text-sm font-medium transition-all", i === timeoutIdx ? "bg-accent-solid text-on-accent" : "bg-card text-text-muted hover:text-text-secondary")}
               >
                 {o.label}
               </button>
@@ -278,7 +277,7 @@ export default function EscrowPage() {
         />
         <p className="text-xs leading-relaxed text-text-muted">
           Funding generates a register proof for the escrow&apos;s confidential account, plus the
-          transfer-in and two payout proofs — all in your browser. Four wallet confirmations
+          transfer-in and two payout proofs, all in your browser. Four wallet confirmations
           prepare funding, verify both payouts, and finally move the funds.
         </p>
         <Button
@@ -292,7 +291,7 @@ export default function EscrowPage() {
         </Button>
       </Modal>
 
-      <ProofLoadingOverlay open={busy === "fund" && phase === "proving"} estSeconds={40} message="Generating four zero-knowledge proofs in your browser — this takes about 40 seconds." fullScreen />
+      <ProofLoadingOverlay open={busy === "fund" && phase === "proving"} estSeconds={40} message="Generating four zero-knowledge proofs in your browser, this takes about 40 seconds." fullScreen />
     </AppShell>
   );
 }
@@ -329,7 +328,7 @@ function EscrowRow({
 
   // Live countdown for the two time-gated transitions: the depositor's
   // self-refund timeout (Funded) and the release window (Completed). Only
-  // ticks while expanded and in a state that actually has a deadline —
+  // ticks while expanded and in a state that actually has a deadline,
   // no point re-rendering rows nobody's looking at.
   const tracksDeadline =
     open && (stateNum === EscrowState.Funded || stateNum === EscrowState.Completed);
@@ -347,18 +346,22 @@ function EscrowRow({
 
   return (
     <GlassCard padding="md">
-      <button onClick={onToggle} className="flex w-full items-center gap-3 text-left">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-bg">
-          <Lock className="h-5 w-5 text-accent" />
-        </div>
+      <button onClick={onToggle} className="flex w-full items-center gap-4 text-left">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-text-primary">Escrow #{id.toString()}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">Escrow #{id.toString()}</span>
             <Pill tone={STATE_TONE[stateNum]}>{ESCROW_STATE_LABEL[stateNum]}</Pill>
+            <span className="text-xs text-text-muted">
+              {isDepositor ? "You deposited" : isRecipient ? "You receive" : isArbiter ? "You arbitrate" : ""}
+            </span>
           </div>
-          <AddressDisplay address={info.depositor} chars={5} showCopy={false} className="mt-0.5 text-[11px]" />
+          <div className="mt-1.5 flex items-center gap-2 text-text-muted">
+            <AddressDisplay address={info.depositor} chars={4} showCopy={false} className="text-[11px]" />
+            <span className="text-xs">to</span>
+            <AddressDisplay address={info.recipient} chars={4} showCopy={false} className="text-[11px]" />
+          </div>
         </div>
-        <EncryptedBadge size="sm" />
+        <span className="hidden sm:block"><EncryptedBadge size="sm" /></span>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-text-muted transition-transform", open && "rotate-180")} />
       </button>
 
@@ -397,13 +400,13 @@ function EscrowRow({
             ) : (
               <div className="flex items-center gap-2">
                 <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning/70" />
-                <span className="text-xs text-warning/70">No arbiter — disputes not possible</span>
+                <span className="text-xs text-warning/70">No arbiter, disputes not possible</span>
               </div>
             )}
           </div>
 
           {stateNum === EscrowState.Funded && (
-            <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-card/60 px-3 py-2">
               <span className="text-xs text-text-muted">Depositor can self-refund in</span>
               <span className={cn("font-mono text-xs font-medium", timeoutReached ? "text-warning" : "text-text-secondary")}>
                 {timeoutReached ? "Available now" : formatCountdown(timeoutAt)}
@@ -411,7 +414,7 @@ function EscrowRow({
             </div>
           )}
           {stateNum === EscrowState.Completed && (
-            <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2">
+            <div className="flex items-center justify-between rounded-lg border border-border bg-card/60 px-3 py-2">
               <span className="text-xs text-text-muted">
                 {hasArbiter ? "Dispute opens in" : "Auto-claim opens in"}
               </span>
