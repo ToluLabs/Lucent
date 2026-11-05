@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { WalletProvider } from "@/lib/wallet-context";
+import { ToastProvider } from "@/components/ui/Toast";
 
 export const metadata: Metadata = {
   title: "Lucent: the amount is the only secret",
@@ -26,7 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
       <body className="min-h-dvh bg-void font-sans text-text-primary antialiased">
-        <WalletProvider>{children}</WalletProvider>
+        <ToastProvider>
+          <WalletProvider>{children}</WalletProvider>
+        </ToastProvider>
       </body>
     </html>
   );

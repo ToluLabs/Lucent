@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { StrKey } from "@stellar/stellar-sdk";
 import { CheckCircle, ExternalLink, Lock } from "lucide-react";
@@ -86,37 +87,61 @@ export default function SendPage() {
   if (txHash) {
     return (
       <AppShell>
-        <div className="flex min-h-[80dvh] flex-col items-center justify-center gap-6 px-4">
-          <motion.div
-            initial={{ scale: 0.5, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 15 }}
-            className="flex h-20 w-20 items-center justify-center rounded-2xl border border-success/20 bg-success/10"
+        <PageHeader title="Sent" subtitle="Your transfer is confirmed on-chain." showBack={false} />
+        <div className="px-4 pb-10 md:mx-auto md:max-w-2xl md:px-8">
+          <motion.section
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="glass-card overflow-hidden"
           >
-            <CheckCircle className="h-10 w-10 text-success" />
-          </motion.div>
-          <div className="text-center">
-            <h2 className="font-display text-xl font-semibold text-text-primary">Sent</h2>
-            <p className="mt-1 text-sm text-text-secondary">{amount} USDC sent confidentially</p>
-          </div>
-          <a
-            href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 font-mono text-xs text-accent hover:text-accent-hover"
-          >
-            {txHash.slice(0, 12)}… <ExternalLink className="h-3 w-3" />
-          </a>
-          <Button
-            size="lg"
-            onClick={() => {
-              setTxHash(null);
-              setTo("");
-              setAmount("");
-            }}
-          >
-            Send Another
-          </Button>
+            <div className="flex items-center gap-3 border-b border-border px-6 py-5">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-success text-void">
+                <CheckCircle className="h-4 w-4" />
+              </span>
+              <div>
+                <p className="font-medium">{amount} USDC sent confidentially</p>
+                <p className="text-xs text-text-muted">The amount is hidden on-chain. Only you and the recipient can read it.</p>
+              </div>
+            </div>
+            <dl>
+              <div className="flex items-center justify-between gap-4 px-6 py-4">
+                <dt className="text-sm text-text-muted">To</dt>
+                <dd><AddressDisplay address={to.trim()} chars={6} /></dd>
+              </div>
+              <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-4">
+                <dt className="text-sm text-text-muted">Transaction</dt>
+                <dd>
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/tx/${txHash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 font-mono text-xs text-accent hover:text-accent-hover"
+                  >
+                    {txHash.slice(0, 10)}…{txHash.slice(-6)} <ExternalLink className="h-3 w-3" />
+                  </a>
+                </dd>
+              </div>
+            </dl>
+            <div className="flex flex-col gap-3 border-t border-border bg-card/60 px-6 py-5 sm:flex-row">
+              <Button
+                size="lg"
+                onClick={() => {
+                  setTxHash(null);
+                  setTo("");
+                  setAmount("");
+                }}
+              >
+                Send another
+              </Button>
+              <Link
+                href="/home"
+                className="inline-flex h-[52px] items-center justify-center rounded-lg border border-border bg-panel px-6 text-[15px] font-semibold shadow-card transition-colors hover:border-border-hover"
+              >
+                Back to overview
+              </Link>
+            </div>
+          </motion.section>
         </div>
       </AppShell>
     );

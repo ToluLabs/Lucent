@@ -142,7 +142,7 @@ const overrides: Record<string, unknown> = {
   register: ok,
   deposit: ok,
   withdraw: ok,
-  transfer: ok,
+  transfer: async () => ({ hash: "c0ffee".padEnd(64, "a") }),
   refresh: async () => demoView(),
   resync: async () => demoView(),
   isRecipientRegistered: async () => true,

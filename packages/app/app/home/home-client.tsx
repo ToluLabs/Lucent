@@ -39,6 +39,7 @@ import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { DiscloseFlow } from "./disclose-flow";
 import { Onboarding } from "./onboarding";
+import { useToast } from "@/components/ui/Toast";
 import { useWallet } from "@/lib/wallet-context";
 import { shortAddress, timeAgo } from "@/lib/format";
 import { displayAmount, formatMoney } from "@/lib/amount";
@@ -217,6 +218,7 @@ function ActivityRow({
 
 export function HomeClient() {
   const router = useRouter();
+  const toast = useToast();
   const { wallet, view: liveView, cachedView, connecting, connect, refresh, lastSync, error, setError } = useWallet();
   // Until the chain sync finishes, paint last-known balances from the local cache.
   const view = liveView ?? cachedView;
@@ -355,12 +357,16 @@ export function HomeClient() {
 
   async function handleMerge() {
     setMergeSteps([{ id: "merge", label: "Merging receiving into spendable", status: "active" }]);
+    setError(null);
     setMerging(true);
     try {
       await wallet!.merge();
       setMergeSteps((s) => s.map((x) => ({ ...x, status: "done" })));
       await refresh();
-    } catch {
+      toast.success("Merged into spendable");
+    } catch (e) {
+      // Previously swallowed silently, so a failed merge looked like nothing happened.
+      setError(errMsg(e));
       setMergeSteps((s) => s.map((x) => ({ ...x, status: "error" })));
     } finally {
       setMerging(false);
@@ -376,6 +382,7 @@ export function HomeClient() {
       await wallet!.register();
       setRegisterSteps((s) => s.map((x) => ({ ...x, status: "done" })));
       await refresh();
+      toast.success({ title: "Account registered", description: "You can now deposit, send, run payroll and use escrow." });
     } catch (e) {
       setError(errMsg(e));
       setRegisterSteps((s) => s.map((x) => ({ ...x, status: "error" })));
