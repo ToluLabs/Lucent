@@ -15,9 +15,9 @@ export default function VerifyPage() {
         <GlassCard padding="md" className="border-encrypted/20">
           <SectionLabel>How it works</SectionLabel>
           <p className="mt-3 text-xs leading-relaxed text-text-muted">
-            Create a one-time request below and send it to whoever needs to prove a transfer to you —
+            Create a one-time request below and send it to whoever needs to prove a transfer to you,
             the sender or the recipient. They generate the disclosure bundle from their own account&apos;s
-            Home screen and send it back to you. Paste it here to verify it against the chain — nothing
+            Home screen and send it back to you. Paste it here to verify it against the chain, nothing
             is ever trusted from the bundle itself.
           </p>
         </GlassCard>

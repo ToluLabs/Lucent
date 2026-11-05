@@ -1,7 +1,7 @@
 # Contributing to Lucent
 
 Thanks for taking an interest in Lucent. This is a testnet-only, unaudited
-confidential-payments protocol on Stellar — see the
+confidential-payments protocol on Stellar, see the
 ["Not production ready"](README.md#not-production-ready) note before you dig
 in. Contributions of all sizes are welcome: bug reports, docs fixes, tests,
 and features.
@@ -11,18 +11,18 @@ and features.
 - Be respectful and constructive. See the [Code of Conduct](CODE_OF_CONDUCT.md).
 - Found a potential security issue (a bug that could move or reveal funds in
   a way the protocol isn't supposed to allow)? Do **not** open a public
-  issue — follow [SECURITY.md](SECURITY.md) instead.
+  issue, follow [SECURITY.md](SECURITY.md) instead.
 - Open an issue before starting any large or architectural change, so we can
   agree on the approach before you invest the time.
 
 ## Project layout
 
 ```
-contracts/    Rust/Soroban contracts — a separate Cargo workspace
+contracts/    Rust/Soroban contracts, a separate Cargo workspace
 packages/
   sdk/        @lucent/sdk        crypto · witness · proving · chain · state · auditor · disclosure
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
-  app/        @lucent/app        Next.js front-end (Freighter wallet)
+  app/        @lucent/app        Next.js front-end (Stellar wallet)
   indexer/    @lucent/indexer    optional Goldsky indexer
 scripts/      build/deploy/e2e scripts shared across packages
 ```
@@ -33,7 +33,7 @@ how these fit together.
 
 ## Getting set up
 
-Requires **Node ≥ 20**, **pnpm 10**, and — for contract work — Rust via
+Requires **Node ≥ 20**, **pnpm 10**, and, for contract work, Rust via
 [`rustup`](https://rustup.rs) (the pinned toolchain in
 `contracts/rust-toolchain.toml` installs itself automatically) plus
 `stellar` CLI ≥ 25.2.
@@ -54,7 +54,7 @@ pnpm build:sdk               # @lucent/sdk must be built before the app runs aga
 pnpm --filter @lucent/app typecheck
 pnpm --filter @lucent/sdk typecheck
 pnpm test:sdk                # full suite, including real proof generation (slow, needs network for the CRS on first run)
-pnpm --filter @lucent/sdk test:fast   # everything except live proving — use this for quick iteration
+pnpm --filter @lucent/sdk test:fast   # everything except live proving, use this for quick iteration
 ```
 
 **Contracts (Rust/Soroban)**
@@ -63,11 +63,11 @@ pnpm --filter @lucent/sdk test:fast   # everything except live proving — use t
 cargo test --manifest-path contracts/Cargo.toml
 cargo clippy --manifest-path contracts/Cargo.toml --all-targets
 cargo fmt --manifest-path contracts/Cargo.toml -- --check
-pnpm build:contracts          # stellar contract build — required for wasm output, see contracts/Cargo.toml
+pnpm build:contracts          # stellar contract build, required for wasm output, see contracts/Cargo.toml
 ```
 
 If you touch a contract's public interface, update or add tests in that
-crate — see the [test coverage table](README.md#building-and-testing-the-contracts)
+crate, see the [test coverage table](README.md#building-and-testing-the-contracts)
 in the README for what's already covered.
 
 ## Commits and pull requests
@@ -75,7 +75,7 @@ in the README for what's already covered.
 - Keep commits focused; a commit message should explain *why*, not just
   *what* (the diff already shows what).
 - Rebase on top of `main` before opening a PR if it's fallen behind.
-- Fill out the PR template — at minimum, state what changed, why, and how you
+- Fill out the PR template, at minimum, state what changed, why, and how you
   tested it (unit tests, `e2e`/`e2e:disclosure` scripts, or manual testnet
   walkthrough).
 - CI must pass (typecheck, SDK tests, contract tests/clippy/fmt) before
@@ -85,5 +85,5 @@ in the README for what's already covered.
 ## Reporting bugs / requesting features
 
 Use the issue templates. For bugs, include: what you did, what you expected,
-what happened, and — if it's chain-related — the network (testnet), the
+what happened, and, if it's chain-related, the network (testnet), the
 contract IDs involved, and the transaction hash if you have one.

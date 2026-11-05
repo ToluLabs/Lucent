@@ -3,7 +3,7 @@
  *
  * Not everything thrown is an `Error`. The Stellar SDK's JSON-RPC client throws
  * the raw JSON-RPC error object (`throw response.data.error`), i.e. a plain
- * `{ code, message }` — `String(e)` on that yields the useless "[object
+ * `{ code, message }`, `String(e)` on that yields the useless "[object
  * Object]". This unwraps the common shapes (Error, `{ message }`,
  * `{ code, message }`) so RPC failures surface their actual message.
  */

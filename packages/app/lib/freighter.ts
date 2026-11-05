@@ -16,7 +16,7 @@ import { errMsg } from "./err";
 /**
  * Silent check (no popup): has this site already been granted access in a
  * prior session? Used to auto-reconnect on mount instead of dropping back to
- * a disconnected state on every reload — `requestAccess()` itself won't
+ * a disconnected state on every reload, `requestAccess()` itself won't
  * prompt either once this is true, so a full silent `connectFreighter()`
  * follows safely.
  */
