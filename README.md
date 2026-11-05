@@ -244,7 +244,9 @@ In development, add `?demo=1` to any URL (for example
 `http://localhost:3000/home?demo=1`) to run the app against a fake connected
 wallet with sample balances, activity, escrows and payroll runs. It is meant
 for UI work and screenshots, needs no wallet or chain access, and is compiled
-out of production builds. `?demo=0` turns it off.
+out of production builds. `?demo=sync` is the same but the live data arrives
+four seconds late, to preview the "saved balance, syncing" state. `?demo=0`
+turns it off.
 
 For a full walkthrough of what each flow does on-chain, see the in-app
 **Docs** page (`/docs`). It covers Shield, Send, Payroll, Escrow, the auditor

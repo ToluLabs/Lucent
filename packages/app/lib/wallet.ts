@@ -842,6 +842,31 @@ export class ConfidentialWallet {
     return this.refresh();
   }
 
+  /**
+   * Last-known state from this browser's local cache, with no network access.
+   * Lets the UI paint a balance immediately while {@link refresh} syncs. It is
+   * `null` on first use (nothing cached) or for an account never seen
+   * registered, and is never authoritative: `matchesChain` is `null` and the
+   * public USDC balance is unknown.
+   */
+  async cachedView(): Promise<WalletView | null> {
+    try {
+      const s = await this.engine.current();
+      if (!s.registered) return null;
+      return {
+        address: this.address,
+        registered: true,
+        spendable: s.spendable.v,
+        receiving: s.receiving.v,
+        syncedLedger: s.syncedLedger,
+        matchesChain: null,
+        publicUSDC: 0n,
+      };
+    } catch {
+      return null;
+    }
+  }
+
   /** Public (non-confidential) USDC balance, or 0 if it cannot be read. */
   private async readPublicUSDC(): Promise<bigint> {
     const underlying = DEPLOYMENT.contracts.underlying;

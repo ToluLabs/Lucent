@@ -16,10 +16,20 @@ export function demoEnabled(): boolean {
   try {
     const q = new URLSearchParams(window.location.search).get("demo");
     if (q === "0") sessionStorage.removeItem(FLAG);
-    if (q === "1") sessionStorage.setItem(FLAG, "1");
-    return sessionStorage.getItem(FLAG) === "1";
+    if (q === "1" || q === "sync") sessionStorage.setItem(FLAG, q);
+    const v = sessionStorage.getItem(FLAG);
+    return v === "1" || v === "sync";
   } catch {
     return false;
+  }
+}
+
+/** Milliseconds the demo wallet delays its live view, to preview the sync state. */
+export function demoSyncDelay(): number {
+  try {
+    return sessionStorage.getItem(FLAG) === "sync" ? 4000 : 0;
+  } catch {
+    return 0;
   }
 }
 

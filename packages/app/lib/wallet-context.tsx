@@ -28,11 +28,13 @@ import { useRouter } from "next/navigation";
 import { ConfidentialWallet, type WalletView } from "./wallet";
 import { freighterIsAllowed } from "./freighter";
 import { errMsg } from "./err";
-import { createDemoWallet, demoEnabled, DEMO_VIEW } from "./demo";
+import { createDemoWallet, demoEnabled, demoSyncDelay, DEMO_VIEW } from "./demo";
 
 interface WalletCtx {
   wallet: ConfidentialWallet | null;
   view: WalletView | null;
+  /** Last-known balances from the local cache, set as soon as a wallet connects and cleared once `view` is live. Display only. */
+  cachedView: WalletView | null;
   connecting: boolean;
   error: string | null;
   logs: string[];
@@ -68,6 +70,7 @@ const MANUALLY_DISCONNECTED_KEY = "lucent:wallet:manually-disconnected";
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<ConfidentialWallet | null>(null);
   const [view, setView] = useState<WalletView | null>(null);
+  const [cachedView, setCachedView] = useState<WalletView | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -84,14 +87,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     try {
       const w = await ConfidentialWallet.connect(log);
       setView(null);
+      setCachedView(null);
       setLastSync(null);
       setWallet(w);
+      // Paint last-known balances right away; the sync below replaces them.
+      void w.cachedView().then((c) => setCachedView((cur) => cur ?? c));
       const v = await w.refresh();
       setView(v);
+      setCachedView(null);
       setLastSync(new Date());
       localStorage.removeItem(MANUALLY_DISCONNECTED_KEY);
       return w;
     } catch (e) {
+      setCachedView(null);
       setError(errMsg(e));
       return null;
     } finally {
@@ -113,8 +121,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     autoConnectAttempted.current = true;
     if (demoEnabled()) {
       setWallet(createDemoWallet());
-      setView(DEMO_VIEW);
-      setLastSync(new Date());
+      const delay = demoSyncDelay();
+      if (delay > 0) {
+        setCachedView(DEMO_VIEW);
+        setTimeout(() => {
+          setView(DEMO_VIEW);
+          setCachedView(null);
+          setLastSync(new Date());
+        }, delay);
+      } else {
+        setView(DEMO_VIEW);
+        setLastSync(new Date());
+      }
       return;
     }
     if (localStorage.getItem(MANUALLY_DISCONNECTED_KEY)) return;
@@ -153,6 +171,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const disconnect = useCallback(() => {
     setWallet(null);
     setView(null);
+    setCachedView(null);
     setLastSync(null);
     setError(null);
     localStorage.setItem(MANUALLY_DISCONNECTED_KEY, "1");
@@ -160,8 +179,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [router]);
 
   const value = useMemo(
-    () => ({ wallet, view, connecting, error, logs, lastSync, connect, refresh, resync, disconnect, log, setError }),
-    [wallet, view, connecting, error, logs, lastSync, connect, refresh, resync, disconnect, log],
+    () => ({ wallet, view, cachedView, connecting, error, logs, lastSync, connect, refresh, resync, disconnect, log, setError }),
+    [wallet, view, cachedView, connecting, error, logs, lastSync, connect, refresh, resync, disconnect, log],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

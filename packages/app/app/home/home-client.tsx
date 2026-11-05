@@ -216,7 +216,10 @@ function ActivityRow({
 
 export function HomeClient() {
   const router = useRouter();
-  const { wallet, view, connecting, connect, refresh, lastSync, error, setError } = useWallet();
+  const { wallet, view: liveView, cachedView, connecting, connect, refresh, lastSync, error, setError } = useWallet();
+  // Until the chain sync finishes, paint last-known balances from the local cache.
+  const view = liveView ?? cachedView;
+  const provisional = !liveView && !!cachedView;
 
   const [syncing, setSyncing] = useState(false);
   const [merging, setMerging] = useState(false);
@@ -504,10 +507,11 @@ export function HomeClient() {
         showBack={false}
         right={
           <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-text-muted sm:inline">
-              {lastSync ? `Synced ${timeAgo(lastSync.getTime())}` : "Not synced yet"}
+            <span className="hidden items-center gap-1.5 text-xs text-text-muted sm:flex">
+              {provisional && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning" />}
+              {provisional ? "Showing saved balance, syncing" : lastSync ? `Synced ${timeAgo(lastSync.getTime())}` : "Not synced yet"}
             </span>
-            <Button size="sm" variant="secondary" isLoading={syncing} onClick={handleSync}>
+            <Button size="sm" variant="secondary" isLoading={syncing} disabled={provisional} onClick={handleSync}>
               Sync
             </Button>
           </div>
@@ -555,8 +559,8 @@ export function HomeClient() {
                 You have <span className="font-medium text-text-primary">{formatMoney(receiving)} USDC</span> waiting to be merged into your spendable balance.
               </p>
               <div className="flex flex-col gap-2 sm:items-end">
-                <Button size="sm" isLoading={merging} onClick={handleMerge}>
-                  Merge into spendable
+                <Button size="sm" isLoading={merging} disabled={provisional} onClick={handleMerge}>
+                  {provisional ? "Syncing…" : "Merge into spendable"}
                 </Button>
                 {mergeSteps.length > 0 && <TxStatus steps={mergeSteps} />}
               </div>
