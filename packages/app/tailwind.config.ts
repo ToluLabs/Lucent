@@ -38,9 +38,9 @@ export default {
         info: c('info'),
       },
       fontFamily: {
-        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
-        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
-        mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
+        sans: ['var(--font-grotesk)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-grotesk)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-plex-mono)', 'ui-monospace', 'monospace'],
       },
       boxShadow: {
         card: 'var(--shadow-card)',

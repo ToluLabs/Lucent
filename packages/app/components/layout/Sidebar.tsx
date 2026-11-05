@@ -88,7 +88,7 @@ export function Sidebar() {
               <Settings className="h-[18px] w-[18px] shrink-0" strokeWidth={1.8} />
               <div className="flex min-w-0 flex-col">
                 <span className="text-sm font-medium leading-none">Profile</span>
-                <span className="mt-1 truncate font-mono text-[11px] text-text-muted">{shortAddress(wallet.address, 5)}</span>
+                <span className={cn("mt-1 truncate font-mono text-[11px]", pathname === "/profile" ? "text-accent" : "text-text-muted")}>{shortAddress(wallet.address, 5)}</span>
               </div>
             </Link>
             <button

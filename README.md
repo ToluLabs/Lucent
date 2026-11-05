@@ -238,6 +238,17 @@ for desktop and mobile alike.
   variable design tokens in `app/globals.css`, and a `ConfidentialWallet`
   client class wrapping the SDK's crypto, proving, chain and state layers.
 
+### UI check
+
+`pnpm --filter @lucent/app test:ui` starts the app in development, opens every
+route in both themes at desktop and phone widths (the wallet screens in demo
+mode), and fails on horizontal page overflow, serious or critical axe-core
+accessibility violations, and unexpected console errors. Screenshots of every
+combination are written to `packages/app/.ui-check/` (git-ignored) for a quick
+visual review. It needs a Chromium: run `pnpm --filter @lucent/app exec
+playwright install chromium`, or set `PLAYWRIGHT_CHROMIUM_EXECUTABLE` to an
+existing Chrome or Chromium.
+
 ### Demo mode
 
 In development, add `?demo=1` to any URL (for example

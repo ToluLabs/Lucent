@@ -1,6 +1,6 @@
 "use client";
 
-import { InputHTMLAttributes, forwardRef } from "react";
+import { InputHTMLAttributes, forwardRef, useId } from "react";
 import { cn } from "@/lib/cn";
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -10,16 +10,19 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, className, ...props }, ref) => {
+  ({ label, error, hint, className, id, ...props }, ref) => {
+    const autoId = useId();
+    const fieldId = id ?? autoId;
     return (
       <div className="group flex flex-col gap-2">
         {label && (
-          <label className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-muted">
+          <label htmlFor={fieldId} className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-muted">
             {label}
           </label>
         )}
         <div className="relative">
           <input
+            id={fieldId}
             ref={ref}
             className={cn(
               "h-12 w-full rounded-lg border bg-card px-4 text-sm text-text-primary outline-none transition-all duration-200 placeholder:text-text-muted",

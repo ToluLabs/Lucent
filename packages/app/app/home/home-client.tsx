@@ -153,24 +153,24 @@ function ActivityRow({
     direction === "received" || (direction === "sent" && wallet.canDiscloseSent(ev as TransferEvent));
 
   const explorerUrl = `https://stellar.expert/explorer/testnet/tx/${ev.txHash}`;
-  function openExplorer() {
-    window.open(explorerUrl, "_blank", "noopener,noreferrer");
-  }
 
   return (
     <li className="border-t border-border first:border-t-0">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={openExplorer}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openExplorer()}
-        className="grid cursor-pointer grid-cols-[2rem_1fr_auto_auto] items-center gap-x-3 px-4 py-3.5 md:gap-x-4 md:px-5 transition-colors hover:bg-fg/[0.03] md:grid-cols-[2rem_minmax(0,1.6fr)_7rem_9rem_3.5rem]"
-      >
+      <div className="relative grid grid-cols-[2rem_1fr_auto_auto] items-center gap-x-3 px-4 py-3.5 transition-colors hover:bg-fg/[0.03] md:grid-cols-[2rem_minmax(0,1.6fr)_7rem_9rem_3.5rem] md:gap-x-4 md:px-5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card">
           <Icon className={cn("h-4 w-4", iconColor)} strokeWidth={1.8} />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium text-text-primary">{label}</div>
+          {/* The whole row opens the explorer via this link's stretched ::after; Prove sits above it. */}
+          <a
+            href={explorerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${label}, ${relativeTime(ev)}. Open in block explorer`}
+            className="block truncate text-sm font-medium text-text-primary after:absolute after:inset-0 after:content-['']"
+          >
+            {label}
+          </a>
           <div className="text-xs text-text-muted md:hidden">{relativeTime(ev)}</div>
         </div>
         <div className="hidden text-sm text-text-muted md:block">{relativeTime(ev)}</div>
@@ -193,13 +193,10 @@ function ActivityRow({
             <span className="font-mono text-sm font-medium tabular-nums text-text-primary">-{formatMoney(ev.amount)}</span>
           )}
         </div>
-        <div className="flex min-w-[2.75rem] justify-end">
+        <div className="relative z-10 flex min-w-[2.75rem] justify-end">
           {direction && canDisclose && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setProveOpen((v) => !v);
-              }}
+              onClick={() => setProveOpen((v) => !v)}
               className="rounded-md px-2 py-1 text-xs font-medium text-text-muted transition-colors hover:bg-fg/[0.06] hover:text-accent"
             >
               {proveOpen ? "Close" : "Prove"}

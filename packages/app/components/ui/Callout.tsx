@@ -15,7 +15,7 @@ export function Callout({
       }`}
     >
       <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tone === "key" ? "text-accent" : "text-warning"}`} />
-      <div className={`text-[13.5px] leading-relaxed ${tone === "key" ? "text-accent/90" : "text-warning/85"}`}>
+      <div className={`text-[13.5px] leading-relaxed ${tone === "key" ? "text-accent" : "text-warning"}`}>
         {children}
       </div>
     </div>

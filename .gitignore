@@ -28,3 +28,6 @@ deployments/*.json
 .DS_Store
 
 packages/video
+
+# UI check output
+packages/app/.ui-check/

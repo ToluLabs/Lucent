@@ -322,8 +322,8 @@ export default function AuditorPage() {
           <GlassCard padding="md" className="border-accent/25">
             <SectionLabel>Unlock Console</SectionLabel>
             <p className="mb-3 mt-3 text-xs text-text-muted">
-              Paste your auditor secret key (the <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">k</code>{" "}whose
-              public point <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud = k·H</code>{" "}was
+              Paste your auditor secret key (the <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent">k</code>{" "}whose
+              public point <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent">K_aud = k·H</code>{" "}was
               registered on-chain) to decrypt with it.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -378,7 +378,7 @@ export default function AuditorPage() {
                 </Button>
               </div>
               <p className="mb-3 mt-3 text-xs text-text-muted">
-                Console unlocked with the key you pasted in. Only <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud</code>,
+                Console unlocked with the key you pasted in. Only <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent">K_aud</code>,
                 the public point, is shown below; the secret itself is never redisplayed.
               </p>
               {kAud && (

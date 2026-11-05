@@ -100,6 +100,7 @@ export function NumericKeypad({
         {KEYS.map((key) => (
           <motion.button
             key={key}
+            aria-label={key === "⌫" ? "Backspace" : key === "." ? "Decimal point" : key}
             whileTap={disabled ? undefined : { scale: 0.95 }}
             onClick={() => !disabled && press(key)}
             className={cn(

@@ -151,7 +151,7 @@ function Ledger() {
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.25 }}
                     className="flex items-center gap-1"
-                    aria-label="Encrypted amount"
+                    role="img" aria-label="Encrypted amount"
                   >
                     {[0, 1, 2, 3, 4].map((i) => (
                       <span key={i} className="h-2 w-3 rounded-[3px] bg-encrypted/35" />

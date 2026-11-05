@@ -24,7 +24,7 @@ const SECTIONS = [
 
 function Code({ children }: { children: string }) {
   return (
-    <code className="inline-block rounded-md bg-fg/[0.07] px-1.5 py-0.5 font-mono text-[0.82em] text-accent/90">
+    <code className="inline-block rounded-md bg-fg/[0.08] px-1.5 py-0.5 font-mono text-[0.82em] text-text-primary">
       {children}
     </code>
   );
@@ -32,7 +32,7 @@ function Code({ children }: { children: string }) {
 
 function Pre({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-2xl border border-border bg-surface-2 p-5 font-mono text-xs leading-relaxed text-text-secondary">
+    <pre tabIndex={0} aria-label="Code sample" className="overflow-x-auto rounded-xl border border-border bg-surface-2 p-5 font-mono text-xs leading-relaxed text-text-secondary">
       {children}
     </pre>
   );
@@ -70,7 +70,7 @@ function AddressRow({ name, addr }: { name: string; addr: string }) {
         href={`https://stellar.expert/explorer/testnet/contract/${addr}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="break-all font-mono text-xs text-accent/80 transition-colors hover:text-accent"
+        className="break-all font-mono text-xs text-accent underline-offset-2 transition-colors hover:underline"
       >
         {addr}
       </a>
@@ -524,7 +524,7 @@ K_aud.y: 0x0ad237715304822d5c532c31a1afbd83b690f34c8e5af01bd9b47b3271e5ac4d`}</P
           <P>
             Auditor if you need standing, ongoing visibility into every amount under an auditor id, which is the compliance relationship Payroll is built around. Selective disclosure if you need to prove
             just one payment to one party who shouldn&apos;t get broader access (see{" "}
-            <a href="#disclosure" className="text-accent transition-colors hover:text-accent-hover">
+            <a href="#disclosure" className="text-accent underline underline-offset-2 transition-colors hover:text-accent-hover">
               Selective Disclosure
             </a>{" "}
             above).
@@ -548,7 +548,7 @@ K_aud.y: 0x0ad237715304822d5c532c31a1afbd83b690f34c8e5af01bd9b47b3271e5ac4d`}</P
               href="https://github.com/Psalmuel01/Lucent"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent transition-colors hover:text-accent-hover"
+              className="text-accent underline underline-offset-2 transition-colors hover:text-accent-hover"
             >
               GitHub
             </a>
