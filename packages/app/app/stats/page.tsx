@@ -147,15 +147,25 @@ export default function StatsPage() {
             {loading ? (
               <Skeleton className="h-14 w-32" />
             ) : (
-              <span className="font-display font-medium text-7xl leading-none tabular-nums tracking-tight">
-                {(stats?.[key] ?? 0).toLocaleString()}
-              </span>
+              stats ? (
+                <span className="font-display font-medium text-7xl leading-none tabular-nums tracking-tight">
+                  {(stats[key] ?? 0).toLocaleString()}
+                </span>
+              ) : (
+                <span className="font-display text-2xl font-medium leading-none text-text-muted">Unavailable</span>
+              )
             )}
           </motion.div>
         ))}
       </section>
 
       <section className="flex flex-col gap-5 px-6 py-12 lg:px-12">
+        {!loading && !stats && (
+          <p role="status" className="max-w-2xl rounded-lg border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-text-secondary">
+            Could not reach the Stellar RPC, so these counts are unavailable right now. They are read live, so they
+            will return once the network is reachable. Nothing here means there is no activity.
+          </p>
+        )}
         <p className="max-w-2xl text-sm leading-relaxed text-text-muted">
           Read from the confidential token contract's event log, starting at deploy ledger{" "}
           {DEPLOYMENT.deployedAtLedger.toLocaleString()}. Payroll and escrow activity appears here too, since

@@ -14,9 +14,10 @@ import { cn } from "@/lib/cn";
 /* ───────────────────────── live chain stats ───────────────────────── */
 
 type Stats = { registered: number; transfers: number; merges: number };
+type StatsState = { status: "loading" | "ready" | "unavailable"; stats: Stats | null };
 
-function useStats() {
-  const [stats, setStats] = useState<Stats | null>(null);
+function useStats(): StatsState {
+  const [state, setState] = useState<StatsState>({ status: "loading", stats: null });
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -34,20 +35,23 @@ function useStats() {
             .filter((e): e is RegisterEvent => e.type === "register" && e.account.startsWith("G"))
             .map((e) => e.account),
         ).size;
-        setStats({
-          registered,
-          transfers: events.filter((e) => e.type === "transfer").length,
-          merges: events.filter((e) => e.type === "merge").length,
+        setState({
+          status: "ready",
+          stats: {
+            registered,
+            transfers: events.filter((e) => e.type === "transfer").length,
+            merges: events.filter((e) => e.type === "merge").length,
+          },
         });
       } catch {
-        if (!cancelled) setStats(null);
+        if (!cancelled) setState({ status: "unavailable", stats: null });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
-  return stats;
+  return state;
 }
 
 /* ───────────────────────── hero ledger ───────────────────────── */
@@ -80,6 +84,7 @@ function Ledger() {
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-success" />
           <span className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-muted">Ledger</span>
+          <span className="rounded-md border border-border px-1.5 py-0.5 text-[10px] font-medium text-text-muted">Illustrative</span>
         </div>
         <div className="flex rounded-lg border border-border bg-card p-0.5 text-xs font-medium" role="tablist" aria-label="Viewer">
           {[
@@ -185,8 +190,9 @@ const NAV_LINK = "text-sm text-text-secondary transition-colors hover:text-text-
 /* ───────────────────────── page ───────────────────────── */
 
 export default function LandingPage() {
-  const stats = useStats();
-  const fmt = (n?: number) => (n === undefined ? "0" : n.toLocaleString());
+  const { status, stats } = useStats();
+  // Never show 0 for "we could not read the chain": that reads as "nobody uses this".
+  const fmt = (n?: number) => (status === "loading" ? "…" : status === "unavailable" || n === undefined ? "Unavailable" : n.toLocaleString());
 
   return (
     <div className="bg-void text-text-primary">
@@ -314,10 +320,65 @@ export default function LandingPage() {
               )}
             >
               <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted">{s.k}</dt>
-              <dd className="font-display text-xl font-semibold tabular-nums">{s.v}</dd>
+              <dd className={cn("font-display font-semibold tabular-nums", s.v === "Unavailable" ? "text-base text-text-muted" : "text-xl")}>{s.v}</dd>
             </div>
           ))}
         </dl>
+      </section>
+
+      {/* ── App preview ── */}
+      <section className="border-t border-border px-6 py-28 lg:px-12">
+        <div className="grid items-center gap-14 lg:grid-cols-12">
+          <div className="lg:col-span-4">
+            <p className="mb-4 font-mono text-xs uppercase tracking-[0.16em] text-text-muted">In the app</p>
+            <h2 className="font-display font-medium text-5xl leading-[1] tracking-[-0.01em] md:text-6xl">
+              Your balance is yours to read.
+            </h2>
+            <p className="mt-6 max-w-sm leading-relaxed text-text-secondary">
+              Everyone else sees commitments. Your browser holds the keys, so your own balances and amounts are
+              decrypted on your device and never sent anywhere.
+            </p>
+          </div>
+
+          <div className="lg:col-span-8">
+            <div className="overflow-hidden rounded-2xl border border-border bg-panel shadow-pop">
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <span className="font-display text-sm font-semibold">Overview</span>
+                <span className="rounded-md border border-border px-1.5 py-0.5 text-[10px] font-medium text-text-muted">Illustrative data</span>
+              </div>
+              <div className="grid sm:grid-cols-[1.5fr_1fr_1fr]">
+                <div className="p-6">
+                  <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-muted">Total balance</p>
+                  <p className="mt-3 font-display text-5xl font-medium tabular-nums tracking-tight">14,095.00</p>
+                </div>
+                {[
+                  { k: "Spendable", v: "12,845.00" },
+                  { k: "Receiving", v: "1,250.00" },
+                ].map((c) => (
+                  <div key={c.k} className="border-t border-border p-6 sm:border-l sm:border-t-0">
+                    <p className="font-mono text-[11px] uppercase tracking-[0.14em] text-text-muted">{c.k}</p>
+                    <p className="mt-6 font-display text-xl font-semibold tabular-nums">{c.v}</p>
+                  </div>
+                ))}
+              </div>
+              <ul className="border-t border-border">
+                {[
+                  { label: "Received from GBX4N…F2A7", when: "4m ago", amt: "+1,250.00", pos: true },
+                  { label: "Sent to GCM7T…A9R1", when: "1h ago", amt: "-320.00", pos: false },
+                  { label: "Escrow released to you", when: "5h ago", amt: "+1,800.00", pos: true },
+                ].map((r) => (
+                  <li key={r.label} className="flex items-center justify-between gap-4 border-t border-border px-5 py-3.5 first:border-t-0">
+                    <div>
+                      <p className="text-sm font-medium">{r.label}</p>
+                      <p className="text-xs text-text-muted">{r.when}</p>
+                    </div>
+                    <span className={cn("font-mono text-sm tabular-nums", r.pos ? "text-success" : "text-text-primary")}>{r.amt}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* ── Public vs private ── */}
