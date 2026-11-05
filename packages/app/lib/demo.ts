@@ -16,9 +16,9 @@ export function demoEnabled(): boolean {
   try {
     const q = new URLSearchParams(window.location.search).get("demo");
     if (q === "0") sessionStorage.removeItem(FLAG);
-    if (q === "1" || q === "sync") sessionStorage.setItem(FLAG, q);
+    if (q === "1" || q === "sync" || q === "new") sessionStorage.setItem(FLAG, q);
     const v = sessionStorage.getItem(FLAG);
-    return v === "1" || v === "sync";
+    return v === "1" || v === "sync" || v === "new";
   } catch {
     return false;
   }
@@ -39,7 +39,16 @@ const BOB = "GCM7TT3BQ9XK4RWL2HNZV6YFEJA5DOU8SGIT3Y7QPMXB2LKZC4WEA9R1";
 const CAROL = "GAWEL0X9QJ4TKR3NVZB6YHW2ECMF7A5OIU4SGDT3YQ7XLB2WKC4EZH9P";
 const ESCROW = "CDK271PAQJ4TKR3NVZB6YHW2ECMF7A5OIU4SGDT3YQ7XLB2WKC4EZH9P";
 
-export const DEMO_VIEW: WalletView = {
+/** True for `?demo=new`: a registered account with nothing deposited yet. */
+function demoIsNew(): boolean {
+  try {
+    return sessionStorage.getItem(FLAG) === "new";
+  } catch {
+    return false;
+  }
+}
+
+export const DEMO_VIEW_FULL: WalletView = {
   address: ME,
   registered: true,
   spendable: 128_450_000_000n,
@@ -49,6 +58,21 @@ export const DEMO_VIEW: WalletView = {
   publicUSDC: 4_200_000_000n,
 };
 
+const DEMO_VIEW_NEW: WalletView = {
+  ...DEMO_VIEW_FULL,
+  spendable: 0n,
+  receiving: 0n,
+  publicUSDC: 4_200_000_000n,
+};
+
+/** The wallet view the demo session should show. */
+export function demoView(): WalletView {
+  return demoIsNew() ? DEMO_VIEW_NEW : DEMO_VIEW_FULL;
+}
+
+/** Kept for callers that want the populated demo account. */
+export const DEMO_VIEW = DEMO_VIEW_FULL;
+
 const now = Date.now();
 const iso = (minsAgo: number) => new Date(now - minsAgo * 60_000).toISOString();
 const base = { ledger: 3_499_000, txHash: "demo".padEnd(64, "0"), closedAt: "" };
@@ -57,7 +81,7 @@ function ev(partial: Record<string, unknown>, i: number, minsAgo: number): Confi
   return { ...base, cursor: `demo-${i}`, closedAt: iso(minsAgo), ledger: base.ledger - i, ...partial } as unknown as ConfidentialEvent;
 }
 
-export const DEMO_EVENTS: ConfidentialEvent[] = [
+const ALL_DEMO_EVENTS: ConfidentialEvent[] = [
   ev({ type: "transfer", from: ALICE, to: ME }, 1, 4),
   ev({ type: "merge", account: ME }, 2, 22),
   ev({ type: "transfer", from: ME, to: BOB }, 3, 95),
@@ -68,6 +92,11 @@ export const DEMO_EVENTS: ConfidentialEvent[] = [
   ev({ type: "withdraw", from: ME, to: ME, amount: 8_000_000_000n }, 8, 60 * 70),
   ev({ type: "register", account: ME, auditorId: 0 }, 9, 60 * 96),
 ];
+
+/** Activity for the demo session; empty for a brand-new account. */
+export function demoEvents(): ConfidentialEvent[] {
+  return demoIsNew() ? [] : ALL_DEMO_EVENTS;
+}
 
 const DEMO_AMOUNTS: Record<string, bigint> = {
   "demo-1": 12_500_000_000n,
@@ -114,8 +143,8 @@ const overrides: Record<string, unknown> = {
   deposit: ok,
   withdraw: ok,
   transfer: ok,
-  refresh: async () => DEMO_VIEW,
-  resync: async () => DEMO_VIEW,
+  refresh: async () => demoView(),
+  resync: async () => demoView(),
   isRecipientRegistered: async () => true,
   canDiscloseSent: () => true,
   decryptOwnTransferAmount: async (e: { cursor: string }) => DEMO_AMOUNTS[e.cursor] ?? null,

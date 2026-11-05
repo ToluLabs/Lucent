@@ -28,7 +28,7 @@ import { useRouter } from "next/navigation";
 import { ConfidentialWallet, type WalletView } from "./wallet";
 import { freighterIsAllowed } from "./freighter";
 import { errMsg } from "./err";
-import { createDemoWallet, demoEnabled, demoSyncDelay, DEMO_VIEW } from "./demo";
+import { createDemoWallet, demoEnabled, demoSyncDelay, demoView } from "./demo";
 
 interface WalletCtx {
   wallet: ConfidentialWallet | null;
@@ -123,14 +123,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setWallet(createDemoWallet());
       const delay = demoSyncDelay();
       if (delay > 0) {
-        setCachedView(DEMO_VIEW);
+        setCachedView(demoView());
         setTimeout(() => {
-          setView(DEMO_VIEW);
+          setView(demoView());
           setCachedView(null);
           setLastSync(new Date());
         }, delay);
       } else {
-        setView(DEMO_VIEW);
+        setView(demoView());
         setLastSync(new Date());
       }
       return;

@@ -38,13 +38,14 @@ import { Modal } from "@/components/ui/Modal";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { DiscloseFlow } from "./disclose-flow";
+import { Onboarding } from "./onboarding";
 import { useWallet } from "@/lib/wallet-context";
 import { shortAddress, timeAgo } from "@/lib/format";
 import { displayAmount, formatMoney } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
 import { errMsg } from "@/lib/err";
-import { DEMO_EVENTS, demoEnabled } from "@/lib/demo";
+import { demoEvents, demoEnabled } from "@/lib/demo";
 
 const QUICK_ACTIONS = [
   { href: "/shield", icon: ArrowDownUp, label: "Shield", hint: "Deposit or withdraw" },
@@ -235,7 +236,7 @@ export function HomeClient() {
   useEffect(() => {
     if (!wallet) return;
     if (demoEnabled()) {
-      setActivity(DEMO_EVENTS);
+      setActivity(demoEvents());
       setActivityLoading(false);
       return;
     }
@@ -519,6 +520,14 @@ export function HomeClient() {
       />
       <div className="flex flex-col gap-6 px-4 pb-10 animate-fade-in-up md:px-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
+
+        <Onboarding
+          view={view}
+          address={wallet.address}
+          provisional={provisional}
+          onMerge={handleMerge}
+          merging={merging}
+        />
 
         {/* Balance */}
         <section className="glass-card overflow-hidden">

@@ -245,8 +245,9 @@ In development, add `?demo=1` to any URL (for example
 wallet with sample balances, activity, escrows and payroll runs. It is meant
 for UI work and screenshots, needs no wallet or chain access, and is compiled
 out of production builds. `?demo=sync` is the same but the live data arrives
-four seconds late, to preview the "saved balance, syncing" state. `?demo=0`
-turns it off.
+four seconds late, to preview the "saved balance, syncing" state, and `?demo=new` shows a
+registered account with nothing deposited, to preview the onboarding checklist.
+`?demo=0` turns it off.
 
 For a full walkthrough of what each flow does on-chain, see the in-app
 **Docs** page (`/docs`). It covers Shield, Send, Payroll, Escrow, the auditor
