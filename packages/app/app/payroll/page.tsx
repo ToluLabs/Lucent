@@ -20,7 +20,7 @@ import { useWallet } from "@/lib/wallet-context";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { useAction } from "@/lib/use-action";
-import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
+import { toBaseUnits, formatAmount, formatMoney, displayAmount, DECIMALS } from "@/lib/amount";
 import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
@@ -273,11 +273,11 @@ export default function PayrollPage() {
             {templateRuns.length === 0 ? (
               <EmptyState icon={Briefcase} label="No runs yet, start one from the header" />
             ) : (
-              <div className="flex flex-col gap-3">
+              <ul className="glass-card overflow-hidden">
                 {templateRuns.map((r) => {
                   const meta = STATUS_META[r.status];
                   return (
-                    <GlassCard key={r.id.toString()} padding="md">
+                    <li key={r.id.toString()} className="border-t border-border px-5 py-4 first:border-t-0">
                       <div className="flex items-center gap-3">
                         <div className="flex-1">
                           <span className="text-sm font-medium text-text-primary">Run #{r.id.toString()}</span>
@@ -312,10 +312,10 @@ export default function PayrollPage() {
                           </p>
                         </div>
                       )}
-                    </GlassCard>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             )}
           </div>
         </AppShell>
@@ -449,11 +449,11 @@ export default function PayrollPage() {
 
 function EmptyState({ icon: Icon, label, children }: { icon: typeof Briefcase; label: string; children?: React.ReactNode }) {
   return (
-    <div className="flex flex-col items-center gap-4 py-12">
-      <div className="glass-card flex h-14 w-14 items-center justify-center">
-        <Icon className="h-6 w-6 text-text-muted" />
+    <div className="glass-card flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+        <Icon className="h-5 w-5 text-text-muted" strokeWidth={1.6} />
       </div>
-      <p className="text-sm text-text-muted">{label}</p>
+      <p className="flex-1 text-sm text-text-secondary">{label}</p>
       {children}
     </div>
   );
@@ -560,24 +560,26 @@ function ExecuteRunModal({
         </p>
         <div className="flex flex-col gap-2">
           {executingEmployees.map((a) => (
-            <div key={a} className="flex items-center gap-3 rounded-xl border border-border p-3">
-              <AddressDisplay address={a} chars={6} showCopy={false} className="flex-1" />
-              <Input
-                value={salaries[a] ?? ""}
-                onChange={(e) => setSalaries((s) => ({ ...s, [a]: sanitizeAmount(e.target.value) }))}
-                inputMode="decimal"
-                placeholder="0.00"
-                className="h-10 w-28 text-right font-mono text-sm"
-              />
-              <span className="w-12 shrink-0 text-xs text-text-muted">USDC</span>
+            <div key={a} className="flex flex-col gap-2 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:gap-3">
+              <AddressDisplay address={a} chars={6} showCopy={false} className="min-w-0 flex-1 whitespace-nowrap text-xs" />
+              <div className="flex items-center gap-2">
+                <Input
+                  value={salaries[a] ?? ""}
+                  onChange={(e) => setSalaries((s) => ({ ...s, [a]: sanitizeAmount(e.target.value) }))}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  className="h-10 w-full text-right font-mono text-sm sm:w-32"
+                />
+                <span className="w-12 shrink-0 text-xs text-text-muted">USDC</span>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-border bg-fg/[0.02] px-3 py-2.5">
+        <div className="flex items-center justify-between rounded-lg border border-border bg-card/60 px-3 py-2.5">
           <span className="text-xs text-text-muted">Total</span>
           <span className={cn("font-mono text-sm font-medium tabular-nums", overBudget ? "text-error" : "text-text-primary")}>
-            {formatAmount(totalSalaries, DECIMALS)} / {formatAmount(spendable, DECIMALS)} USDC
+            {formatMoney(totalSalaries)} / {formatMoney(spendable)} USDC
           </span>
         </div>
         {overBudget && (

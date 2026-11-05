@@ -206,12 +206,15 @@ export default function EscrowPage() {
         {rows === null ? (
           <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 py-12">
-            <div className="glass-card flex h-14 w-14 items-center justify-center">
-              <Lock className="h-6 w-6 text-text-muted" />
+          <div className="glass-card flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-card">
+              <Lock className="h-5 w-5 text-text-muted" strokeWidth={1.6} />
             </div>
-            <p className="text-sm text-text-muted">No escrows yet</p>
-            <Button disabled={!registered} onClick={() => setShowCreate(true)}>Create Escrow</Button>
+            <div className="flex-1">
+              <p className="text-sm font-medium">No escrows yet</p>
+              <p className="mt-0.5 text-sm text-text-muted">Create one to hold funds until delivery, with the amount kept confidential.</p>
+            </div>
+            <Button disabled={!registered} onClick={() => setShowCreate(true)}>Create escrow</Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3">

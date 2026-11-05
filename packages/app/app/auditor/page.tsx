@@ -42,7 +42,7 @@ import { Pill, type PillTone } from "@/components/ui/Pill";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Callout } from "@/components/ui/Callout";
 import { AddressDisplay } from "@/components/ui/AddressDisplay";
-import { displayAmount } from "@/lib/amount";
+import { displayAmount, formatMoney } from "@/lib/amount";
 import { timeAgo } from "@/lib/format";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
@@ -395,7 +395,7 @@ export default function AuditorPage() {
               )}
             </GlassCard> */}
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid gap-3 sm:grid-cols-3">
               <StatCard label="Transfers decrypted" value={transferRows.length.toLocaleString()} />
               <StatCard label="Volume seen" value={displayAmount(totalVolume)} />
               <StatCard label="Accounts tracked" value={accounts.length.toLocaleString()} />
@@ -424,33 +424,35 @@ export default function AuditorPage() {
                 </div>
               )}
               {accounts.length > 0 && (
-                <table className="w-full text-left text-xs">
-                  <thead className="text-text-muted">
+                <div className="-mx-5 overflow-x-auto px-5">
+                <table className="w-full min-w-[540px] text-left text-xs">
+                  <thead className="font-mono text-[10px] uppercase tracking-[0.12em] text-text-muted">
                     <tr>
-                      <th className="pb-2 font-normal">account</th>
-                      <th className="pb-2 font-normal">spendable</th>
-                      <th className="pb-2 font-normal">receiving</th>
-                      <th className="pb-2 font-normal">last seen</th>
+                      <th className="pb-2.5 font-normal">Account</th>
+                      <th className="pb-2.5 text-right font-normal">Spendable</th>
+                      <th className="pb-2.5 text-right font-normal">Receiving</th>
+                      <th className="pb-2.5 text-right font-normal">Last seen</th>
                     </tr>
                   </thead>
                   <tbody className="text-text-secondary">
                     {accounts.map((a) => (
                       <tr key={a.address} className="border-t border-border">
-                        <td className="py-1.5">
+                        <td className="py-2.5">
                           <div className="flex items-center gap-1.5">
                             <AddressDisplay address={a.address} chars={6} className="text-xs" />
                             {!a.address.startsWith("G") && <Pill tone="neutral">contract</Pill>}
                           </div>
                         </td>
-                        <td className="py-1.5 font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : displayAmount(a.spendable)}</td>
-                        <td className="py-1.5 font-mono tabular-nums text-text-primary">{displayAmount(a.receiving)}</td>
-                        <td className="py-1.5 text-text-muted">
+                        <td className="py-2.5 text-right font-mono tabular-nums text-text-primary">{a.spendable === null ? "?" : formatMoney(a.spendable)}</td>
+                        <td className="py-2.5 text-right font-mono tabular-nums text-text-primary">{formatMoney(a.receiving)}</td>
+                        <td className="py-2.5 text-right text-text-muted">
                           {a.lastSeenAt ? timeAgo(new Date(a.lastSeenAt).getTime()) : `ledger ${a.lastLedger}`}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </GlassCard>
 
@@ -465,7 +467,7 @@ export default function AuditorPage() {
               {!rows && busy && <p className="text-sm text-text-muted">Syncing events…</p>}
               {rows && rows.length === 0 && <p className="text-sm text-text-muted">No activity in the retention window.</p>}
               {rows && (
-                <ul className="flex flex-col gap-2">
+                <ul className="flex flex-col">
                   {rows.map((row) => (
                     <AuditRowView key={row.ev.cursor} row={row} />
                   ))}
@@ -645,7 +647,7 @@ function CompliancePanel() {
 function AuditRowView({ row }: { row: AuditRow }) {
   const { ev } = row;
   return (
-    <li className="rounded-xl border border-border bg-fg/[0.02] p-3">
+    <li className="border-t border-border py-3.5 first:border-t-0 first:pt-0">
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone={badgeTone(ev.type)}>{ev.type}</Pill>
         {ev.type === "register" || ev.type === "merge" ? (
@@ -659,7 +661,7 @@ function AuditRowView({ row }: { row: AuditRow }) {
         )}
         <span className="flex-1" />
         {row.amount !== null && (
-          <span className="font-mono text-sm font-medium tabular-nums text-accent">{displayAmount(row.amount)}</span>
+          <span className="font-mono text-sm font-medium tabular-nums text-accent">{formatMoney(row.amount)} USDC</span>
         )}
         {!row.channelsAgree && <Pill tone="red">undecryptable</Pill>}
       </div>
@@ -678,7 +680,7 @@ function AuditRowView({ row }: { row: AuditRow }) {
           href={`https://stellar.expert/explorer/testnet/tx/${ev.txHash}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="font-mono text-accent/40 hover:text-accent-hover/50 hover:underline"
+          className="font-mono text-text-muted underline-offset-2 hover:text-accent hover:underline"
         >
           {ev.txHash.slice(0, 10)}…
         </a>
