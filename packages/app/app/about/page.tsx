@@ -36,8 +36,8 @@ export default function AboutPage() {
       {/* Hero */}
       <section className="brand-wash border-b border-border px-6 pb-24 pt-24 lg:px-12 lg:pt-32">
         <Eyebrow>About</Eyebrow>
-        <h1 className="max-w-5xl font-serif text-[clamp(3rem,7.5vw,7rem)] leading-[0.95] tracking-[-0.02em]">
-          Finance has always needed <span className="italic text-accent">selective privacy.</span>
+        <h1 className="max-w-5xl font-display font-medium text-[clamp(3rem,7.5vw,7rem)] leading-[0.95] tracking-[-0.02em]">
+          Finance has always needed <span className="text-accent">selective privacy.</span>
         </h1>
         <p className="mt-10 max-w-2xl text-lg leading-relaxed text-text-secondary">
           You would not hand your bank statement to a stranger. Yet every payment on a public
@@ -68,7 +68,7 @@ export default function AboutPage() {
         ].map((c) => (
           <div key={c.label} className="bg-void px-6 py-16 lg:px-12 lg:py-20">
             <Eyebrow>{c.label}</Eyebrow>
-            <h2 className="mb-8 max-w-md font-serif text-4xl leading-[1.05] tracking-tight md:text-5xl">{c.title}</h2>
+            <h2 className="mb-8 max-w-md font-display font-medium text-4xl leading-[1.05] tracking-tight md:text-5xl">{c.title}</h2>
             <div className="flex max-w-lg flex-col gap-4 leading-relaxed text-text-secondary">
               {c.body.map((p) => (
                 <p key={p.slice(0, 20)}>{p}</p>
@@ -83,7 +83,7 @@ export default function AboutPage() {
         <div className="grid gap-14 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <Eyebrow>Trust model</Eyebrow>
-            <h2 className="font-serif text-4xl leading-[1.05] tracking-tight md:text-5xl">Nothing to trust but the math.</h2>
+            <h2 className="font-display font-medium text-4xl leading-[1.05] tracking-tight md:text-5xl">Nothing to trust but the math.</h2>
           </div>
           <ol className="lg:col-span-8">
             {TRUST.map((t, i) => (
@@ -103,7 +103,7 @@ export default function AboutPage() {
         <div className="mt-8 grid overflow-hidden rounded-2xl border border-border bg-panel shadow-card sm:grid-cols-2 lg:grid-cols-4">
           {AUDIENCE.map((a, i) => (
             <div key={a.title} className={`p-8 ${i > 0 ? "border-t border-border sm:border-t-0 sm:border-l" : ""} ${i === 2 ? "sm:max-lg:border-t sm:max-lg:border-l-0" : ""}`}>
-              <h3 className="mb-3 font-serif text-3xl tracking-tight">{a.title}</h3>
+              <h3 className="mb-3 font-display font-medium text-3xl tracking-tight">{a.title}</h3>
               <p className="text-sm leading-relaxed text-text-secondary">{a.desc}</p>
             </div>
           ))}
@@ -114,7 +114,7 @@ export default function AboutPage() {
       <section className="grid gap-10 px-6 py-24 lg:grid-cols-12 lg:px-12">
         <div className="lg:col-span-4">
           <Eyebrow>Built on</Eyebrow>
-          <h2 className="font-serif text-4xl leading-[1.05] tracking-tight md:text-5xl">Soroban and Protocol 26.</h2>
+          <h2 className="font-display font-medium text-4xl leading-[1.05] tracking-tight md:text-5xl">Soroban and Protocol 26.</h2>
         </div>
         <div className="lg:col-span-6 lg:col-start-6">
           <p className="leading-relaxed text-text-secondary">

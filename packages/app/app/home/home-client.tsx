@@ -411,11 +411,42 @@ export function HomeClient() {
   if (!view) {
     return (
       <AppShell>
-        <PageHeader title="Home" showBack={false} />
-        <div className="flex flex-col gap-5 px-4 py-12 md:mx-auto md:max-w-2xl">
+        <PageHeader
+          title="Overview"
+          subtitle={connecting ? "Syncing your account from the chain." : "Your confidential balance and recent activity."}
+          showBack={false}
+          right={<AddressDisplay address={wallet.address} chars={5} />}
+        />
+        <div className="flex flex-col gap-5 px-4 pb-10 md:mx-auto md:max-w-2xl md:px-8">
           <ErrorBanner error={error} onDismiss={() => setError(null)} />
-          <p className="text-sm text-text-secondary">{connecting ? "Checking your on-chain account…" : "Account status is unavailable. Retry before registering or transacting."}</p>
-          <Button onClick={refresh} disabled={connecting}>Retry account check</Button>
+          {connecting ? (
+            <section className="glass-card overflow-hidden" aria-busy="true">
+              <div className="flex flex-col gap-4 p-6">
+                <div className="flex items-center gap-3">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-accent-solid" />
+                  <p className="text-sm font-medium">Reading your account from Stellar testnet</p>
+                </div>
+                <p className="text-sm leading-relaxed text-text-muted">
+                  Your browser fetches recent on-chain events and decrypts your balance locally, so nothing
+                  about it is sent anywhere. The first sync after connecting is the slowest, usually 10 to 30
+                  seconds. Later visits resume where the last one stopped.
+                </p>
+                <Skeleton className="h-10 w-48" />
+              </div>
+            </section>
+          ) : (
+            <section className="glass-card flex flex-col items-start gap-4 p-6">
+              <div>
+                <p className="font-medium">Account status unavailable</p>
+                <p className="mt-1 text-sm text-text-muted">
+                  We could not read your account from the chain. Retry before registering or transacting.
+                </p>
+              </div>
+              <Button variant="secondary" onClick={refresh}>
+                Retry account check
+              </Button>
+            </section>
+          )}
         </div>
       </AppShell>
     );
@@ -435,7 +466,7 @@ export function HomeClient() {
 
           <section className="glass-card overflow-hidden">
             <div className="p-6 md:p-8">
-              <h2 className="font-serif text-4xl leading-tight tracking-tight">Bind your confidential keys.</h2>
+              <h2 className="font-display font-medium text-4xl leading-tight tracking-tight">Bind your confidential keys.</h2>
               <p className="mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
                 Registration ties a key set, derived from a wallet signature, to your Stellar address
                 with a single zero-knowledge proof. Balances, sending, payroll and escrow all unlock after it.
@@ -496,7 +527,7 @@ export function HomeClient() {
                 </span>
               </div>
               <div className="flex items-baseline gap-2">
-                <span className="font-serif text-6xl leading-none tracking-tight tabular-nums md:text-7xl">{formatMoney(total)}</span>
+                <span className="font-display font-medium text-6xl leading-none tracking-tight tabular-nums md:text-7xl">{formatMoney(total)}</span>
                 <span className="font-mono text-sm text-text-muted">USDC</span>
               </div>
             </div>

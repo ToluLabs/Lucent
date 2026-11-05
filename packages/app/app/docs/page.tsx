@@ -40,7 +40,7 @@ function Pre({ children }: { children: string }) {
 
 function H2({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="mt-14 mb-5 scroll-mt-24 font-serif text-4xl tracking-tight text-text-primary first:mt-0">
+    <h2 id={id} className="mt-14 mb-5 scroll-mt-24 font-display font-medium text-4xl tracking-tight text-text-primary first:mt-0">
       {children}
     </h2>
   );

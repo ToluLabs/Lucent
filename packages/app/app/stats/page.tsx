@@ -113,8 +113,8 @@ export default function StatsPage() {
 
       <section className="brand-wash border-b border-border px-6 pb-16 pt-20 lg:px-12 lg:pt-28">
         <p className="mb-4 font-mono text-xs uppercase tracking-[0.16em] text-text-muted">Protocol stats</p>
-        <h1 className="max-w-4xl font-serif text-[clamp(2.8rem,6.5vw,6rem)] leading-[0.95] tracking-[-0.02em]">
-          Activity on Stellar <span className="italic text-accent">testnet.</span>
+        <h1 className="max-w-4xl font-display font-medium text-[clamp(2.8rem,6.5vw,6rem)] leading-[0.95] tracking-[-0.02em]">
+          Activity on Stellar <span className="text-accent">testnet.</span>
         </h1>
         <p className="mt-8 max-w-xl leading-relaxed text-text-secondary">
           Every count is read from on-chain events and can be checked on Stellar Expert. Amounts are
@@ -147,7 +147,7 @@ export default function StatsPage() {
             {loading ? (
               <Skeleton className="h-14 w-32" />
             ) : (
-              <span className="font-serif text-7xl leading-none tabular-nums tracking-tight">
+              <span className="font-display font-medium text-7xl leading-none tabular-nums tracking-tight">
                 {(stats?.[key] ?? 0).toLocaleString()}
               </span>
             )}
