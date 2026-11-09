@@ -85,7 +85,7 @@ export function AmountField({
             disabled={disabled}
             value={value}
             onChange={(e) => typed(e.target.value)}
-            className="h-20 min-w-0 flex-1 bg-transparent font-display font-medium text-5xl tabular-nums tracking-tight outline-none placeholder:text-text-muted/50"
+            className="h-20 min-w-0 flex-1 bg-transparent font-serif text-5xl tabular-nums tracking-tight outline-none placeholder:text-text-muted/50"
           />
           <span className="font-mono text-sm text-text-muted">{unit}</span>
           {onMax && (

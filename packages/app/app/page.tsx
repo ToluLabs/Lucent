@@ -247,11 +247,11 @@ export default function LandingPage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: [0.2, 0.7, 0.2, 1] }}
-              className="font-display font-medium text-[clamp(3.6rem,9.4vw,9rem)] leading-[0.9] tracking-[-0.02em]"
+              className="font-serif text-[clamp(3.6rem,9.4vw,9rem)] leading-[0.9] tracking-[-0.02em]"
             >
               The amount
               <br />
-              is the <span className="text-accent">only secret.</span>
+              is the <span className="italic text-accent">only secret.</span>
             </motion.h1>
 
             <motion.p
@@ -325,8 +325,8 @@ export default function LandingPage() {
         <div className="grid gap-14 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <p className="mb-4 font-mono text-xs uppercase tracking-[0.16em] text-text-muted">The model</p>
-            <h2 className="font-display font-medium text-5xl leading-[1] tracking-[-0.01em] md:text-6xl">
-              Private amounts. <span className="text-text-secondary">Public accountability.</span>
+            <h2 className="font-serif text-5xl leading-[1] tracking-[-0.01em] md:text-6xl">
+              Private amounts. <span className="italic text-text-secondary">Public accountability.</span>
             </h2>
             <p className="mt-6 max-w-sm leading-relaxed text-text-secondary">
               Most privacy tools hide everyone and break compliance. Lucent hides one thing, the
@@ -360,7 +360,7 @@ export default function LandingPage() {
       {/* ── Products ── */}
       <section className="border-t border-border px-6 py-28 lg:px-12">
         <div className="mb-14 flex flex-col justify-between gap-6 md:flex-row md:items-end">
-          <h2 className="max-w-xl font-display font-medium text-5xl leading-[1] tracking-[-0.01em] md:text-6xl">
+          <h2 className="max-w-xl font-serif text-5xl leading-[1] tracking-[-0.01em] md:text-6xl">
             One primitive, six ways to use it.
           </h2>
           <p className="max-w-xs text-text-secondary">Every flow runs in the browser, proves locally, and settles on Soroban.</p>
@@ -374,7 +374,7 @@ export default function LandingPage() {
                 className="group grid grid-cols-[2.5rem_1fr_auto] items-center gap-x-4 py-7 transition-colors hover:bg-fg/[0.025] md:grid-cols-[4rem_minmax(0,1fr)_minmax(0,1.2fr)_auto] md:gap-x-8 md:px-4"
               >
                 <span className="font-mono text-xs text-text-muted">{String(i + 1).padStart(2, "0")}</span>
-                <span className="font-display font-medium text-4xl tracking-tight transition-transform duration-300 group-hover:translate-x-1 md:text-5xl">
+                <span className="font-serif text-4xl tracking-tight transition-transform duration-300 group-hover:translate-x-1 md:text-5xl">
                   {p.name}
                 </span>
                 <span className="col-span-2 col-start-2 row-start-2 mt-2 text-text-secondary md:col-span-1 md:col-start-auto md:row-start-auto md:mt-0">
@@ -390,8 +390,8 @@ export default function LandingPage() {
       {/* ── Closing band ── */}
       <section className="bg-text-primary px-6 py-28 text-void lg:px-12">
         <div className="flex flex-col justify-between gap-10 md:flex-row md:items-end">
-          <h2 className="max-w-3xl font-display font-medium text-6xl leading-[0.95] tracking-[-0.02em] md:text-8xl">
-            Try it on <span>testnet.</span>
+          <h2 className="max-w-3xl font-serif text-6xl leading-[0.95] tracking-[-0.02em] md:text-8xl">
+            Try it on <span className="italic">testnet.</span>
           </h2>
           <div className="flex flex-col items-start gap-4">
             <Link

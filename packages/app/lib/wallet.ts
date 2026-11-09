@@ -842,29 +842,8 @@ export class ConfidentialWallet {
     return this.refresh();
   }
 
-  /** Public (non-confidential) USDC balance, or 0 if it cannot be read. */
-  private async readPublicUSDC(): Promise<bigint> {
-    const underlying = DEPLOYMENT.contracts.underlying;
-    if (!underlying) return 0n;
-    try {
-      const scVal = await this.client.simulate(underlying, "balance", [
-        new Address(this.address).toScVal(),
-      ]);
-      return scValToNative(scVal) as bigint;
-    } catch (e) {
-      this.log(`failed to fetch public USDC balance: ${e}`);
-      return 0n;
-    }
-  }
-
   /** Sync from RPC events, verify against chain, and return a UI view. */
   async refresh(): Promise<WalletView> {
-    // The public USDC balance is independent of the sync, so start it now and
-    // let it run alongside the account read, event sync and verification.
-    const publicUSDCPromise = this.readPublicUSDC();
-    // A failed key check below must not leave this promise unobserved.
-    publicUSDCPromise.catch(() => {});
-
     const onchain = await this.account();
     if (onchain && (!onchain.spendingKey.equals(this.keys.Y) || !onchain.viewingPublicKey.equals(this.keys.PVK))) {
       throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
@@ -874,7 +853,18 @@ export class ConfidentialWallet {
     if (onchain) {
       matchesChain = (await this.engine.verifyAgainstChain()).ok;
     }
-    const publicUSDC = await publicUSDCPromise;
+    let publicUSDC = 0n;
+    const underlying = DEPLOYMENT.contracts.underlying;
+    if (underlying) {
+      try {
+        const scVal = await this.client.simulate(underlying, "balance", [
+          new Address(this.address).toScVal(),
+        ]);
+        publicUSDC = scValToNative(scVal) as bigint;
+      } catch (e) {
+        this.log(`failed to fetch public USDC balance: ${e}`);
+      }
+    }
     return {
       address: this.address,
       registered: onchain !== null,
