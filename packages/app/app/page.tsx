@@ -1,464 +1,327 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { PublicShell } from "@/components/layout/PublicShell";
 import {
   ArrowRight,
-  ArrowDownUp,
-  Send,
+  ArrowUpRight,
   Briefcase,
-  Lock,
+  LockKeyhole,
   ScanLine,
-  Shield,
-  UserCheck,
-  Layers,
-  Menu,
-  X,
+  Send,
+  ShieldCheck,
 } from "lucide-react";
-import { ChainClient, fetchEvents, type RegisterEvent } from "@lucent/sdk";
-import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
-import { GithubMark } from "@/components/icons/GithubMark";
-import { Skeleton } from "@/components/ui/Skeleton";
-import { DEPLOYMENT } from "@/lib/deployment";
-
-const STEPS = [
-  {
-    num: "01",
-    title: "Deposit USDC",
-    desc: "Move public USDC into a confidential balance in one transaction. From then on your balance is a Pedersen commitment, not a number.",
-    icon: ArrowDownUp,
-  },
-  {
-    num: "02",
-    title: "Pay Privately",
-    desc: "Send, run payroll, lock escrow. Every amount is proven with a zero-knowledge proof generated right in your browser.",
-    icon: Lock,
-  },
-  {
-    num: "03",
-    title: "Stay Auditable",
-    desc: "Sender and receiver stay on-chain and public. The auditor key can decrypt every amount for compliance — nobody else can.",
-    icon: ScanLine,
-  },
-];
-
-const FEATURES = [
+import Link from "next/link";
+const workflows = [
   {
     icon: Send,
-    title: "Private Payments",
-    desc: "Sender and receiver are public. The amount is not — hidden behind a commitment and a proof, not an assumption.",
-    color: "text-accent bg-accent-bg",
+    title: "Pay with discretion",
+    description:
+      "Send USDC between registered accounts. Transfer amounts are committed and encrypted; participants remain visible.",
+    href: "/send",
+    label: "Explore payments",
   },
   {
     icon: Briefcase,
-    title: "Confidential Payroll",
-    desc: "Employee addresses are on-chain. Salary amounts are not. No colleague can read another's, even on a public explorer.",
-    color: "text-sky-400 bg-sky-500/10",
+    title: "A better way to run payroll",
+    description:
+      "Prepare on-chain recipient templates, review salaries and execute a confidential, atomic payment batch.",
+    href: "/payroll",
+    label: "Explore payroll",
   },
   {
-    icon: Lock,
-    title: "Encrypted Escrow",
-    desc: "The locked amount stays hidden through creation, dispute, and release. Parties and finality are public. The number is private.",
-    color: "text-encrypted bg-encrypted-bg",
+    icon: LockKeyhole,
+    title: "Agreements with a visible lifecycle",
+    description:
+      "Create experimental escrow agreements with delivery, release, refund and optional arbitration workflows.",
+    href: "/escrow",
+    label: "Explore escrow",
   },
   {
     icon: ScanLine,
-    title: "Selective Disclosure",
-    desc: "Prove a specific transfer paid exactly one amount to one counterparty — without revealing anything else, on-chain or off.",
-    color: "text-success bg-success/10",
+    title: "Share a fact, selectively",
+    description:
+      "Request a disclosure, let the holder authorize a transfer-specific proof, and verify it against the chain.",
+    href: "/verify",
+    label: "Explore verification",
   },
 ];
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" as const } },
-};
-
-function StatsBar() {
-  const [stats, setStats] = useState<{ registered: number; transfers: number; merges: number } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const client = new ChainClient({
-          rpcUrl: DEPLOYMENT.rpcUrl,
-          networkPassphrase: DEPLOYMENT.networkPassphrase,
-          contracts: DEPLOYMENT.contracts,
-        });
-        const { events } = await fetchEvents(client, { startLedger: DEPLOYMENT.deployedAtLedger });
-        if (!cancelled) {
-          // G... keypair accounts only — every PrivateEscrow instance also
-          // registers as its own confidential account (C...) to hold a
-          // balance, but that's custody plumbing, not a person or org.
-          const registered = new Set(
-            events
-              .filter((e): e is RegisterEvent => e.type === "register" && e.account.startsWith("G"))
-              .map((e) => e.account),
-          ).size;
-          const transfers = events.filter((e) => e.type === "transfer").length;
-          const merges = events.filter((e) => e.type === "merge").length;
-          setStats({ registered, transfers, merges });
-        }
-      } catch {
-        if (!cancelled) setStats(null);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Mirrors the top row of /stats — keep these two in sync.
-  const cards = [
-    {
-      key: "registered" as const,
-      icon: UserCheck,
-      color: "text-encrypted bg-encrypted-bg",
-      label: "Registered Addresses",
-      sub: "Confidential accounts bound to a Grumpkin key",
-    },
-    {
-      key: "transfers" as const,
-      icon: Send,
-      color: "text-accent bg-accent-bg",
-      label: "Confidential Transfers",
-      sub: "Send, payroll, and escrow payments — amount hidden",
-    },
-    {
-      key: "merges" as const,
-      icon: Layers,
-      color: "text-encrypted bg-encrypted-bg",
-      label: "Merges",
-      sub: "Receiving balance folded into spendable",
-    },
-  ];
-
-  return (
-    <section className="border-t border-border px-6 py-14">
-      <div className="mx-auto max-w-3xl">
-        <div className="mb-8 text-center">
-          <p className="mb-2 font-mono text-xs uppercase tracking-widest text-accent/60">Live on testnet</p>
-          <h2 className="text-xl font-semibold md:text-2xl">Real activity, verifiably private</h2>
-        </div>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {cards.map(({ key, icon: Icon, color, label, sub }, i) => (
-            <motion.div
-              key={key}
-              className="glass-card flex flex-col items-center gap-3 p-5 text-center"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.08 }}
-            >
-              <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
-                <Icon className="h-4 w-4" strokeWidth={1.8} />
-              </div>
-              {loading ? (
-                <Skeleton className="h-7 w-14" />
-              ) : (
-                <span className="font-display text-2xl font-bold tabular-nums text-text-primary">
-                  {stats?.[key] ?? "—"}
-                </span>
-              )}
-              <div>
-                <h3 className="text-xs font-semibold text-text-primary">{label}</h3>
-                <p className="mt-0.5 text-[11px] leading-relaxed text-text-muted">{sub}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-        <Link
-          href="/stats"
-          className="mx-auto mt-6 flex w-fit items-center gap-1 text-[15px] text-text-muted transition-colors hover:text-accent"
-        >
-          View full stats <ArrowRight className="h-4 w-4" />
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 export default function LandingPage() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
   return (
-    <div className="min-h-dvh overflow-x-hidden bg-void text-text-primary">
-      {/* Fixed nav */}
-      <nav className="fixed left-0 right-0 top-0 z-40 border-b border-border bg-void/80 backdrop-blur-2xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2.5">
-            <LucentLogoMark size={28} />
-            <span className="text-base font-semibold">Lucent</span>
+    <PublicShell>
+      <section className="mx-auto grid max-w-[1280px] items-center gap-14 px-5 py-16 sm:px-8 md:py-24 xl:grid-cols-[1fr_1.05fr]">
+        <div>
+          <div className="mb-7 inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-xs font-medium text-text-secondary">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent" />
+            Built on Stellar · Testnet preview
           </div>
-
-          {/* Desktop links */}
-          <div className="hidden items-center gap-7 md:flex">
-            <Link href="/docs" className="text-sm text-text-secondary transition-colors hover:text-text-primary">
-              Docs
-            </Link>
-            <Link href="/about" className="text-sm text-text-secondary transition-colors hover:text-text-primary">
-              About
-            </Link>
+          <h1 className="max-w-xl text-[44px] font-semibold leading-[1.06] tracking-[-0.055em] sm:text-6xl xl:text-[72px]">
+            Your payments.
+            <br />
+            Your business.
+            <br />
+            <span className="text-accent">Less exposed.</span>
+          </h1>
+          <p className="mt-7 max-w-lg text-base leading-8 text-text-secondary">
+            Confidential USDC payments for business workflows on Stellar. Send
+            payments, run payroll and disclose specific transfer amounts—without
+            publishing every transfer amount.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/home"
-              className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
+              className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-black hover:bg-accent-hover"
             >
-              Launch App
-              <ArrowRight className="h-4 w-4" />
+              Open Testnet workspace <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href="/docs"
+              className="inline-flex min-h-12 items-center rounded-lg border border-border px-5 text-sm hover:bg-card"
+            >
+              Read the documentation
             </Link>
           </div>
-
-          {/* Mobile hamburger */}
-          <button
-            className="rounded-lg p-2 text-text-secondary transition-colors hover:text-text-primary md:hidden"
-            onClick={() => setMobileMenuOpen((o) => !o)}
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <p className="mt-5 text-xs leading-6 text-text-muted">
+            Freighter wallet required for payments. Test funds only. Unaudited.
+          </p>
         </div>
-
-        {/* Mobile dropdown */}
-        <AnimatePresence>
-          {mobileMenuOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              className="overflow-hidden border-t border-border bg-void/95 backdrop-blur-2xl md:hidden"
-            >
-              <div className="flex flex-col gap-5 px-6 py-5">
-                <Link
-                  href="/docs"
-                  className="text-sm text-text-secondary transition-colors hover:text-text-primary"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Docs
-                </Link>
-                <Link
-                  href="/about"
-                  className="text-sm text-text-secondary transition-colors hover:text-text-primary"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  About
-                </Link>
-                <Link
-                  href="/home"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
-                >
-                  Launch App
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </nav>
-
-      {/* Hero */}
-      <section className="px-6 pb-28 pt-36">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-8 text-center">
-          <motion.div
-            className="relative"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          >
-            <div
-              aria-hidden
-              className="absolute inset-0"
-              style={{
-                background: "radial-gradient(circle, rgba(251,187,36,0.22) 0%, transparent 70%)",
-                filter: "blur(48px)",
-                transform: "scale(3)",
-              }}
-            />
-            <LucentLogoMark size={88} />
-          </motion.div>
-
-          <motion.div
-            className="flex flex-col gap-5"
-            initial="hidden"
-            animate="show"
-            variants={{ hidden: {}, show: { transition: { staggerChildren: 0.12, delayChildren: 0.15 } } }}
-          >
-            <motion.h1 variants={fadeUp} className="text-4xl font-semibold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
-              The amount is
-              <br />
-              <span className="text-accent">the only secret.</span>
-            </motion.h1>
-            <motion.p variants={fadeUp} className="mx-auto max-w-xl text-base leading-relaxed text-text-secondary md:text-lg">
-              Sender and receiver are public. Only the number is encrypted — with ZK proofs verified
-              natively on Stellar. Same chain, same finality, different visibility.
-            </motion.p>
-            <motion.div variants={fadeUp} className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-              <Link
-                href="/home"
-                className="flex items-center justify-center gap-2 rounded-2xl bg-accent px-7 py-3.5 text-sm font-semibold text-black transition-colors hover:bg-accent-hover"
-              >
-                Launch App
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <div className="hidden h-8 w-px bg-border sm:block" />
-              <Link
-                href="/docs"
-                className="flex items-center justify-center gap-2 rounded-2xl border border-border px-7 py-3.5 text-sm font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
-              >
-                Read Docs
-              </Link>
-            </motion.div>
-            <motion.div variants={fadeUp} className="flex items-center justify-center gap-2 font-mono text-xs text-text-muted">
-              <span>Powered by</span>
-              <span className="font-medium text-text-secondary">Stellar Protocol 26</span>
-              <span className="text-accent">·</span>
-              <span>Soroban testnet</span>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="border-t border-border px-6 py-20">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-12 text-center">
-            <p className="mb-3 font-mono text-xs uppercase tracking-widest text-accent/60">How it works</p>
-            <h2 className="text-2xl font-semibold md:text-3xl">Private payments in three steps</h2>
-          </div>
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-            {STEPS.map(({ num, title, desc, icon: Icon }, i) => (
-              <motion.div
-                key={num}
-                className="glass-card flex flex-col gap-5 p-7"
-                initial={{ opacity: 0, y: 24 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-bg">
-                    <Icon className="h-5 w-5 text-accent" strokeWidth={1.8} />
-                  </div>
-                  <span className="font-mono text-3xl font-bold text-white/[0.07]">{num}</span>
-                </div>
-                <div>
-                  <h3 className="mb-2 text-base font-semibold text-text-primary">{title}</h3>
-                  <p className="text-sm leading-relaxed text-text-secondary">{desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="border-t border-border px-6 py-20">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-12 text-center">
-            <p className="mb-3 font-mono text-xs uppercase tracking-widest text-accent/60">Features</p>
-            <h2 className="text-2xl font-semibold md:text-3xl">
-              The relationship stays public. The number doesn&apos;t.
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            {FEATURES.map(({ icon: Icon, title, desc, color }, i) => (
-              <motion.div
-                key={title}
-                className="glass-card flex gap-4 p-6"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.08 }}
-              >
-                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${color}`}>
-                  <Icon className="h-5 w-5" strokeWidth={1.8} />
-                </div>
-                <div>
-                  <h3 className="mb-1.5 text-sm font-semibold text-text-primary">{title}</h3>
-                  <p className="text-sm leading-relaxed text-text-secondary">{desc}</p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <StatsBar />
-
-      {/* Trust model */}
-      <section className="border-t border-border px-6 py-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <motion.div
-            className="glass-card flex flex-col items-center gap-6 p-10 md:p-14"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-bg">
-              <Shield className="h-7 w-7 text-accent" strokeWidth={1.5} />
+        <div>
+          <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-[0_24px_80px_rgba(0,0,0,.25)]">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <span className="text-sm font-semibold">Lucent workspace</span>
+              <span className="text-xs text-accent">Stellar Testnet</span>
             </div>
-            <div className="flex flex-col gap-3">
-              <h2 className="text-2xl font-semibold md:text-3xl">Privacy that works for real payments.</h2>
-              <p className="max-w-lg leading-relaxed text-text-secondary">
-                Most privacy tools hide identity and break compliance. Lucent encrypts only the amount —
-                the relationship stays auditable, on the same chain, with the same finality. No off-chain
-                operators, no custodians, no separate infrastructure.
+            <div className="p-5 sm:p-7">
+              <div className="mb-7 flex justify-between text-xs text-text-secondary">
+                <span>Overview</span>
+                <span>Wallet disconnected</span>
+              </div>
+              <h2 className="text-xl font-semibold">
+                A clear view of your funds.
+              </h2>
+              <p className="mb-6 mt-2 text-xs leading-6 text-text-muted">
+                Connect your wallet to see real balances and activity.
+              </p>
+              <div className="rounded-lg border border-accent/20 bg-card p-5">
+                <p className="text-sm text-text-secondary">
+                  Available confidential balance
+                </p>
+                <p className="my-5 text-4xl font-semibold tracking-tight">
+                  —{" "}
+                  <span className="text-base font-normal text-text-muted">
+                    USDC
+                  </span>
+                </p>
+                <div className="flex gap-3 text-xs">
+                  <Link
+                    href="/send"
+                    className="rounded-md bg-accent px-4 py-3 font-semibold text-black"
+                  >
+                    Send payment
+                  </Link>
+                  <Link
+                    href="/shield"
+                    className="rounded-md border border-border px-4 py-3"
+                  >
+                    Add funds
+                  </Link>
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-4">
+                {["Incoming · requires merge", "Public wallet balance"].map(
+                  (label) => (
+                    <div
+                      key={label}
+                      className="rounded-lg border border-border p-4"
+                    >
+                      <p className="text-xs leading-5 text-text-secondary">
+                        {label}
+                      </p>
+                      <p className="mt-4 text-2xl">—</p>
+                    </div>
+                  ),
+                )}
+              </div>
+              <div className="mt-6 flex items-center justify-between border-t border-border pt-5">
+                <span className="text-xs text-text-secondary">
+                  Confidential payments, explicit review.
+                </span>
+                <ShieldCheck className="h-4 w-4 text-accent" />
+              </div>
+            </div>
+          </div>
+          <p className="mt-4 text-center text-xs leading-6 text-text-muted">
+            Interface preview · no balances or activity are simulated.
+          </p>
+        </div>
+      </section>
+      <section className="border-y border-border bg-surface">
+        <div className="mx-auto grid max-w-[1280px] gap-6 px-5 py-8 sm:px-8 md:grid-cols-3">
+          {[
+            {
+              title: "Amounts, not anonymity",
+              text: "Transfer amounts are hidden. Addresses and metadata stay public.",
+            },
+            {
+              title: "Proofs in your browser",
+              text: "Local proof generation. Verification by Soroban contracts.",
+            },
+            {
+              title: "Disclosure with context",
+              text: "Verify a specific amount against its public transfer event.",
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className="md:border-r md:border-border md:pr-6 last:border-0"
+            >
+              <h2 className="text-sm font-semibold">{item.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">
+                {item.text}
               </p>
             </div>
-            <div className="rounded-full border border-accent/20 bg-accent/[0.05] px-4 py-2">
-              <span className="font-mono text-xs text-accent/70">Stellar Protocol 26 · Soroban testnet</span>
-            </div>
-          </motion.div>
+          ))}
         </div>
       </section>
-
-      {/* Footer */}
-      <footer className="border-t border-border px-6 py-12">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-6 md:flex-row">
-          <div className="flex items-center gap-3">
-            <LucentLogoMark size={26} />
-            <div>
-              <p className="text-sm font-semibold">Lucent</p>
-              <p className="text-xs text-text-muted">The amount is the only secret</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
-            <Link href="/privacy" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
-              Privacy
-            </Link>
-            <Link href="/stats" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
-              Stats
-            </Link>
-            <Link href="/docs" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
-              Docs
-            </Link>
-            <a
-              href="https://github.com/Psalmuel01/Lucent"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-sm text-text-muted transition-colors hover:text-text-secondary"
-            >
-              <GithubMark className="h-4 w-4" />
-              GitHub
-            </a>
-            <a
-              href="https://github.com/OpenZeppelin/stellar-contracts"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1.5 text-xs text-text-muted transition-colors hover:text-text-secondary"
-            >
-              Built on <span className="ml-1 font-semibold">Stellar</span>
-            </a>
-          </div>
+      <section
+        id="workflows"
+        className="mx-auto max-w-[1280px] px-5 py-20 sm:px-8 md:py-24"
+      >
+        <p className="eyebrow">One connected workspace</p>
+        <div className="mt-4 grid gap-7 md:grid-cols-2">
+          <h2 className="max-w-lg text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+            Every payment has a purpose.
+            <br />
+            Give it a proper workflow.
+          </h2>
+          <p className="max-w-lg text-base leading-8 text-text-secondary">
+            Move from funding to payment, from a recipient template to a payroll
+            run, or from a disclosure request to a verified result. Understand
+            what happens before you approve.
+          </p>
         </div>
-      </footer>
-    </div>
+        <div className="mt-12 grid gap-5 md:grid-cols-2">
+          {workflows.map(
+            ({ icon: Icon, title, description, href, label }, i) => (
+              <article
+                key={href}
+                className="rounded-xl border border-border bg-surface p-6 sm:p-8"
+              >
+                <div className="mb-8 flex items-center justify-between">
+                  <Icon className="h-6 w-6 text-accent" />
+                  <span className="font-mono text-xs text-text-muted">
+                    0{i + 1}
+                  </span>
+                </div>
+                <h3 className="text-xl font-semibold">{title}</h3>
+                <p className="mb-6 mt-4 max-w-lg text-sm leading-7 text-text-secondary">
+                  {description}
+                </p>
+                <Link
+                  href={href}
+                  className="inline-flex min-h-10 items-center gap-2 text-sm font-medium text-accent"
+                >
+                  {label}
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </article>
+            ),
+          )}
+        </div>
+      </section>
+      <section className="border-y border-border bg-[#ece9df] text-[#20242a]">
+        <div className="mx-auto grid max-w-[1280px] gap-10 px-5 py-16 sm:px-8 lg:grid-cols-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#5c5546]">
+              Privacy, precisely explained
+            </p>
+            <h2 className="mt-4 max-w-lg text-3xl font-semibold leading-tight tracking-tight sm:text-4xl">
+              Confidence starts with knowing the boundaries.
+            </h2>
+            <Link
+              href="/docs"
+              className="mt-7 inline-flex min-h-11 items-center gap-3 rounded-lg border border-[#777367] px-5 text-sm font-semibold"
+            >
+              Read how Lucent works <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <dl className="divide-y divide-[#c6c2b7] text-sm">
+            {[
+              {
+                title: "Confidential transfers",
+                text: "Commitments and encrypted channels hide transfer amounts. The designated auditor can decrypt covered amounts.",
+              },
+              {
+                title: "Observable on-chain",
+                text: "Participants, timing and metadata stay public. Deposit and withdrawal amounts are public too.",
+              },
+              {
+                title: "An experimental Testnet",
+                text: "Demo auditor keys are public. Escrow retains a depositor-key custody limitation. Contracts and circuits are unaudited; do not use real funds.",
+              },
+            ].map((item) => (
+              <div key={item.title} className="py-5 first:pt-0">
+                <dt className="font-semibold">{item.title}</dt>
+                <dd className="mt-2 leading-7 text-[#4d525a]">{item.text}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+      <section className="mx-auto max-w-[1280px] px-5 py-20 sm:px-8">
+        <div className="grid gap-10 lg:grid-cols-2">
+          <div>
+            <p className="eyebrow">From your wallet to a payment</p>
+            <h2 className="mt-4 max-w-lg text-3xl font-semibold tracking-tight">
+              Try the full flow.
+              <br />
+              See what happens at each step.
+            </h2>
+          </div>
+          <ol className="space-y-6">
+            {[
+              {
+                title: "Connect and register",
+                text: "Use Freighter on Stellar Testnet. A one-time proof binds your confidential keys.",
+              },
+              {
+                title: "Fund and merge",
+                text: "Deposit matching Testnet USDC, then merge incoming funds to make them available.",
+              },
+              {
+                title: "Review, approve and confirm",
+                text: "Check the recipient and amount. Generate a proof locally, approve in your wallet and wait for confirmation.",
+              },
+            ].map((item, i) => (
+              <li key={item.title} className="flex gap-5">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border font-mono text-xs text-accent">
+                  0{i + 1}
+                </span>
+                <div>
+                  <h3 className="font-semibold">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-7 text-text-secondary">
+                    {item.text}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className="mt-14 flex flex-wrap items-center justify-between gap-6 rounded-xl border border-border bg-surface p-6 sm:p-8">
+          <div>
+            <h2 className="text-xl font-semibold">
+              Built in the open. Ready to test.
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">
+              Explore the implementation and help shape confidential payments on
+              Stellar.
+            </p>
+          </div>
+          <Link
+            href="/home"
+            className="inline-flex min-h-12 items-center gap-3 rounded-lg bg-accent px-5 text-sm font-semibold text-black"
+          >
+            Try Lucent on Testnet <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </section>
+    </PublicShell>
   );
 }

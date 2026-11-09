@@ -1,14 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { motion } from "framer-motion";
-import { ArrowRight, ArrowDownUp, ArrowUpRight, Send, Layers, UserCheck, ScanLine, Lock, ExternalLink } from "lucide-react";
-import { ChainClient, fetchEvents, type RegisterEvent } from "@lucent/sdk";
-import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
+import { PublicShell } from "@/components/layout/PublicShell";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { DEPLOYMENT } from "@/lib/deployment";
-import { cn } from "@/lib/cn";
+import { ChainClient, fetchEvents, type RegisterEvent } from "@lucent/sdk";
+import {
+  ArrowDownUp,
+  ArrowUpRight,
+  Layers,
+  ScanLine,
+  Send,
+  UserCheck,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 function contractUrl(id: string) {
   return `https://stellar.expert/explorer/testnet/contract/${id}`;
@@ -17,7 +21,7 @@ function contractUrl(id: string) {
 const STAT_DEFS = [
   {
     key: "registered",
-    label: "Registered Addresses",
+    label: "Registration addresses seen",
     sub: "Confidential accounts bound to a Grumpkin key",
     icon: UserCheck,
     color: "text-encrypted bg-encrypted-bg",
@@ -52,8 +56,8 @@ const STAT_DEFS = [
   },
   {
     key: "verifies",
-    label: "Tx Verifies",
-    sub: "Zero-knowledge proofs verified on-chain",
+    label: "Proof-carrying events",
+    sub: "Register, transfer and withdrawal events",
     icon: ScanLine,
     color: "text-accent bg-accent-bg",
   },
@@ -75,7 +79,9 @@ export default function StatsPage() {
           networkPassphrase: DEPLOYMENT.networkPassphrase,
           contracts: DEPLOYMENT.contracts,
         });
-        const { events } = await fetchEvents(client, { startLedger: DEPLOYMENT.deployedAtLedger });
+        const { events } = await fetchEvents(client, {
+          startLedger: DEPLOYMENT.deployedAtLedger,
+        });
         if (cancelled) return;
         const count = (t: string) => events.filter((e) => e.type === t).length;
         // G... keypair accounts only — every PrivateEscrow instance also
@@ -83,7 +89,10 @@ export default function StatsPage() {
         // balance, but that's custody plumbing, not a person or org.
         const registered = new Set(
           events
-            .filter((e): e is RegisterEvent => e.type === "register" && e.account.startsWith("G"))
+            .filter(
+              (e): e is RegisterEvent =>
+                e.type === "register" && e.account.startsWith("G"),
+            )
             .map((e) => e.account),
         ).size;
         setStats({
@@ -108,91 +117,58 @@ export default function StatsPage() {
   }, []);
 
   return (
-    <div className="min-h-dvh bg-void text-text-primary">
-      <nav className="fixed left-0 right-0 top-0 z-40 border-b border-border bg-void/80 backdrop-blur-2xl">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
-            <LucentLogoMark size={24} />
-            <span className="text-sm font-semibold">Lucent</span>
-          </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/docs" className="text-sm text-text-secondary transition-colors hover:text-text-primary">
-              Docs
-            </Link>
-            <Link
-              href="/home"
-              className="flex items-center gap-1.5 rounded-full bg-accent px-4 py-1.5 text-xs font-semibold text-black transition-colors hover:bg-accent-hover"
-            >
-              Launch App <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+    <PublicShell>
+      <section className="mx-auto max-w-[1280px] px-5 py-16 sm:px-8">
+        <p className="eyebrow">Network evidence · limited coverage</p>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight sm:text-5xl">
+          Recent Testnet activity
+        </h1>
+        <p className="mt-6 max-w-2xl text-base leading-8 text-text-secondary">
+          Counts from token-contract events available through the RPC retention
+          window, typically about seven days. These are protocol events, not
+          unique users or all-time traction. Older activity may be absent.
+        </p>
+        {!loading && !stats && (
+          <div
+            role="alert"
+            className="mt-8 rounded-lg border border-warning/30 p-5 text-sm text-warning"
+          >
+            Activity data is unavailable. No counts are shown; unavailable data
+            does not mean zero activity. Reload this page to retry.
           </div>
-        </div>
-      </nav>
-
-      <div className="mx-auto max-w-4xl px-6 pb-24 pt-32">
-        <motion.div
-          className="flex flex-col gap-3"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-        >
-          <p className="font-mono text-xs uppercase tracking-widest text-accent/70">Protocol Stats</p>
-          <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-            Activity on Stellar testnet
-          </h1>
-          <p className="max-w-xl text-sm leading-relaxed text-text-secondary">
-            Every count below is read directly from on-chain events, verifiable on Stellar Expert.
-            Amounts are never revealed — not even here.
-          </p>
-          <div className="mt-1 flex items-center gap-1.5">
-            <Lock className="h-3 w-3 text-accent/60" />
-            <span className="font-mono text-xs text-text-muted">Every encrypted amount stays private</span>
-          </div>
-        </motion.div>
-
-        <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {STAT_DEFS.map(({ key, label, sub, icon: Icon, color }, i) => (
-            <motion.div
-              key={key}
-              className="glass-card flex flex-col items-center gap-3 p-5 text-center"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.35, delay: i * 0.06 }}
-            >
-              <div className={cn("flex h-9 w-9 items-center justify-center rounded-xl", color)}>
-                <Icon className="h-4 w-4" strokeWidth={1.8} />
-              </div>
+        )}
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {STAT_DEFS.map(({ key, label, sub, icon: Icon }) => (
+            <div key={key} className="glass-card p-6">
+              <Icon className="mb-6 h-5 w-5 text-accent" />
+              <h2 className="text-sm text-text-secondary">{label}</h2>
               {loading ? (
-                <Skeleton className="h-8 w-20" />
+                <Skeleton className="my-4 h-10 w-20" />
               ) : (
-                <span className="font-mono text-3xl font-semibold tabular-nums text-text-primary">
-                  {(stats?.[key] ?? 0).toLocaleString()}
-                </span>
+                <p className="my-4 text-4xl font-semibold tabular-nums">
+                  {stats ? stats[key].toLocaleString() : "—"}
+                </p>
               )}
-              <div>
-                <h3 className="text-sm font-medium text-text-primary">{label}</h3>
-                <p className="mt-1 text-xs leading-relaxed text-text-muted">{sub}</p>
-              </div>
-            </motion.div>
+              <p className="text-xs leading-6 text-text-muted">{sub}</p>
+            </div>
           ))}
         </div>
-
-        <div className="mt-12 flex flex-col gap-3 border-t border-border pt-8">
-          <p className="text-xs leading-relaxed text-text-muted">
-            Stats are read directly from the confidential token contract&apos;s event log, starting at
-            deploy ledger {DEPLOYMENT.deployedAtLedger.toLocaleString()}. Payroll and escrow activity
-            surfaces here too — both settle through the same confidential transfers.
-          </p>
-          <a
-            href={contractUrl(DEPLOYMENT.contracts.token)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-xs font-medium text-text-secondary transition-colors hover:border-border-hover hover:text-accent"
-          >
-            View confidential token contract <ExternalLink className="h-3 w-3" />
-          </a>
-        </div>
-      </div>
-    </div>
+        <p className="mt-8 max-w-2xl text-sm leading-7 text-text-secondary">
+          Registration counts reflect distinct wallet addresses with
+          registration events in the available data, not the number of currently
+          registered accounts. Proof counts are inferred from proof-carrying
+          event types. Payroll and escrow transfers are included in token
+          transfers.
+        </p>
+        <a
+          href={contractUrl(DEPLOYMENT.contracts.token)}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-6 inline-block text-sm text-accent"
+        >
+          Inspect the token contract on Stellar Expert ↗
+        </a>
+      </section>
+    </PublicShell>
   );
 }
