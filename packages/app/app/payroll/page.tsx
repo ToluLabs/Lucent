@@ -333,7 +333,7 @@ export default function PayrollPage() {
                     />
                   ) : (
                     <div className="table-scroll">
-                      <table className="w-full text-left text-sm">
+                      <table className="responsive-table w-full text-left text-sm">
                         <caption className="sr-only">
                           Payment runs for this template
                         </caption>
@@ -349,8 +349,8 @@ export default function PayrollPage() {
                             .filter((r) => r.templateId === selected.id)
                             .map((r) => (
                               <tr key={r.id.toString()}>
-                                <td>#{r.id.toString()}</td>
-                                <td>
+                                <td data-label="Run">#{r.id.toString()}</td>
+                                <td data-label="Status">
                                   <Pill
                                     tone={
                                       r.status === RunStatus.Executed
@@ -363,7 +363,7 @@ export default function PayrollPage() {
                                     {statuses[r.status]}
                                   </Pill>
                                 </td>
-                                <td>
+                                <td data-label="Next action">
                                   <div className="flex flex-wrap gap-2">
                                     {r.status === RunStatus.Scheduled && (
                                       <>
@@ -482,7 +482,7 @@ export default function PayrollPage() {
                   />
                 ) : (
                   <div className="table-scroll">
-                    <table className="w-full text-left text-sm">
+                    <table className="responsive-table w-full text-left text-sm">
                       <caption className="sr-only">
                         Your payroll templates
                       </caption>
@@ -499,12 +499,16 @@ export default function PayrollPage() {
                           .slice((current - 1) * 10, current * 10)
                           .map((t) => (
                             <tr key={t.id.toString()}>
-                              <td className="font-medium">
+                              <td data-label="Template" className="font-medium">
                                 Template #{t.id.toString()}
                               </td>
-                              <td>{t.employees.length}</td>
-                              <td>{t.active ? "Active" : "Inactive"}</td>
-                              <td>
+                              <td data-label="Recipients">
+                                {t.employees.length}
+                              </td>
+                              <td data-label="Status">
+                                {t.active ? "Active" : "Inactive"}
+                              </td>
+                              <td data-label="Manage">
                                 <Button
                                   size="sm"
                                   variant="secondary"

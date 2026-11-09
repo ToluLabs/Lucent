@@ -56,7 +56,9 @@ export function PageHeader({
           </p>
         )}
       </div>
-      {right}
+      {right && (
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto">{right}</div>
+      )}
     </header>
   );
 }

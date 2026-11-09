@@ -176,3 +176,44 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Preserve real table semantics while stacking financial rows on narrow screens. */
+@media (max-width: 639px) {
+  .responsive-table,
+  .responsive-table tbody {
+    display: block;
+    width: 100%;
+  }
+  .responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .responsive-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+  }
+  .responsive-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+  }
+  .responsive-table td:last-child {
+    grid-column: 1 / -1;
+  }
+  .responsive-table td::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #9aa3b1;
+  }
+}
