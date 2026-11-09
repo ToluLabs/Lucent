@@ -116,6 +116,53 @@ try {
         }));
       });
       report.push({ width, route, overflow, violations });
+      const families = await page.evaluate(() => ({
+        body: getComputedStyle(document.body).fontFamily,
+        heading: getComputedStyle(document.querySelector("h1")).fontFamily,
+      }));
+      assert.equal(
+        families.body.split(",")[0].replaceAll('"', ""),
+        "Manrope",
+        `${route} body uses the shared UI font`,
+      );
+      assert.equal(
+        families.heading.split(",")[0].replaceAll('"', ""),
+        "Manrope",
+        `${route} heading uses the shared UI font`,
+      );
+      if (route === "/docs") {
+        if ([390, 1440].includes(width))
+          await page.screenshot({ path: resolve(output, `docs-${width}.png`) });
+        if (width === 1440) {
+          const search = page.getByLabel("Find a documentation topic");
+          await search.fill("SDK");
+          const link = page
+            .getByRole("navigation", {
+              name: "Documentation topics",
+              exact: true,
+            })
+            .getByRole("link", { name: "SDK integration", exact: true });
+          await link.click();
+          assert.equal(await page.evaluate(() => location.hash), "#sdk");
+          await search.fill("");
+        }
+        if (width === 390) {
+          await page
+            .getByRole("button", { name: "Topics", exact: true })
+            .click();
+          const dialog = page.getByRole("dialog", {
+            name: "Documentation topics",
+            exact: true,
+          });
+          await dialog.getByLabel("Find a documentation topic").fill("payroll");
+          await dialog
+            .getByRole("link", { name: "Payroll", exact: true })
+            .click();
+          assert.equal(await page.getByRole("dialog").count(), 0);
+          assert.equal(await page.evaluate(() => location.hash), "#payroll");
+        }
+      }
+
       if (
         (width === 390 || width === 1440) &&
         ["/", "/home", "/verify", "/auditor"].includes(route)

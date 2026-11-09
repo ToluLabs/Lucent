@@ -6,7 +6,7 @@ The app uses Next.js, React, Tailwind and the existing Lucent SDK. Wallet-derive
 
 Primary navigation: Overview, Payments, Payroll, Escrow. Supporting tools: Funding (existing /shield), Verification, Auditor, Settings (existing /profile), documentation and privacy controls. Existing URLs remain stable.
 
-The revised visual direction uses near-black surfaces, champagne gold, Manrope display typography and DM Sans body text. Floating navigation, softly lit panels and a custom orbital brand illustration replace the earlier grey console styling. Native decimal inputs, purposeful desktop widths and visible mobile navigation labels remain. Dialogs use native modal focus management. Browser zoom and reduced motion are supported.
+The revised visual direction uses near-black surfaces, champagne gold and a shared Manrope family for interface text and headings, with IBM Plex Mono for code and technical identifiers. Floating navigation, softly lit panels and a custom orbital brand illustration replace the earlier grey console styling. Native decimal inputs, purposeful desktop widths and visible mobile navigation labels remain. Dialogs use native modal focus management. Browser zoom and reduced motion are supported.
 
 ## Audit findings addressed
 
@@ -109,3 +109,16 @@ Motion includes slow decorative orbital rotation, pointer parallax, staggered wo
 The revised build and app typecheck passed. The existing mocked financial suite plus 25 connected layout/accessibility checks passed; all 65 production route/viewport checks passed with no detected violations, overflow or runtime errors. Added browser assertions verify normal orbital animation, pointer response and the reduced-motion override. These are UI checks, not new live Testnet settlement evidence.
 
 [New landing hero](./screenshots/landing-hero-1440.png)
+
+## Documentation and typography expansion
+
+The documentation now shares Lucent’s public navigation and visual shell. A canvas up to 1680px replaces the narrow article layout, with a sticky, grouped topic index, filtered topic navigation, mobile contents dialog, quick-entry cards, multi-column workflow guides, a protocol flow diagram and wider code/reference areas. Paragraph lengths remain bounded for readability; grids and reference material use the broader canvas.
+
+Content now includes a first Testnet payment walkthrough, local setup, reproducible build/test commands, an SDK registration example, deployment guidance and a recovery/troubleshooting reference. Outdated privacy, payroll and authorization statements were corrected against the implementation. No private keys were added. The SDK example was extracted and typechecked against the actual app and SDK.
+
+Manrope now supplies body text, headings, controls and financial amounts throughout the website, documentation and workspace. Monospace remains available for code, addresses, keys and technical data. The extra DM Sans font request was removed. The pre-existing generated development declaration was preserved rather than committed.
+
+Validation: production build and TypeScript checks passed. The mocked financial-flow suite and 25 connected layout/accessibility checks passed. Browser checks exercise topic filtering, desktop anchor navigation, mobile contents selection and the shared body/heading family across 13 routes. The final production sweep passed all 65 route/viewport combinations, including 320px docs code containment, with no detected accessibility violations, page overflow or runtime errors. Desktop topic filtering and anchor navigation, mobile topic selection and shared body/heading font checks all passed.
+
+- [Wide documentation preview](./screenshots/docs-1440.png)
+- [Mobile documentation preview](./screenshots/docs-390.png)
