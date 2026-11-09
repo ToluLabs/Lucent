@@ -24,6 +24,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="preload"
+          href="/fonts/manrope-v23-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-dvh bg-void font-sans text-text-primary antialiased">
         <Analytics />
         <WalletProvider>

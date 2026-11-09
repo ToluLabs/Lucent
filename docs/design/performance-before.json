@@ -1,0 +1,161 @@
+{
+  "settings": {
+    "cpuSlowdown": 4,
+    "networkThrottling": false,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "cache": "disabled",
+    "wallet": "disconnected",
+    "analytics": "excluded",
+    "samplesPerRoute": 1
+  },
+  "baseCommit": "57f3061",
+  "routes": [
+    {
+      "target": "local-production",
+      "route": "/",
+      "heading": "Move money.Keep yourbusiness yours.",
+      "ttfb": 14,
+      "domReady": 1040,
+      "lcp": 1397,
+      "jsDecodedKB": 2134,
+      "jsEncodedKB": 606,
+      "jsRequests": 19,
+      "longTasks": 2,
+      "blockingMs": 574,
+      "fonts": [
+        {
+          "host": "fonts.googleapis.com",
+          "duration": 480
+        }
+      ],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      }
+    },
+    {
+      "target": "local-production",
+      "route": "/docs",
+      "heading": "Build with Lucent.",
+      "ttfb": 4,
+      "domReady": 1046,
+      "lcp": 1043,
+      "jsDecodedKB": 2134,
+      "jsEncodedKB": 606,
+      "jsRequests": 19,
+      "longTasks": 3,
+      "blockingMs": 575,
+      "fonts": [
+        {
+          "host": "fonts.googleapis.com",
+          "duration": 457
+        }
+      ],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      }
+    },
+    {
+      "target": "local-production",
+      "route": "/home",
+      "heading": "Overview",
+      "ttfb": 5,
+      "domReady": 927,
+      "lcp": 1529,
+      "jsDecodedKB": 2249,
+      "jsEncodedKB": 648,
+      "jsRequests": 26,
+      "longTasks": 2,
+      "blockingMs": 599,
+      "fonts": [
+        {
+          "host": "fonts.googleapis.com",
+          "duration": 456
+        }
+      ],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      }
+    },
+    {
+      "target": "local-development",
+      "route": "/",
+      "heading": "Move money.Keep yourbusiness yours.",
+      "ttfb": 472,
+      "domReady": 3276,
+      "lcp": 3432,
+      "jsDecodedKB": 17612,
+      "jsEncodedKB": 4171,
+      "jsRequests": 5,
+      "longTasks": 2,
+      "blockingMs": 2002,
+      "fonts": [
+        {
+          "host": "fonts.googleapis.com",
+          "duration": 491
+        }
+      ],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      }
+    },
+    {
+      "target": "local-development",
+      "route": "/docs",
+      "heading": "Build with Lucent.",
+      "ttfb": 266,
+      "domReady": 1355,
+      "lcp": 1393,
+      "jsDecodedKB": 18055,
+      "jsEncodedKB": 4238,
+      "jsRequests": 5,
+      "longTasks": 2,
+      "blockingMs": 2016,
+      "fonts": [
+        {
+          "host": "fonts.googleapis.com",
+          "duration": 737
+        }
+      ],
+      "frames": {
+        "samples": 35,
+        "gapsOver50": 1,
+        "maxGap": 67
+      }
+    },
+    {
+      "target": "local-development",
+      "route": "/home",
+      "heading": "Overview",
+      "ttfb": 66,
+      "domReady": 2903,
+      "lcp": 3012,
+      "jsDecodedKB": 25030,
+      "jsEncodedKB": 5952,
+      "jsRequests": 5,
+      "longTasks": 1,
+      "blockingMs": 1965,
+      "fonts": [
+        {
+          "host": "fonts.googleapis.com",
+          "duration": 640
+        }
+      ],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      }
+    }
+  ]
+}

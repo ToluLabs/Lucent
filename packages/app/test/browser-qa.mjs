@@ -95,6 +95,33 @@ try {
           new Promise((r) => setTimeout(r, 1000)),
         ]),
       );
+      const startup = await page.evaluate(() => ({
+        externalFonts: performance
+          .getEntriesByType("resource")
+          .filter((r) =>
+            /fonts\.(googleapis|gstatic)\.com/.test(new URL(r.name).hostname),
+          ).length,
+        jsBytes: performance
+          .getEntriesByType("resource")
+          .filter(
+            (r) =>
+              r.name.includes("/_next/") &&
+              new URL(r.name).pathname.endsWith(".js"),
+          )
+          .reduce((n, r) => n + r.decodedBodySize, 0),
+        fontReady: document.fonts.check("500 16px Manrope", "Lucent"),
+      }));
+      assert.equal(
+        startup.externalFonts,
+        0,
+        `${route} must not depend on remote font requests`,
+      );
+      assert.ok(startup.fontReady, `${route} local UI font loads`);
+      if (["/", "/docs"].includes(route))
+        assert.ok(
+          startup.jsBytes < 900 * 1024,
+          `${route} public-page JS budget exceeded: ${Math.round(startup.jsBytes / 1024)} KB`,
+        );
       const overflow = await page.evaluate(
         () => document.documentElement.scrollWidth > innerWidth + 1,
       );

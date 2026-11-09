@@ -14,9 +14,10 @@
     "deploy:cf": "pnpm run build:cf && opennextjs-cloudflare deploy",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test:ui": "node test/ui.mjs",
+    "test:ui": "node test/wallet-loading.mjs && node test/ui.mjs",
     "test:forms": "pnpm --filter @lucent/sdk exec tsx ../../packages/app/test/forms.mjs",
-    "test:browser": "node test/browser-qa.mjs"
+    "test:browser": "node test/browser-qa.mjs",
+    "profile:startup": "node test/performance.mjs"
   },
   "dependencies": {
     "@lucent/disclosure": "workspace:*",

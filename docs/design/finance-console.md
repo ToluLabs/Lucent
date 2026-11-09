@@ -122,3 +122,7 @@ Validation: production build and TypeScript checks passed. The mocked financial-
 
 - [Wide documentation preview](./screenshots/docs-1440.png)
 - [Mobile documentation preview](./screenshots/docs-390.png)
+
+## Startup performance follow-up
+
+Wallet initialization and public-route prefetch were separated from public-page rendering. The existing fonts are now hosted locally with their notices and versioned cache paths. A measured local production sample reduced landing/docs startup JavaScript from 2,134 to 507 KiB decoded, while development mode still carries compilation and debug overhead. See [performance notes and reproducible measurements](./performance.md).

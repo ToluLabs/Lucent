@@ -11,7 +11,9 @@ const dir = await mkdtemp(join(tmpdir(), "lucent-ui-"));
 const app = resolve(import.meta.dirname, "..");
 const require = createRequire(import.meta.url);
 const axe = await readFile(require.resolve("axe-core/axe.min.js"), "utf8");
-const output = resolve(app, "../../docs/design/screenshots");
+const output = resolve(
+  process.env.UI_SCREENSHOTS ?? resolve(app, "../../docs/design/screenshots"),
+);
 await mkdir(output, { recursive: true });
 const cssNames = await readdir(resolve(app, ".next/static/css"));
 const css = (
@@ -47,7 +49,7 @@ try {
           b.onLoad({ filter: /.*/, namespace: "next-mock" }, (args) => ({
             contents:
               args.path === "next/link"
-                ? `import React from ${JSON.stringify(react)};export default function Link(p){return React.createElement('a',p);}`
+                ? `import React from ${JSON.stringify(react)};export default function Link({prefetch,...p}){return React.createElement('a',p);}`
                 : `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:p=>location.href=p,back:()=>history.back()});`,
             loader: "js",
             resolveDir: app,
@@ -75,8 +77,31 @@ try {
     ],
   });
   const js = await readFile(join(dir, "fixture.js"));
+  const fontDir = resolve(app, "public/fonts");
+  const fontFiles = (await readdir(fontDir)).filter((name) =>
+    name.endsWith(".woff2"),
+  );
+  const fonts = new Map(
+    await Promise.all(
+      fontFiles.map(async (name) => [
+        name,
+        await readFile(resolve(fontDir, name)),
+      ]),
+    ),
+  );
   server = createServer((req, res) => {
-    if (req.url === "/fixture.css") {
+    if (req.url.startsWith("/fonts/")) {
+      const bytes = fonts.get(
+        new URL(req.url, "http://fixture").pathname.slice(7),
+      );
+      if (!bytes) {
+        res.writeHead(404);
+        res.end();
+      } else {
+        res.setHeader("Content-Type", "font/woff2");
+        res.end(bytes);
+      }
+    } else if (req.url === "/fixture.css") {
       res.setHeader("Content-Type", "text/css");
       res.end(css);
     } else if (req.url === "/fixture.js") {
@@ -107,6 +132,9 @@ try {
   async function visit(path) {
     await page.goto(base + path);
     await page.getByRole("heading", { level: 1 }).waitFor();
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
   }
   const B = "GBEYGMUUNP42QQRWZBKHAGNURZFE76ASFJ5QUEHA5UAXNEQFYCAKBQWO";
   async function payment(params = "") {

@@ -20,7 +20,18 @@ const nextConfig = {
   outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
   transpilePackages: ["@lucent/sdk"],
   async headers() {
-    return [{ source: "/(.*)", headers: crossOriginIsolation }];
+    return [
+      { source: "/(.*)", headers: crossOriginIsolation },
+      {
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
   },
   webpack: (config, { isServer }) => {
     config.experiments = {
