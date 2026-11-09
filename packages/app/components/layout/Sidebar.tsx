@@ -1,4 +1,5 @@
 "use client";
+import { useWallet } from "@/lib/wallet-context";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { cn } from "@/lib/cn";
 import Link from "next/link";
@@ -9,6 +10,7 @@ import {
   supportingNavigation,
 } from "./navigation";
 export function Sidebar() {
+  const { wallet } = useWallet();
   const path = usePathname();
   return (
     <aside className="console-sidebar sticky flex w-[220px] flex-col  xl:w-[240px]">
@@ -29,6 +31,7 @@ export function Sidebar() {
             </p>
             {group.items.map(({ href, label, icon: Icon }) => (
               <Link
+                prefetch={!!wallet}
                 key={href}
                 href={href}
                 aria-current={path === href ? "page" : undefined}
@@ -49,6 +52,7 @@ export function Sidebar() {
       <div className="border-t border-border px-6 py-5">
         {resourceNavigation.map(({ href, label }) => (
           <Link
+            prefetch={!!wallet}
             key={href}
             href={href}
             className="block py-2 text-xs text-text-secondary hover:text-accent"

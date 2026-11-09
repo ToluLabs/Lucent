@@ -372,13 +372,13 @@ export default function DocsPage() {
               ))}
             </ol>
             <div className="docs-inline-links">
-              <Link href="/home">
+              <Link prefetch={false} href="/home">
                 Open Overview <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
-              <Link href="/shield">
+              <Link prefetch={false} href="/shield">
                 Add test funds <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
-              <Link href="/send">
+              <Link prefetch={false} href="/send">
                 Make a payment <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             </div>

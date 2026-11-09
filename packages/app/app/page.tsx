@@ -80,6 +80,7 @@ export default function LandingPage() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
+              prefetch={false}
               href="/home"
               className="hero-cta lucent-button-primary text-black"
             >
@@ -190,6 +191,7 @@ export default function LandingPage() {
                     — <span className="text-sm text-text-muted">USDC</span>
                   </p>
                   <Link
+                    prefetch={false}
                     href="/send"
                     className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2.5 text-xs font-semibold text-black"
                   >
@@ -239,6 +241,7 @@ export default function LandingPage() {
             </h2>
           </div>
           <Link
+            prefetch={false}
             href="/home"
             className="flex min-h-11 items-center gap-3 text-sm text-accent"
           >
@@ -262,6 +265,7 @@ export default function LandingPage() {
                   {description}
                 </p>
                 <Link
+                  prefetch={false}
                   href={href}
                   className="mt-8 inline-flex min-h-10 items-center gap-3 text-xs font-medium text-accent"
                 >
@@ -345,6 +349,7 @@ export default function LandingPage() {
           </div>
           <div>
             <Link
+              prefetch={false}
               href="/home"
               className="hero-cta lucent-button-primary w-full text-black"
             >

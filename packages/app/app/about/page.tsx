@@ -62,7 +62,9 @@ export default function AboutPage() {
             >
               Explore the source ↗
             </a>
-            <Link href="/home">Try the Testnet workspace →</Link>
+            <Link prefetch={false} href="/home">
+              Try the Testnet workspace →
+            </Link>
           </div>
         </div>
       </section>

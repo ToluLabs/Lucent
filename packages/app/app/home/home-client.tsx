@@ -21,9 +21,6 @@ import { useAction } from "@/lib/use-action";
 import type { ConfidentialWallet } from "@/lib/wallet";
 import { useWallet } from "@/lib/wallet-context";
 import {
-  ChainClient,
-  IndexerClient,
-  hybridFetchEvents,
   type ConfidentialEvent,
   type EscrowInfo,
   type TransferEvent,
@@ -288,6 +285,10 @@ export function HomeClient() {
       setActivity(null);
       setDecryptedAmounts(new Map());
       try {
+        const { ChainClient, IndexerClient, hybridFetchEvents } = await import(
+          "@lucent/sdk"
+        );
+        if (cancelled) return;
         const client = new ChainClient({
           rpcUrl: DEPLOYMENT.rpcUrl,
           networkPassphrase: DEPLOYMENT.networkPassphrase,

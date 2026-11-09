@@ -1,4 +1,5 @@
 "use client";
+import { useWallet } from "@/lib/wallet-context";
 import { Modal } from "@/components/ui/Modal";
 import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
@@ -10,6 +11,7 @@ import {
   supportingNavigation,
 } from "./navigation";
 export function BottomNav() {
+  const { wallet } = useWallet();
   const path = usePathname();
   const [open, setOpen] = useState(false);
   return (
@@ -20,6 +22,7 @@ export function BottomNav() {
       >
         {primaryNavigation.map(({ href, label, icon: Icon }) => (
           <Link
+            prefetch={!!wallet}
             key={href}
             href={href}
             aria-current={path === href ? "page" : undefined}
@@ -43,6 +46,7 @@ export function BottomNav() {
         {[...supportingNavigation, ...resourceNavigation].map(
           ({ href, label, icon: Icon }) => (
             <Link
+              prefetch={!!wallet}
               key={href}
               href={href}
               onClick={() => setOpen(false)}

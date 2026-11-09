@@ -47,6 +47,7 @@ export function PublicShell({
               GitHub ↗
             </a>
             <Link
+              prefetch={false}
               href="/home"
               className="rounded-lg bg-accent px-4 py-3 font-semibold text-black hover:bg-accent-hover"
             >
@@ -73,7 +74,9 @@ export function PublicShell({
           >
             <Link href="/docs">Documentation</Link>
             <Link href="/about">About</Link>
-            <Link href="/stats">Testnet activity</Link>
+            <Link prefetch={false} href="/stats">
+              Testnet activity
+            </Link>
             <Link href="/privacy">Privacy & analytics</Link>
             <a
               href="https://github.com/ToluLabs/Lucent"
