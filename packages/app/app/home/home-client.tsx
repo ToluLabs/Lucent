@@ -3,7 +3,10 @@
 import { useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics";
-import { useRouter } from "next/navigation";
+import { useAction } from "@/lib/use-action";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
+import { Input } from "@/components/ui/Input";
+import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { motion } from "framer-motion";
 import {
   ArrowDownUp,
@@ -157,17 +160,13 @@ function ActivityRow({
   return (
     <li className="border-b border-border last:border-0">
       <div
-        role="button"
-        tabIndex={0}
-        onClick={openExplorer}
-        onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openExplorer()}
         className="flex cursor-pointer items-center gap-3 rounded-lg py-3 transition-colors"
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card">
           <Icon className={cn("h-5 w-5", iconColor)} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-text-primary">{label}</div>
+          <a href={explorerUrl} target="_blank" rel="noreferrer" className="block text-sm font-medium text-text-primary hover:underline">{label} ↗</a>
           <div className="text-xs text-text-muted">{relativeTime(ev)}</div>
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1">
@@ -200,7 +199,7 @@ function ActivityRow({
               }}
               className="text-xs font-medium tracking-wide text-text-muted transition-colors duration-150 hover:text-accent"
             >
-              {proveOpen ? "Close" : "Prove"}
+              {proveOpen ? "Close" : "Disclose"}
             </button>
           )}
         </div>
@@ -215,13 +214,17 @@ function ActivityRow({
 }
 
 export function HomeClient() {
-  const router = useRouter();
+  const {run,busy,phase,uncertain}=useAction();
+  const [query,setQuery]=useState("");
+  const [page,setPage]=useState(1);
+  const [historyAttempt,setHistoryAttempt]=useState(0);
+  const [historyError,setHistoryError]=useState<string|null>(null);
   const { wallet, view, connecting, connect, refresh, lastSync, error, setError } = useWallet();
 
   const [syncing, setSyncing] = useState(false);
-  const [merging, setMerging] = useState(false);
+
   const [mergeSteps, setMergeSteps] = useState<TxStep[]>([]);
-  const [registering, setRegistering] = useState(false);
+
   const [registerSteps, setRegisterSteps] = useState<TxStep[]>([]);
 
   const [activity, setActivity] = useState<ConfidentialEvent[] | null>(null);
@@ -234,6 +237,9 @@ export function HomeClient() {
     let cancelled = false;
     (async () => {
       setActivityLoading(true);
+      setHistoryError(null);
+      setActivity(null);
+      setDecryptedAmounts(new Map());
       try {
         const client = new ChainClient({
           rpcUrl: DEPLOYMENT.rpcUrl,
@@ -259,11 +265,9 @@ export function HomeClient() {
               return ev.account === wallet.address;
           }
         });
-        if (!cancelled) setActivity(mine.slice(-20).reverse());
-      } catch {
-        // Read-only history fetch — fall back to the empty state rather than
-        // surfacing an error for something the user didn't initiate.
-        if (!cancelled) setActivity([]);
+        if (!cancelled) setActivity(mine.reverse());
+      } catch (e) {
+        if (!cancelled) setHistoryError(errMsg(e));
       } finally {
         if (!cancelled) setActivityLoading(false);
       }
@@ -271,7 +275,7 @@ export function HomeClient() {
     return () => {
       cancelled = true;
     };
-  }, [wallet]);
+  }, [wallet,lastSync,historyAttempt]);
 
   // Decrypt each transfer's amount for display — this is the account's own
   // data, so there's no reason to keep it hidden from the owner the way it's
@@ -281,7 +285,7 @@ export function HomeClient() {
   // blocking the activity list from rendering.
   useEffect(() => {
     if (!wallet || !activity) return;
-    const transfers = activity.filter((ev): ev is TransferEvent => ev.type === "transfer");
+    const transfers = activity.slice((page-1)*20,page*20).filter((ev): ev is TransferEvent => ev.type === "transfer");
     if (transfers.length === 0) return;
     let cancelled = false;
     (async () => {
@@ -299,7 +303,7 @@ export function HomeClient() {
     return () => {
       cancelled = true;
     };
-  }, [wallet, activity]);
+  }, [wallet, activity,page]);
 
   // Resolve escrow instance details (depositor/recipient/state) for every
   // contract-address counterparty appearing in the activity feed, so those
@@ -344,272 +348,27 @@ export function HomeClient() {
     }
   }
 
-  async function handleMerge() {
-    setMergeSteps([{ id: "merge", label: "Merging receiving into spendable", status: "active" }]);
-    setMerging(true);
-    try {
-      await wallet!.merge();
-      setMergeSteps((s) => s.map((x) => ({ ...x, status: "done" })));
-      await refresh();
-    } catch {
-      setMergeSteps((s) => s.map((x) => ({ ...x, status: "error" })));
-    } finally {
-      setMerging(false);
-      setTimeout(() => setMergeSteps([]), 1500);
-    }
-  }
-
-  async function handleRegister() {
-    trackEvent("action_started", { action: "registration" });
-    setError(null);
-    setRegisterSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
-    setRegistering(true);
-    try {
-      await wallet!.register();
-      setRegisterSteps((s) => s.map((x) => ({ ...x, status: "done" })));
-      await refresh();
-    } catch (e) {
-      trackEvent("action_failed", { action: "registration" });
-      setError(errMsg(e));
-      setRegisterSteps((s) => s.map((x) => ({ ...x, status: "error" })));
-    } finally {
-      setRegistering(false);
-      setTimeout(() => setRegisterSteps([]), 1500);
-    }
-  }
-
-  if (!wallet) {
-    if (connecting) {
-      return (
-        <AppShell>
-          <PageHeader title="Home" showBack={false} />
-          <div className="flex flex-col items-center gap-5 px-4 py-20 text-center">
-            <LucentLogoMark size={56} showBg={false} />
-          </div>
-        </AppShell>
-      );
-    }
-    return (
-      <AppShell>
-        <PageHeader title="Home" showBack={false} />
-        <div className="flex flex-col items-center gap-5 px-4 py-20 text-center">
-          <LucentLogoMark size={56} showBg={false} />
-          <div>
-            <h2 className="mb-2 font-display text-xl font-semibold text-text-primary">Welcome to Lucent</h2>
-            <p className="max-w-xs text-sm text-text-secondary">
-              Connect Freighter to view your confidential balance and activity.
-            </p>
-          </div>
-          <Button isLoading={connecting} onClick={connect}>
-            Connect Freighter
-          </Button>
-        </div>
-      </AppShell>
-    );
-  }
-
-  const spendable = view?.spendable ?? 0n;
-  const receiving = view?.receiving ?? 0n;
-  const registered = view?.registered ?? false;
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-
-  if (!view) {
-    return (
-      <AppShell>
-        <PageHeader title="Home" showBack={false} />
-        <div className="flex flex-col gap-5 px-4 py-12 md:mx-auto md:max-w-2xl">
-          <ErrorBanner error={error} onDismiss={() => setError(null)} />
-          <p className="text-sm text-text-secondary">{connecting ? "Checking your on-chain account…" : "Account status is unavailable. Retry before registering or transacting."}</p>
-          <Button onClick={refresh} disabled={connecting}>Retry account check</Button>
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (!registered) {
-    return (
-      <AppShell>
-        <PageHeader title="Home" showBack={false} />
-        <div className="flex flex-col gap-5 px-4 pb-8 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
-          <ErrorBanner error={error} onDismiss={() => setError(null)} />
-
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-text-muted">{greeting}</span>
-            <AddressDisplay address={wallet.address} chars={5} />
-          </div>
-
-          <div className="flex flex-col items-center gap-5 px-4 py-12 text-center">
-            <LucentLogoMark size={56} showBg={false} />
-            <div>
-              <h2 className="mb-2 font-display text-xl font-semibold text-text-primary">Register to continue</h2>
-              <p className="max-w-xs text-sm text-text-secondary">
-                Bind your confidential keys to the contract — a one-time proof. Everything else
-                unlocks after this: balances, sending, payroll, escrow.
-              </p>
-            </div>
-            <div className="flex w-full max-w-xs flex-col gap-3">
-              {registerSteps.length > 0 && <TxStatus steps={registerSteps} />}
-              <Button fullWidth size="lg" isLoading={registering} onClick={handleRegister}>
-                {registering ? "Registering…" : "Register"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
-  return (
-    <AppShell>
-      <PageHeader title="Home" showBack={false} />
-      <div className="flex flex-col gap-5 px-4 pb-8 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
-        <ErrorBanner error={error} onDismiss={() => setError(null)} />
-
-        {/* Greeting */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-text-muted">{greeting}</span>
-          <AddressDisplay address={wallet.address} chars={5} />
-        </div>
-
-        {/* Balance overview */}
-        <GlassCard padding="lg" glow>
-          <div className="flex flex-col gap-5">
-            <div className="flex items-start justify-between">
-              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
-                Total Balance
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full border border-encrypted/20 bg-encrypted-bg px-2 py-0.5 text-[10px] font-medium text-encrypted">
-                <Lock className="h-2.5 w-2.5" /> Confidential
-              </span>
-            </div>
-
-            <div className="flex items-baseline gap-2">
-              <span className="font-display text-3xl font-bold tabular-nums text-text-primary">
-                {displayAmount(spendable + receiving)}
-              </span>
-              <span className="font-mono text-sm text-text-muted">USDC</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-xl border border-border bg-surface-2/60 p-3">
-                <div className="flex items-center gap-1.5 text-text-muted">
-                  <Lock className="h-3 w-3" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider">Spendable</span>
-                </div>
-                <div className="mt-1.5 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                  {displayAmount(spendable)}
-                </div>
-              </div>
-              <div className="rounded-xl border border-border bg-surface-2/60 p-3">
-                <div className="flex items-center gap-1.5 text-text-muted">
-                  <ArrowDownLeft className="h-3 w-3" />
-                  <span className="text-[10px] font-semibold uppercase tracking-wider">Receiving</span>
-                </div>
-                <div className="mt-1.5 font-mono text-lg font-semibold tabular-nums text-text-primary">
-                  {displayAmount(receiving)}
-                </div>
-              </div>
-            </div>
-
-            {receiving > 0n && (
-              <div className="flex flex-col gap-2">
-                <Button size="sm" variant="secondary" isLoading={merging} onClick={handleMerge}>
-                  Merge into spendable
-                </Button>
-                {mergeSteps.length > 0 && <TxStatus steps={mergeSteps} />}
-              </div>
-            )}
-
-            {/*
-              "Pending payroll claims" was in the original design here, but
-              there's no on-chain data that distinguishes an unclaimed salary
-              from any other unmerged incoming transfer — PayrollVault's
-              claim() is just token.merge() under another name. The Receiving
-              row above already covers "money waiting to be merged" for any
-              source, payroll included, so a separate row would just repeat
-              the same number under a different label.
-            */}
-
-            <div className="flex items-center justify-between border-t border-border pt-3">
-              <span className="text-xs text-text-muted">
-                {lastSync ? `Synced ${timeAgo(lastSync.getTime())}` : "Not synced yet"}
-              </span>
-              <Button size="sm" variant="ghost" isLoading={syncing} onClick={handleSync}>
-                Sync
-              </Button>
-            </div>
-          </div>
-        </GlassCard>
-
-        {/* Quick actions — horizontal scroll on mobile, all 4 fit in a row on desktop */}
-        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide md:grid md:grid-cols-4 md:overflow-visible">
-          {QUICK_ACTIONS.map(({ href, icon: Icon, label, tint }) => (
-            <motion.div
-              key={href}
-              whileHover={{ y: -2 }}
-              whileTap={{ scale: 0.94 }}
-              className="shrink-0 md:w-full"
-            >
-              <Link
-                href={href}
-                className="group flex shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-border bg-card px-5 py-4 transition-all duration-150 hover:border-border-hover md:w-full"
-              >
-                <div className={cn("flex h-10 w-10 items-center justify-center rounded-full transition-colors", tint)}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <span className="text-xs font-medium text-text-secondary transition-colors group-hover:text-text-primary">
-                  {label}
-                </span>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-
-        {/* Recent activity */}
-        <div>
-          <div className="mb-2 flex items-center gap-3">
-            <SectionLabel className="flex-1">Recent Activity</SectionLabel>
-          </div>
-
-          {activityLoading && (
-            <div className="flex flex-col gap-2">
-              <Skeleton className="h-16 rounded-2xl" />
-              <Skeleton className="h-16 rounded-2xl" />
-              <Skeleton className="h-16 rounded-2xl" />
-            </div>
-          )}
-
-          {!activityLoading && activity && activity.length === 0 && (
-            <div className="flex flex-col items-center gap-3 py-12 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-card">
-                <Activity className="text-text-muted" size={20} />
-              </div>
-              <p className="text-sm text-text-secondary">No activity yet</p>
-              <p className="text-xs text-text-muted">Deposit USDC to get started</p>
-              <Button size="sm" variant="secondary" onClick={() => router.push("/shield")}>
-                Deposit USDC
-              </Button>
-            </div>
-          )}
-
-          {!activityLoading && activity && activity.length > 0 && (
-            <GlassCard padding="md">
-              <ul className="flex flex-col">
-                {activity.map((ev) => (
-                  <ActivityRow
-                    key={ev.cursor}
-                    ev={ev}
-                    wallet={wallet}
-                    ctx={{ me: wallet.address, escrowByAddress }}
-                    decryptedAmount={decryptedAmounts.get(ev.cursor)}
-                  />
-                ))}
-              </ul>
-            </GlassCard>
-          )}
-        </div>
-      </div>
-    </AppShell>
-  );
+  async function handleMerge(){await run("merge",()=>wallet!.merge());}
+  async function handleRegister(){await run("register",sp=>wallet!.register(sp));}
+  if(!wallet)return <AppShell><PageHeader title="Overview"/><ConnectPrompt message="Connect to see your balances, send confidential payments and manage payroll."/></AppShell>;
+  if(!view)return <AppShell><PageHeader title="Overview"/><div className="workspace-page space-y-5"><ErrorBanner error={error} onDismiss={()=>setError(null)}/><GlassCard><h2 className="text-lg font-semibold">Account status unavailable</h2><p className="my-4 text-sm text-text-secondary">We need a successful account check before offering registration or payments.</p><Button onClick={refresh} isLoading={connecting}>Retry account check</Button></GlassCard></div></AppShell>;
+  if(!view.registered)return <AppShell><PageHeader title="Overview"/><div className="workspace-page"><ErrorBanner error={error} onDismiss={()=>setError(null)}/><div className="workspace-grid mt-5"><GlassCard padding="lg"><p className="eyebrow">Account setup · Step 2 of 3</p><h2 className="mt-4 text-2xl font-semibold">Make your wallet payment-ready.</h2><p className="my-5 max-w-lg text-sm leading-7 text-text-secondary">Register your confidential keys with Lucent using a one-time proof generated in this browser. Freighter will ask you to approve the transaction.</p><AddressDisplay address={wallet.address} chars={8}/><Button className="mt-6" disabled={!!busy||uncertain} isLoading={busy==="register"} onClick={handleRegister}>Register confidential account</Button></GlassCard><aside className="space-y-4 p-5"><h3 className="font-semibold">Before you continue</h3><p className="text-sm leading-7 text-text-secondary">Use test funds only. This software is experimental and unaudited. Demo auditor keys are publicly available and can reveal covered amounts.</p><p className="text-sm leading-7 text-text-secondary">Keep this browser's confidential state. Clearing storage can interrupt recovery when older events are unavailable.</p><Link href="/docs" className="text-sm text-accent">Read the setup guide →</Link></aside></div></div><ProofLoadingOverlay open={busy==="register" && phase==="proving"} fullScreen/></AppShell>;
+  const filtered=(activity??[]).filter(ev=>JSON.stringify(ev,(_,v)=>typeof v==="bigint"?v.toString():v).toLowerCase().includes(query.toLowerCase()));
+  const pages=Math.max(1,Math.ceil(filtered.length/20));
+  const currentPage=Math.min(page,pages);
+  return <AppShell><PageHeader title="Overview" right={<Button variant="secondary" isLoading={syncing} onClick={handleSync}>Refresh account</Button>}/><div className="workspace-page space-y-6">
+    <ErrorBanner error={error} onDismiss={()=>setError(null)}/>
+    {!view.matchesChain && <div role="alert" className="rounded-lg border border-warning/40 p-4 text-sm leading-6 text-warning">Local state does not match the chain. Confidential balances cannot be relied on for spending. Refresh and inspect account settings before proceeding. Do not clear browser storage.</div>}
+    <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
+     <GlassCard padding="lg" className="border-accent/20"><p className="text-sm text-text-secondary">Available confidential balance</p><p className="mt-5 break-words text-3xl font-semibold tabular-nums tracking-tight lg:text-4xl">{view.matchesChain?displayAmount(view.spendable,7):"Unavailable"}</p><p className="mt-3 text-xs text-text-muted">Ready for payments · USDC on Testnet</p><div className="mt-7 flex flex-wrap gap-3"><Link href="/send" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-black"><Send className="h-4 w-4"/>Send payment</Link><Link href="/shield" className="inline-flex min-h-11 items-center rounded-lg border border-border px-4 text-sm">Add funds</Link></div></GlassCard>
+     <GlassCard padding="lg"><p className="text-sm text-text-secondary">Incoming · requires merge</p><p className="mt-5 break-words text-2xl font-semibold tabular-nums">{view.matchesChain?displayAmount(view.receiving,7):"Unavailable"}</p><p className="mt-3 text-xs leading-6 text-text-muted">Not included in available funds. Merge incoming deposits and transfers before spending.</p><Button className="mt-5" variant="secondary" disabled={!view.matchesChain||view.receiving<=0n||!!busy||uncertain} isLoading={busy==="merge"} onClick={handleMerge}>Merge incoming funds</Button></GlassCard>
+     <GlassCard padding="lg"><p className="text-sm text-text-secondary">Public wallet balance</p><p className="mt-5 break-words text-2xl font-semibold tabular-nums">{displayAmount(view.publicUSDC,7)}</p><p className="mt-3 text-xs leading-6 text-text-muted">Public USDC, separate from your confidential account. Deposit and withdrawal amounts are public.</p><Link href="/shield" className="mt-6 inline-block py-2 text-sm text-accent">Manage funding →</Link></GlassCard>
+    </div>
+    <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted"><span>{lastSync?`Account checked ${timeAgo(lastSync.getTime())}`:"Not checked"}</span><span>Amounts confidential · addresses and metadata public</span></div>
+    <GlassCard padding="lg"><div className="flex flex-wrap items-start justify-between gap-4"><div><h2 className="text-lg font-semibold">Account activity</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-text-secondary">{DEPLOYMENT.indexerUrl?"Retrieved from the configured indexer and recent RPC events. Coverage depends on the data source.":"Recent events available from the RPC retention window (typically about 7 days). Older payments may be absent; this is not an all-time statement."}</p></div><Button variant="ghost" size="sm" isLoading={activityLoading} onClick={()=>setHistoryAttempt(n=>n+1)}>Refresh activity</Button></div>
+    <div className="my-5 max-w-md"><Input label="Search available activity" placeholder="Address, transaction hash or event type" value={query} onChange={e=>{setQuery(e.target.value);setPage(1);}}/></div>
+    {historyError && <ErrorBanner error={historyError} onDismiss={()=>setHistoryError(null)}/>}
+    {activityLoading?<Skeleton className="h-36 w-full"/>:!historyError && (filtered.length===0?<div className="py-10 text-center"><Activity className="mx-auto mb-4 h-7 w-7 text-text-muted"/><p className="text-sm">{query?"No matching events":"No events in the available history"}</p><p className="mt-2 text-xs text-text-muted">Missing historical events do not establish that an account was never used.</p></div>:<><ul>{filtered.slice((currentPage-1)*20,currentPage*20).map(ev=><ActivityRow key={ev.cursor} ev={ev} wallet={wallet} ctx={{me:wallet.address,escrowByAddress}} decryptedAmount={decryptedAmounts.get(ev.cursor)}/>)}</ul><div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4"><span className="text-xs text-text-muted">{filtered.length} available events · Page {currentPage} of {pages}</span><div className="flex gap-2"><Button size="sm" variant="secondary" disabled={currentPage===1} onClick={()=>setPage(currentPage-1)}>Previous</Button><Button size="sm" variant="secondary" disabled={currentPage===pages} onClick={()=>setPage(currentPage+1)}>Next</Button></div></div></>)}
+    </GlassCard><p className="text-xs leading-6 text-text-muted">Experimental Testnet software. Preserve browser state and use test funds only. <Link href="/docs" className="text-accent">Privacy and recovery guidance →</Link></p>
+  </div></AppShell>;
 }
