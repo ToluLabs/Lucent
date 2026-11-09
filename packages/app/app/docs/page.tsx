@@ -31,7 +31,11 @@ function Code({ children }: { children: string }) {
 
 function Pre({ children }: { children: string }) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-border bg-[#0A0A0A] p-5 font-mono text-xs leading-relaxed text-text-secondary">
+    <pre
+      tabIndex={0}
+      aria-label="Code example"
+      className="overflow-x-auto rounded-xl border border-border bg-[#0A0A0A] p-5 font-mono text-xs leading-relaxed text-text-secondary"
+    >
       {children}
     </pre>
   );
@@ -218,7 +222,9 @@ export default function DocsPage() {
         </div>
 
         <main className="min-w-0 max-w-3xl flex-1 px-6 py-10 pb-32 lg:px-12">
-          <h1 className="mb-6 text-3xl font-semibold tracking-tight">Lucent documentation</h1>
+          <h1 className="mb-6 text-3xl font-semibold tracking-tight">
+            Lucent documentation
+          </h1>
           <Callout>
             Experimental Testnet software. Use test funds only. Contracts and
             circuits are unaudited. Demo auditor keys are public, and recovery
@@ -286,11 +292,11 @@ transfer    proof  Spendable -> another account's receiving balance`}</Pre>
           <P>
             Before any of this, <strong>Overview</strong> derives a Grumpkin key
             set deterministically from a Freighter message signature — the same
-            keys every session, while local confidential state still needs to be preserved — and proves ownership
-            of it with a zero-knowledge proof that binds the key set to your
-            Stellar address on the token contract. This happens once per
-            account; every confidential operation below depends on it having
-            already happened.
+            keys every session, while local confidential state still needs to be
+            preserved — and proves ownership of it with a zero-knowledge proof
+            that binds the key set to your Stellar address on the token
+            contract. This happens once per account; every confidential
+            operation below depends on it having already happened.
           </P>
           <H3>Deposit</H3>
           <P>

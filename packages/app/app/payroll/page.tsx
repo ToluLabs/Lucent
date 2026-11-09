@@ -287,10 +287,7 @@ export default function PayrollPage() {
           <>
             {loadError ? (
               <GlassCard>
-                <ErrorBanner
-                  error={loadError}
-                  onDismiss={() => setLoadError(null)}
-                />
+                <ErrorBanner error={loadError} />
                 <Button className="mt-4" onClick={reload}>
                   Retry loading payroll
                 </Button>

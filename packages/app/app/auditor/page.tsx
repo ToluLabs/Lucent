@@ -8,7 +8,7 @@
  *
  * The secret never ships in the client bundle — `deploy.ts` redacts it from
  * the app's deployment file for exactly this reason (see `lib/deployment.ts`).
- * Once pasted in, it's remembered in this browser's localStorage (never sent
+ * If explicitly requested, it is remembered unencrypted in this browser’s localStorage (never sent
  * anywhere) so an auditor doesn't have to keep re-pasting it every visit; any
  * remembered key can be forgotten individually from the unlock screen.
  *
@@ -189,7 +189,15 @@ const MAX_SAVED_SECRETS = 6;
 function loadSavedSecrets(): string[] {
   try {
     const raw = localStorage.getItem(SAVED_SECRETS_KEY);
-    return raw ? (JSON.parse(raw) as string[]) : [];
+    const value: unknown = raw ? JSON.parse(raw) : [];
+    return Array.isArray(value)
+      ? value
+          .filter(
+            (v): v is string =>
+              typeof v === "string" && /^(?:0x)?[a-f0-9]{64}$/i.test(v),
+          )
+          .slice(0, MAX_SAVED_SECRETS)
+      : [];
   } catch {
     return [];
   }
@@ -221,23 +229,26 @@ export default function AuditorPage() {
 
   const hasIndexer = !!DEPLOYMENT.indexerUrl;
 
+  function persistSecrets(next: string[]) {
+    try {
+      saveSavedSecrets(next);
+      setSavedSecrets(next);
+    } catch {
+      setError(
+        "Browser storage could not update remembered viewing keys. Check this device’s storage settings. The current viewing session can still be used.",
+      );
+    }
+  }
   function remember(secret: string) {
-    setSavedSecrets((prev) => {
-      const next = [secret, ...prev.filter((s) => s !== secret)].slice(
+    persistSecrets(
+      [secret, ...savedSecrets.filter((s) => s !== secret)].slice(
         0,
         MAX_SAVED_SECRETS,
-      );
-      saveSavedSecrets(next);
-      return next;
-    });
+      ),
+    );
   }
-
   function forgetSecret(secret: string) {
-    setSavedSecrets((prev) => {
-      const next = prev.filter((s) => s !== secret);
-      saveSavedSecrets(next);
-      return next;
-    });
+    persistSecrets(savedSecrets.filter((s) => s !== secret));
   }
 
   function unlockWith(secret: string) {

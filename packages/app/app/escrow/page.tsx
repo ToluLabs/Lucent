@@ -232,10 +232,7 @@ export default function EscrowPage() {
         </Callout>
         {loadError && (
           <div>
-            <ErrorBanner
-              error={loadError}
-              onDismiss={() => setLoadError(null)}
-            />
+            <ErrorBanner error={loadError} />
             <Button className="mt-3" variant="secondary" onClick={reload}>
               Retry loading escrows
             </Button>
@@ -340,7 +337,7 @@ export default function EscrowPage() {
           {!arbiter.trim() && (
             <div className="flex items-start gap-2 rounded-xl border border-warning/20 bg-warning/[0.08] px-3 py-2.5">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
-              <p className="text-xs leading-relaxed text-warning/80">
+              <p className="text-xs leading-relaxed text-warning">
                 Without an arbiter, disputes are unavailable. The recipient can
                 claim after marking delivery and waiting through the contract
                 release window; the experimental custody limitation still
@@ -350,7 +347,7 @@ export default function EscrowPage() {
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+          <span className="font-mono text-xs uppercase tracking-wider text-text-muted">
             Timeout — depositor reclaims if no delivery
           </span>
           <div className="grid grid-cols-4 gap-2">
@@ -597,7 +594,7 @@ function EscrowRow({
                     </div>
                     <span
                       className={cn(
-                        "text-[10px]",
+                        "text-xs",
                         stateNum >= step.state
                           ? "text-accent"
                           : "text-text-muted",
@@ -634,8 +631,8 @@ function EscrowRow({
               </Row2>
             ) : (
               <div className="flex items-center gap-2">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning/70" />
-                <span className="text-xs text-warning/70">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-warning" />
+                <span className="text-xs text-warning">
                   No arbiter — disputes not possible
                 </span>
               </div>
