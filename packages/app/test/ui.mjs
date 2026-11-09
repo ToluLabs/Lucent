@@ -331,6 +331,31 @@ try {
         });
     }
   }
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await visit("/");
+  const orbit = page.locator(".orbit-rotation").first();
+  const before = await orbit.evaluate((el) => getComputedStyle(el).transform);
+  await page.waitForTimeout(200);
+  const after = await orbit.evaluate((el) => getComputedStyle(el).transform);
+  assert.notEqual(
+    before,
+    after,
+    "Brand orbit animates with normal motion preferences",
+  );
+  const art = page.locator(".privacy-visual").first();
+  const box = await art.boundingBox();
+  await page.mouse.move(box.x + 30, box.y + 30);
+  assert.notEqual(
+    await art.evaluate((el) => el.style.getPropertyValue("--orbit-x")),
+    "",
+    "Artwork responds to pointer movement",
+  );
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(
+    await orbit.evaluate((el) => getComputedStyle(el).animationName),
+    "none",
+    "Reduced motion stops decorative animations",
+  );
   assert.deepEqual(visualIssues, [], "Connected accessibility checks");
   assert.deepEqual(errors, []);
   console.log(

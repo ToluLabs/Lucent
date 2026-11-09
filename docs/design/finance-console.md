@@ -6,7 +6,7 @@ The app uses Next.js, React, Tailwind and the existing Lucent SDK. Wallet-derive
 
 Primary navigation: Overview, Payments, Payroll, Escrow. Supporting tools: Funding (existing /shield), Verification, Auditor, Settings (existing /profile), documentation and privacy controls. Existing URLs remain stable.
 
-Solid dark surfaces and restrained gold preserve Lucent's identity without grain, glows or glass. Native decimal inputs replace the custom keypad. Desktop content uses the available width; mobile navigation retains visible labels. Dialogs use native modal focus management. Browser zoom and reduced motion are supported.
+The revised visual direction uses near-black surfaces, champagne gold, Manrope display typography and DM Sans body text. Floating navigation, softly lit panels and a custom orbital brand illustration replace the earlier grey console styling. Native decimal inputs, purposeful desktop widths and visible mobile navigation labels remain. Dialogs use native modal focus management. Browser zoom and reduced motion are supported.
 
 ## Audit findings addressed
 
@@ -99,3 +99,13 @@ Screenshots are in [screenshots/](./screenshots/). `landing-*`, `home-*`, `verif
 ## Remaining product work
 
 A deployed indexer and verified history coverage remain dependencies for durable statements and complete recovery. The current payroll contract scans can grow expensive as deployment-wide templates and runs increase; UI pagination does not replace indexed queries. Escrow requires a stronger custody design before real funds. Audits, browser/device recovery, cross-tab coordination, granular transaction-stage callbacks and assistive-technology testing need further work. Organizations, approvals, scheduling and persistent employee records were deliberately not fabricated. These are separate engineering milestones, not hidden completed features.
+
+## Visual revision after feedback
+
+The initial visual treatment was rejected. The replacement retains functional improvements while changing the composition and visual system: a large editorial hero with a pointer-responsive orbital SVG, a floating public navigation bar and desktop rail, near-black layered panels, champagne details, a product preview and darker feature sections. The previous light landing section was removed.
+
+Motion includes slow decorative orbital rotation, pointer parallax, staggered workspace entry, button and feature hover feedback, panel lighting and dialog transitions. Decorative artwork is hidden from assistive technology and never represents transaction progress. Financial values are not animated through invented intermediate amounts. Reduced motion disables the decorative animations and parallax.
+
+The revised build and app typecheck passed. The existing mocked financial suite plus 25 connected layout/accessibility checks passed; all 65 production route/viewport checks passed with no detected violations, overflow or runtime errors. Added browser assertions verify normal orbital animation, pointer response and the reduced-motion override. These are UI checks, not new live Testnet settlement evidence.
+
+[New landing hero](./screenshots/landing-hero-1440.png)
