@@ -13,7 +13,10 @@
     "preview": "pnpm run build:cf && wrangler dev",
     "deploy:cf": "pnpm run build:cf && opennextjs-cloudflare deploy",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:ui": "node test/ui.mjs",
+    "test:forms": "pnpm --filter @lucent/sdk exec tsx ../../packages/app/test/forms.mjs",
+    "test:browser": "node test/browser-qa.mjs"
   },
   "dependencies": {
     "@lucent/disclosure": "workspace:*",
@@ -32,7 +35,11 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "autoprefixer": "^10.4.20",
+    "axe-core": "4.10.3",
+    "esbuild": "0.28.0",
+    "playwright-core": "1.65.0",
     "postcss": "^8.4.49",
+    "prettier": "3.6.2",
     "tailwindcss": "^3.4.15",
     "typescript": "^5.7.0",
     "wrangler": "^4.100.0"
