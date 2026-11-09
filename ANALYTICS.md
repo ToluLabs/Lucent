@@ -29,15 +29,15 @@ Events can be blocked, lost, repeated, forged or suppressed by privacy controls.
    ```dotenv
    NEXT_PUBLIC_ANALYTICS_ENABLED=true
    NEXT_PUBLIC_ANALYTICS_HOSTNAME=www.lucent-pay.xyz
-   NEXT_PUBLIC_UMAMI_WEBSITE_ID=YOUR-REAL-UMAMI-WEBSITE-UUID
+   NEXT_PUBLIC_UMAMI_WEBSITE_ID=c8ecbbeb-dea0-41e0-adc3-2a95b80a0f1e
    NEXT_PUBLIC_UMAMI_SCRIPT_URL=https://cloud.umami.is/script.js
    ```
 
-   Use your snippet's trusted script URL if different. The placeholder Website ID intentionally does not enable tracking. See [the environment example](packages/app/.env.example). Keep Preview and Development collection disabled. The hostname guard additionally rejects preview domains, localhost and non-HTTPS pages.
+   Use your snippet's trusted script URL if different. The Website ID above was supplied from the Lucent Umami tracking snippet; it is public configuration. See [the environment example](packages/app/.env.example). Keep Preview and Development collection disabled. The hostname guard additionally rejects preview domains, localhost and non-HTTPS pages.
 4. In the Vercel project serving the public domain, save the variables, deploy the reviewed code and trigger a **new production build**. Setting runtime variables without rebuilding does not update browser-bundled `NEXT_PUBLIC_` values. Use the existing project's deployment process; do not create a second production site just for analytics.
 5. Confirm the apex domain either redirects to `www.lucent-pay.xyz` or choose one canonical hostname consistently. The current configuration accepts only the exact configured hostname. Unmatched aliases do not collect.
 
-No Umami account or Website ID was available during implementation, so live collection and dashboard verification are still external setup steps. Do not install an extra default tracking snippet: automatic tracking is intentionally disabled in this integration to prevent duplicate pageviews and URL leakage.
+The Lucent Website ID was supplied on November 9, 2026 and is now recorded in the environment example and local build configuration. Hosting Production environment configuration, deployment and live dashboard verification are still required. Do not install an extra default tracking snippet: automatic tracking is intentionally disabled in this integration to prevent duplicate pageviews and URL leakage.
 
 ## Privacy and controls
 
