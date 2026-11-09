@@ -9,16 +9,18 @@ import { VerifyPanel } from "./verify-panel";
 export default function VerifyPage() {
   return (
     <AppShell>
-      <PageHeader title="Verify" showBack={false} />
+      <PageHeader title="Verification" showBack={false} />
 
-      <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
+      <div className="flex flex-col gap-5 px-4 pb-8  md:px-8">
         <GlassCard padding="md" className="border-encrypted/20">
           <SectionLabel>How it works</SectionLabel>
-          <p className="mt-3 text-xs leading-relaxed text-text-muted">
-            Create a one-time request below and send it to whoever needs to prove a transfer to you —
-            the sender or the recipient. They generate the disclosure bundle from their own account&apos;s
-            Home screen and send it back to you. Paste it here to verify it against the chain — nothing
-            is ever trusted from the bundle itself.
+          <p className="mt-3 text-sm leading-7 text-text-muted">
+            Create a one-time request below and send it to whoever needs to
+            prove a transfer to you — the sender or the recipient. They generate
+            the disclosure bundle from their own account&apos;s Overview
+            activity and send it back to you. Paste it here to verify it against
+            the chain — the event and its binding are checked independently
+            against the chain.
           </p>
         </GlassCard>
 
