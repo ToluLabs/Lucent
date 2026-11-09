@@ -2,6 +2,8 @@
 
 import { useCallback, useState } from "react";
 
+import { trackEvent, trackedAction } from "./analytics";
+
 import { useWallet } from "./wallet-context";
 import { errMsg } from "./err";
 import type { TxPhase } from "./wallet";
@@ -18,6 +20,8 @@ export function useAction() {
 
   const run = useCallback(
     async (key: string, fn: (setPhase: (p: TxPhase) => void) => Promise<void>, opts?: { refresh?: boolean }) => {
+      const action = trackedAction(window.location.pathname, key);
+      if (action) trackEvent("action_started", { action });
       setError(null);
       setBusy(key);
       setPhase(null);
@@ -25,6 +29,7 @@ export function useAction() {
         await fn(setPhase);
         if (opts?.refresh !== false) await refresh();
       } catch (e) {
+        if (action) trackEvent("action_failed", { action });
         setError(errMsg(e));
       } finally {
         setBusy(null);

@@ -31,6 +31,9 @@ jobs:
       - name: Typecheck SDK
         run: pnpm --filter @lucent/sdk typecheck
 
+      - name: Analytics privacy and integration tests
+        run: pnpm test:analytics
+
       - name: Typecheck app
         run: pnpm --filter @lucent/app typecheck
 

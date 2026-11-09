@@ -429,7 +429,10 @@ export default function LandingPage() {
               <p className="text-xs text-text-muted">The amount is the only secret</p>
             </div>
           </div>
-          <div className="flex items-center gap-7">
+          <div className="flex flex-wrap items-center justify-center gap-x-7 gap-y-3">
+            <Link href="/privacy" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
+              Privacy
+            </Link>
             <Link href="/stats" className="text-sm text-text-muted transition-colors hover:text-text-secondary">
               Stats
             </Link>

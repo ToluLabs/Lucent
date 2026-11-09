@@ -9,6 +9,8 @@
  * the signature prompt only appears once per account + deployment.
  */
 
+import { trackConfirmed } from "./analytics";
+
 import {
   ChainClient,
   type Signer,
@@ -251,13 +253,13 @@ export class ConfidentialWallet {
     const { proof } = await this.prover("register").prove(w.inputs);
     onPhase?.("submitting");
     this.log("submitting register…");
-    const r = await submitRegister(this.client, this.signer, this.address, DEPLOYMENT.auditorId, w, proof);
+    const r = await trackConfirmed("registration_confirmed", () => submitRegister(this.client, this.signer, this.address, DEPLOYMENT.auditorId, w, proof));
     this.log(`registered (tx ${r.hash.slice(0, 10)}…)`);
   }
 
   async deposit(amount: bigint): Promise<void> {
     this.log(`depositing ${amount}…`);
-    const r = await submitDeposit(this.client, this.signer, this.address, this.address, amount);
+    const r = await trackConfirmed("deposit_confirmed", () => submitDeposit(this.client, this.signer, this.address, this.address, amount));
     this.log(`deposited (tx ${r.hash.slice(0, 10)}…) → receiving balance`);
   }
 
@@ -271,7 +273,7 @@ export class ConfidentialWallet {
     // mismatch. Same reason transfer()/withdraw() sync before proving.
     await this.engine.sync();
     this.log("merging receiving → spendable…");
-    const r = await submitMerge(this.client, this.signer, this.address);
+    const r = await trackConfirmed("merge_confirmed", () => submitMerge(this.client, this.signer, this.address));
     await this.engine.applyMerge();
     this.log(`merged (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -363,7 +365,7 @@ export class ConfidentialWallet {
     const { proof } = await this.prover("transfer").prove(w.inputs);
     onPhase?.("submitting");
     this.log("submitting transfer…");
-    const r = await submitTransfer(this.client, this.signer, this.address, to, w, proof);
+    const r = await trackConfirmed("transfer_confirmed", () => submitTransfer(this.client, this.signer, this.address, to, w, proof));
     await this.engine.setSpendable(w.next);
     // No r_e bookkeeping (§15.2): the witness derives it from (vk, sigma), so
     // discloseSent() re-derives it from the emitted event whenever needed.
@@ -382,7 +384,7 @@ export class ConfidentialWallet {
     const { proof } = await this.prover("withdraw").prove(w.inputs);
     onPhase?.("submitting");
     this.log("submitting withdraw…");
-    const r = await submitWithdraw(this.client, this.signer, this.address, this.address, amount, w, proof);
+    const r = await trackConfirmed("withdrawal_confirmed", () => submitWithdraw(this.client, this.signer, this.address, this.address, amount, w, proof));
     await this.engine.setSpendable(w.next);
     this.log(`withdrew ${amount} → public (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -449,7 +451,7 @@ export class ConfidentialWallet {
 
     onPhase?.("submitting");
     this.log("submitting execute_run…");
-    const r = await submitExecuteRun(this.client, this.signer, runId, blobs);
+    const r = await trackConfirmed("payroll_confirmed", () => submitExecuteRun(this.client, this.signer, runId, blobs));
     await this.engine.setSpendable(next);
     this.log(`run #${runId} executed (tx ${r.hash.slice(0, 10)}…)`);
   }
