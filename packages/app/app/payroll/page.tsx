@@ -1,610 +1,752 @@
 "use client";
-
-import { useCallback, useEffect, useState } from "react";
-import { Plus, Users, Briefcase, ChevronRight, X } from "lucide-react";
-import { RunStatus } from "@lucent/sdk";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { GlassCard } from "@/components/ui/GlassCard";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
-import { EncryptedBadge } from "@/components/ui/EncryptedBadge";
-import { SectionLabel } from "@/components/ui/SectionLabel";
 import { AddressDisplay } from "@/components/ui/AddressDisplay";
+import { Button } from "@/components/ui/Button";
+import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Pill } from "@/components/ui/Pill";
 import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
-import { Callout } from "@/components/ui/Callout";
-import { useWallet } from "@/lib/wallet-context";
-import { useRequireWallet } from "@/lib/use-require-wallet";
-import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
-import { useAction } from "@/lib/use-action";
-import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
-import { errMsg } from "@/lib/err";
+import { displayAmount, formatAmount, toBaseUnits } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
-import { cn } from "@/lib/cn";
-import { ErrorBanner } from "@/components/ui/ErrorBanner";
-
-type TopTab = "employer" | "employee";
-/** `list` = template cards, `template` = one template's employees + runs. */
-type Screen = "list" | "template";
-
-interface TemplateRow {
-  id: bigint;
-  employees: string[];
-  active: boolean;
-}
-interface RunRow {
-  id: bigint;
-  templateId: bigint;
-  status: RunStatus;
-}
-
-const STATUS_META: Record<RunStatus, { label: string; tone: "neutral" | "amber" | "green" | "red" | "sky" }> = {
-  [RunStatus.Scheduled]: { label: "Scheduled", tone: "neutral" },
-  [RunStatus.Funded]: { label: "Confirmed", tone: "sky" },
-  [RunStatus.Executed]: { label: "Executed", tone: "green" },
-  [RunStatus.Cancelled]: { label: "Cancelled", tone: "red" },
+import { errMsg } from "@/lib/err";
+import { useAction } from "@/lib/use-action";
+import { useWallet } from "@/lib/wallet-context";
+import { RunStatus } from "@lucent/sdk";
+import { StrKey } from "@stellar/stellar-sdk";
+import { Briefcase, Plus, X } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+type Template = { id: bigint; employees: string[]; active: boolean };
+type Run = { id: bigint; templateId: bigint; status: RunStatus };
+const statuses: Record<RunStatus, string> = {
+  [RunStatus.Scheduled]: "Draft",
+  [RunStatus.Funded]: "Ready to pay",
+  [RunStatus.Executed]: "Paid",
+  [RunStatus.Cancelled]: "Cancelled",
 };
-
 export default function PayrollPage() {
-  const wallet = useRequireWallet();
-  const { view, error, setError } = useWallet();
-  const { run, busy, phase } = useAction();
-
-  const [topTab, setTopTab] = useState<TopTab>("employer");
-  const [screen, setScreen] = useState<Screen>("list");
-  const [selectedTemplateId, setSelectedTemplateId] = useState<bigint | null>(null);
-  const [templates, setTemplates] = useState<TemplateRow[] | null>(null);
-  const [runs, setRuns] = useState<RunRow[] | null>(null);
-
-  // New-template modal: one address input per employee row.
-  const [showNewTemplate, setShowNewTemplate] = useState(false);
-  const [employeeAddrs, setEmployeeAddrs] = useState<string[]>([""]);
-  const [newTplSteps, setNewTplSteps] = useState<TxStep[]>([]);
-
-  // Execute-run modal state
-  const [executingRun, setExecutingRun] = useState<RunRow | null>(null);
-  const [executingEmployees, setExecutingEmployees] = useState<string[]>([]);
+  const { wallet, view, error, setError } = useWallet();
+  const { run, busy, phase, uncertain } = useAction();
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [runs, setRuns] = useState<Run[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const [selectedId, setSelectedId] = useState<bigint | null>(null);
+  const [mode, setMode] = useState<"employer" | "incoming">("employer");
+  const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [addresses, setAddresses] = useState([""]);
+  const [executing, setExecuting] = useState<Run | null>(null);
   const [salaries, setSalaries] = useState<Record<string, string>>({});
-
-  const configured = Boolean(DEPLOYMENT.contracts.payroll);
-
-  const reload = useCallback(() => {
+  const [review, setReview] = useState(false);
+  const [cancel, setCancel] = useState<Run | null>(null);
+  const configured = !!DEPLOYMENT.contracts.payroll;
+  const ready = !!view?.registered && view.matchesChain;
+  const reload = useCallback(() => setAttempt((n) => n + 1), []);
+  useEffect(() => {
     if (!wallet || !configured) return;
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    setTemplates([]);
+    setRuns([]);
     (async () => {
       try {
-        const tCount = await wallet.payrollTemplateCount();
-        const tpls: TemplateRow[] = [];
-        for (let i = 1n; i <= tCount; i++) {
+        const tpls: Template[] = [];
+        const count = await wallet.payrollTemplateCount();
+        for (let i = 1n; i <= count; i++) {
           const t = await wallet.payrollTemplate(i);
-          if (t.employer === wallet.address) tpls.push({ id: i, employees: t.employees, active: t.active });
+          if (t.employer === wallet.address)
+            tpls.push({ id: i, employees: t.employees, active: t.active });
         }
-        setTemplates(tpls);
-
-        const rCount = await wallet.payrollRunCount();
-        const rws: RunRow[] = [];
-        for (let i = 1n; i <= rCount; i++) {
+        const results: Run[] = [];
+        const runCount = await wallet.payrollRunCount();
+        for (let i = 1n; i <= runCount; i++) {
           const r = await wallet.payrollRun(i);
-          if (tpls.some((t) => t.id === r.templateId)) rws.push({ id: i, templateId: r.templateId, status: r.status });
+          if (tpls.some((t) => t.id === r.templateId))
+            results.push({ id: i, templateId: r.templateId, status: r.status });
         }
-        setRuns(rws);
+        if (!cancelled) {
+          setTemplates(tpls);
+          setRuns(results);
+        }
       } catch (e) {
-        setError(errMsg(e));
+        if (!cancelled) setLoadError(errMsg(e));
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     })();
-  }, [wallet, configured, setError]);
-
-  useEffect(reload, [reload]);
-
-  if (!wallet) {
+    return () => {
+      cancelled = true;
+    };
+  }, [wallet, configured, attempt]);
+  useEffect(() => {
+    setSelectedId(null);
+    setCreateOpen(false);
+    setExecuting(null);
+    setAddresses([""]);
+    setSalaries({});
+  }, [wallet]);
+  const selected = templates.find((t) => t.id === selectedId);
+  const employees =
+    templates.find((t) => t.id === executing?.templateId)?.employees ?? [];
+  const total = employees.reduce(
+    (sum, a) => sum + toBaseUnits(salaries[a] || "0"),
+    0n,
+  );
+  const available = view?.spendable ?? 0n;
+  const allPositive =
+    employees.length > 0 &&
+    employees.every((a) => toBaseUnits(salaries[a] || "0") > 0n);
+  const valid = allPositive && total <= available;
+  async function validateRecipients(values: string[]) {
+    if (!values.length) throw new Error("Add at least one recipient.");
+    if (new Set(values).size !== values.length)
+      throw new Error("Each recipient must appear only once.");
+    for (const address of values) {
+      if (!StrKey.isValidEd25519PublicKey(address))
+        throw new Error("Enter a valid Stellar G address for every recipient.");
+      if (!(await wallet!.isRecipientRegistered(address)))
+        throw new Error(
+          `Recipient ${address.slice(0, 8)}… is not registered on Lucent Testnet.`,
+        );
+    }
+  }
+  async function createTemplate() {
+    if (!ready) return;
+    const values = addresses.map((a) => a.trim());
+    const ok = await run(
+      "template",
+      async () => {
+        await validateRecipients(values);
+        await wallet!.createTemplate(values);
+      },
+      { refresh: false },
+    );
+    if (ok) {
+      setCreateOpen(false);
+      setAddresses([""]);
+      reload();
+    }
+  }
+  async function execute() {
+    if (!executing || !ready || !valid) return;
+    const ok = await run("execute", async (sp) => {
+      await validateRecipients(employees);
+      await wallet!.executeRun(
+        executing.id,
+        employees.map((employee) => ({
+          employee,
+          amount: toBaseUnits(salaries[employee]),
+        })),
+        sp,
+      );
+    });
+    if (ok) {
+      setExecuting(null);
+      setReview(false);
+      reload();
+    }
+  }
+  if (!wallet)
     return (
       <AppShell>
-        <PageHeader title="Payroll" showBack={false} />
-        <ConnectPrompt message="Connect your wallet to run confidential payroll." />
+        <PageHeader title="Payroll" />
+        <ConnectPrompt message="Connect to prepare recipient templates and run confidential payroll." />
       </AppShell>
     );
-  }
-
-  if (!configured) {
+  if (!configured)
     return (
       <AppShell>
-        <PageHeader title="Payroll" showBack={false} />
-        <div className="px-4 md:mx-auto md:max-w-2xl md:px-8">
-          <GlassCard padding="md">
-            <SectionLabel>Not deployed</SectionLabel>
+        <PageHeader title="Payroll" />
+        <div className="workspace-page">
+          <GlassCard>
+            <h2 className="font-semibold">
+              Payroll unavailable in this deployment
+            </h2>
             <p className="mt-3 text-sm text-text-secondary">
-              PayrollVault hasn&apos;t been deployed to this environment yet. Run{" "}
-              <span className="font-mono text-accent">pnpm deploy:contracts</span> and rebuild the app.
+              The payroll contract is not configured for this environment.
             </p>
           </GlassCard>
         </div>
       </AppShell>
     );
-  }
-
-  function openNewTemplate() {
-    setEmployeeAddrs([""]);
-    setNewTplSteps([]);
-    setShowNewTemplate(true);
-  }
-
-  function updateEmployeeAddr(i: number, addr: string) {
-    setEmployeeAddrs((prev) => prev.map((a, idx) => (idx === i ? addr : a)));
-  }
-
-  function addEmployeeRow() {
-    setEmployeeAddrs((prev) => [...prev, ""]);
-  }
-
-  function removeEmployeeRow(i: number) {
-    setEmployeeAddrs((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
-  async function createTemplate() {
-    const employees = employeeAddrs.map((a) => a.trim()).filter(Boolean);
-    if (employees.length === 0) {
-      setError("Add at least one employee address");
-      return;
-    }
-    setNewTplSteps([{ id: "template", label: "Create payroll template", status: "active" }]);
-    await run(
-      "template",
-      async () => {
-        await wallet!.createTemplate(employees);
-        setNewTplSteps((s) => s.map((x) => ({ ...x, status: "done" })));
-      },
-      { refresh: false },
-    );
-    reload();
-    setTimeout(() => {
-      setShowNewTemplate(false);
-      setEmployeeAddrs([""]);
-      setNewTplSteps([]);
-    }, 900);
-  }
-
-  function openTemplate(templateId: bigint) {
-    setSelectedTemplateId(templateId);
-    setScreen("template");
-  }
-
-  async function openRun(templateId: bigint) {
-    await run(
-      `openrun-${templateId}`,
-      async () => {
-        await wallet!.createRun(templateId);
-      },
-      { refresh: false },
-    );
-    reload();
-  }
-
-  async function fundRun(runId: bigint) {
-    await run(`fund-${runId}`, async () => {
-      await wallet!.fundRun(runId);
-    }, { refresh: false });
-    reload();
-  }
-
-  function beginExecute(r: RunRow, employees: string[]) {
-    setExecutingRun(r);
-    setExecutingEmployees(employees);
-    setSalaries(Object.fromEntries(employees.map((a) => [a, ""])));
-  }
-
-  const totalSalaries = executingEmployees.reduce((sum, a) => sum + toBaseUnits(salaries[a] || "0"), 0n);
-  const spendable = view?.spendable ?? 0n;
-  const overBudget = totalSalaries > spendable;
-
-  async function confirmExecute() {
-    if (!executingRun) return;
-    const payments = executingEmployees.map((employee) => ({ employee, amount: toBaseUnits(salaries[employee] || "0") }));
-    if (payments.some((p) => p.amount <= 0n)) {
-      setError("Every salary must be greater than 0");
-      return;
-    }
-    if (totalSalaries > spendable) {
-      setError("Total salaries exceed your spendable balance");
-      return;
-    }
-    await run("execute", async (sp) => {
-      await wallet!.executeRun(executingRun.id, payments, sp);
-      setExecutingRun(null);
-    });
-    reload();
-  }
-
-  /** Digits + at most one decimal point, clamped to DECIMALS fractional digits. */
-  function sanitizeAmount(raw: string): string {
-    let v = raw.replace(/[^0-9.]/g, "");
-    const dot = v.indexOf(".");
-    if (dot !== -1) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "");
-    const [whole, frac] = v.split(".");
-    if (frac !== undefined && frac.length > DECIMALS) v = `${whole}.${frac.slice(0, DECIMALS)}`;
-    return v;
-  }
-
-  async function cancelRun(runId: bigint) {
-    await run(`cancel-${runId}`, async () => {
-      await wallet!.cancelRun(runId);
-    }, { refresh: false });
-    reload();
-  }
-
-  const receiving = view?.receiving ?? 0n;
-  const hasClaim = receiving > 0n;
-  const registered = view?.registered ?? false;
-  const selectedTemplate = templates?.find((t) => t.id === selectedTemplateId) ?? null;
-  const templateRuns = runs?.filter((r) => r.templateId === selectedTemplateId) ?? [];
-
-  // ── Template detail: employees + runs scoped to this one template ────────
-  if (screen === "template" && selectedTemplate) {
-    return (
-      <>
-        <AppShell>
-          <PageHeader
-            title={`Template #${selectedTemplate.id.toString()}`}
-            onBack={() => setScreen("list")}
-            right={
-              <Button size="sm" isLoading={busy === `openrun-${selectedTemplate.id}`} onClick={() => openRun(selectedTemplate.id)}>
-                <Plus className="h-3.5 w-3.5" /> New Run
-              </Button>
-            }
-          />
-          <div className="flex flex-col gap-5 px-4 pb-24 md:mx-auto md:max-w-2xl md:px-8 md:pb-8">
-            <ErrorBanner error={error} onDismiss={() => setError(null)} />
-
-            <GlassCard padding="md">
-              <SectionLabel>Employees ({selectedTemplate.employees.length})</SectionLabel>
-              <div className="mt-3 flex flex-col gap-2">
-                {selectedTemplate.employees.map((emp, i) => (
-                  <div key={emp} className="flex items-center justify-between">
-                    <span className="text-xs text-text-muted">#{i + 1}</span>
-                    <AddressDisplay address={emp} chars={8} />
-                  </div>
-                ))}
-              </div>
-            </GlassCard>
-
-            <SectionLabel>Runs</SectionLabel>
-            {templateRuns.length === 0 ? (
-              <EmptyState icon={Briefcase} label="No runs yet — start one from the header" />
-            ) : (
-              <div className="flex flex-col gap-3">
-                {templateRuns.map((r) => {
-                  const meta = STATUS_META[r.status];
-                  return (
-                    <GlassCard key={r.id.toString()} padding="md">
-                      <div className="flex items-center gap-3">
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-text-primary">Run #{r.id.toString()}</span>
-                        </div>
-                        <Pill tone={meta.tone}>{meta.label}</Pill>
-                        <EncryptedBadge size="sm" />
-                      </div>
-                      {r.status === RunStatus.Scheduled && (
-                        <div className="mt-3 flex flex-col gap-1.5">
-                          <div className="flex gap-2">
-                            <Button size="sm" fullWidth isLoading={busy === `fund-${r.id}`} onClick={() => fundRun(r.id)}>
-                              Confirm
-                            </Button>
-                            <Button size="sm" variant="danger" isLoading={busy === `cancel-${r.id}`} onClick={() => cancelRun(r.id)}>
-                              Cancel
-                            </Button>
-                          </div>
-                          <p className="text-xs text-text-muted">
-                            Confirm locks this run in — no money moves yet. Salaries are entered and
-                            transferred at Execute.
-                          </p>
-                        </div>
-                      )}
-                      {r.status === RunStatus.Funded && (
-                        <div className="mt-3 flex flex-col gap-1.5">
-                          <Button size="sm" fullWidth onClick={() => beginExecute(r, selectedTemplate.employees)}>
-                            Execute Payroll
-                          </Button>
-                          <p className="text-xs text-text-muted">
-                            This is the step that actually pays everyone — each salary is proven and
-                            transferred now.
-                          </p>
-                        </div>
-                      )}
-                    </GlassCard>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </AppShell>
-
-        <ExecuteRunModal
-          executingRun={executingRun}
-          executingEmployees={executingEmployees}
-          salaries={salaries}
-          setSalaries={setSalaries}
-          sanitizeAmount={sanitizeAmount}
-          totalSalaries={totalSalaries}
-          spendable={spendable}
-          overBudget={overBudget}
-          busy={busy}
-          phase={phase}
-          onClose={() => setExecutingRun(null)}
-          onConfirm={confirmExecute}
-        />
-      </>
-    );
-  }
-
-  // ── List: employer's templates (drill-down) / employee claim ─────────────
+  const visible = templates.filter((t) =>
+    `${t.id} ${t.employees.join(" ")}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  const pages = Math.max(1, Math.ceil(visible.length / 10));
+  const current = Math.min(page, pages);
   return (
-    <>
     <AppShell>
       <PageHeader
-        title="Payroll"
-        showBack={false}
+        title={selected ? `Payroll · Template #${selected.id}` : "Payroll"}
+        description={
+          selected ? "Recipient roster and on-chain payment runs." : undefined
+        }
+        showBack={!!selected}
+        onBack={() => setSelectedId(null)}
         right={
-          topTab === "employer" ? (
-            <Button size="sm" variant="secondary" disabled={!registered} onClick={openNewTemplate}>
-              <Plus className="h-3.5 w-3.5" /> New
-            </Button>
-          ) : null
+          <Button
+            disabled={!ready || !!busy || uncertain}
+            onClick={() => {
+              setError(null);
+              setCreateOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+            New template
+          </Button>
         }
       />
-
-      <div className="flex flex-col gap-5 px-4 pb-24 md:mx-auto md:max-w-2xl md:px-8 md:pb-8">
+      <div className="workspace-page space-y-6">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
-
-        {!registered && topTab === "employer" && (
-          <Callout>
-            You need to register your confidential account before you can create payroll templates or
-            runs — head to <strong>Home</strong> to register, a one-time proof.
-          </Callout>
-        )}
-
-        <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
-          {(["employer", "employee"] as TopTab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTopTab(t)}
-              className={cn(
-                "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
-                topTab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {topTab === "employer" ? (
-          templates === null ? (
-            <p className="py-12 text-center text-sm text-text-muted">Loading…</p>
-          ) : templates.length === 0 ? (
-            <EmptyState icon={Briefcase} label="No templates yet">
-              <Button disabled={!registered} onClick={openNewTemplate}>
-                <Plus className="h-4 w-4" /> Create Template
-              </Button>
-            </EmptyState>
-          ) : (
-            <div className="flex flex-col gap-3">
-              <SectionLabel>Your Templates</SectionLabel>
-              {templates.map((t) => (
-                <button key={t.id.toString()} onClick={() => openTemplate(t.id)} className="w-full text-left">
-                  <GlassCard padding="md">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-bg">
-                        <Users className="h-4 w-4 text-accent" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-text-primary">Template #{t.id.toString()}</p>
-                        <p className="mt-0.5 text-xs text-text-muted">
-                          {t.employees.length} employee{t.employees.length !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-text-muted" />
-                    </div>
-                  </GlassCard>
-                </button>
-              ))}
-            </div>
-          )
-        ) : (
-          <div className="flex flex-col gap-4">
-            {hasClaim ? (
-              <GlassCard padding="md" glow>
-                <div className="flex flex-col gap-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-text-primary">Payroll Pending</p>
-                      <p className="mt-0.5 text-xs text-text-muted">Ready to claim</p>
-                    </div>
-                    <EncryptedBadge size="sm" />
-                  </div>
-                  <Button fullWidth isLoading={busy === "claim"} onClick={() => run("claim", () => wallet!.claimSalary())}>
-                    Claim Payroll
-                  </Button>
-                </div>
-              </GlassCard>
-            ) : (
-              <EmptyState icon={Briefcase} label="No pending claims" />
-            )}
-          </div>
-        )}
-      </div>
-    </AppShell>
-
-    <NewTemplateModal
-      open={showNewTemplate}
-      onClose={() => busy !== "template" && setShowNewTemplate(false)}
-      employeeAddrs={employeeAddrs}
-      onUpdateAddr={updateEmployeeAddr}
-      onAddRow={addEmployeeRow}
-      onRemoveRow={removeEmployeeRow}
-      newTplSteps={newTplSteps}
-      busy={busy}
-      onCreate={createTemplate}
-    />
-    </>
-  );
-}
-
-function EmptyState({ icon: Icon, label, children }: { icon: typeof Briefcase; label: string; children?: React.ReactNode }) {
-  return (
-    <div className="flex flex-col items-center gap-4 py-12">
-      <div className="glass-card flex h-14 w-14 items-center justify-center">
-        <Icon className="h-6 w-6 text-text-muted" />
-      </div>
-      <p className="text-sm text-text-muted">{label}</p>
-      {children}
-    </div>
-  );
-}
-
-function NewTemplateModal({
-  open,
-  onClose,
-  employeeAddrs,
-  onUpdateAddr,
-  onAddRow,
-  onRemoveRow,
-  newTplSteps,
-  busy,
-  onCreate,
-}: {
-  open: boolean;
-  onClose: () => void;
-  employeeAddrs: string[];
-  onUpdateAddr: (i: number, addr: string) => void;
-  onAddRow: () => void;
-  onRemoveRow: (i: number) => void;
-  newTplSteps: TxStep[];
-  busy: string | null;
-  onCreate: () => void;
-}) {
-  return (
-    <Modal open={open} onClose={onClose} title="New Template">
-      <SectionLabel>Employees</SectionLabel>
-      <div className="flex flex-col gap-2">
-        {employeeAddrs.map((addr, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <span className="w-5 shrink-0 text-xs text-text-muted">#{i + 1}</span>
-            <div className="flex-1">
-              <Input
-                placeholder="G…"
-                value={addr}
-                onChange={(e) => onUpdateAddr(i, e.target.value)}
-                className="font-mono text-xs"
-              />
-            </div>
-            <button
-              onClick={() => onRemoveRow(i)}
-              disabled={employeeAddrs.length === 1}
-              aria-label="Remove employee"
-              className="shrink-0 text-text-muted transition-colors hover:text-error disabled:opacity-20"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ))}
-      </div>
-      <Button variant="ghost" size="sm" onClick={onAddRow}>
-        <Plus className="h-3.5 w-3.5" /> Add Employee
-      </Button>
-
-      {newTplSteps.length > 0 && <TxStatus steps={newTplSteps} />}
-
-      <p className="text-center text-xs leading-relaxed text-text-muted">
-        Templates carry no amounts, just who gets paid. You&apos;ll open a run and set salaries
-        separately, from the template.
-      </p>
-
-      <Button fullWidth size="lg" isLoading={busy === "template"} onClick={onCreate}>
-        Create Template
-      </Button>
-    </Modal>
-  );
-}
-
-function ExecuteRunModal({
-  executingRun,
-  executingEmployees,
-  salaries,
-  setSalaries,
-  sanitizeAmount,
-  totalSalaries,
-  spendable,
-  overBudget,
-  busy,
-  phase,
-  onClose,
-  onConfirm,
-}: {
-  executingRun: RunRow | null;
-  executingEmployees: string[];
-  salaries: Record<string, string>;
-  setSalaries: (fn: (s: Record<string, string>) => Record<string, string>) => void;
-  sanitizeAmount: (raw: string) => string;
-  totalSalaries: bigint;
-  spendable: bigint;
-  overBudget: boolean;
-  busy: string | null;
-  phase: string | null;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <>
-      <Modal open={executingRun !== null} onClose={onClose} title={`Execute Run #${executingRun?.id.toString() ?? ""}`}>
-        <p className="text-xs leading-relaxed text-text-muted">
-          Enter each salary. One confidential transfer per employee is proven in your browser and
-          submitted atomically — this is the step that actually moves money.
-        </p>
-        <div className="flex flex-col gap-2">
-          {executingEmployees.map((a) => (
-            <div key={a} className="flex items-center gap-3 rounded-xl border border-border p-3">
-              <AddressDisplay address={a} chars={6} showCopy={false} className="flex-1" />
-              <Input
-                value={salaries[a] ?? ""}
-                onChange={(e) => setSalaries((s) => ({ ...s, [a]: sanitizeAmount(e.target.value) }))}
-                inputMode="decimal"
-                placeholder="0.00"
-                className="h-10 w-28 text-right font-mono text-sm"
-              />
-              <span className="w-12 shrink-0 text-xs text-text-muted">USDC</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2.5">
-          <span className="text-xs text-text-muted">Total</span>
-          <span className={cn("font-mono text-sm font-medium tabular-nums", overBudget ? "text-error" : "text-text-primary")}>
-            {formatAmount(totalSalaries, DECIMALS)} / {formatAmount(spendable, DECIMALS)} USDC
-          </span>
-        </div>
-        {overBudget && (
-          <p className="text-xs text-error">
-            Total salaries exceed your spendable balance ({displayAmount(spendable)}).
+        {!ready && (
+          <p className="rounded-lg border border-warning/30 p-4 text-sm text-warning">
+            Register and synchronize your confidential account in{" "}
+            <Link href="/home" className="underline">
+              Overview
+            </Link>{" "}
+            before payroll actions.
           </p>
         )}
-
+        <div className="grid gap-4 lg:grid-cols-3">
+          <GlassCard>
+            <p className="text-sm text-text-secondary">Available for payroll</p>
+            <p className="mt-3 text-2xl font-semibold tabular-nums">
+              {ready ? displayAmount(available, 7) : "Unavailable"}
+            </p>
+          </GlassCard>
+          <GlassCard>
+            <p className="text-sm text-text-secondary">
+              Your recipient templates
+            </p>
+            <p className="mt-3 text-2xl font-semibold">
+              {loading
+                ? "Loading…"
+                : loadError
+                  ? "Unavailable"
+                  : templates.length}
+            </p>
+          </GlassCard>
+          <GlassCard>
+            <p className="text-sm text-text-secondary">Settlement model</p>
+            <p className="mt-3 font-semibold">One atomic payment run</p>
+            <p className="mt-2 text-xs text-text-muted">
+              All payments settle together.
+            </p>
+          </GlassCard>
+        </div>
+        {!selected && (
+          <div className="flex gap-2 border-b border-border pb-4">
+            <Button
+              variant={mode === "employer" ? "primary" : "ghost"}
+              aria-pressed={mode === "employer"}
+              onClick={() => setMode("employer")}
+            >
+              Manage payroll
+            </Button>
+            <Button
+              variant={mode === "incoming" ? "primary" : "ghost"}
+              aria-pressed={mode === "incoming"}
+              onClick={() => setMode("incoming")}
+            >
+              Incoming funds
+            </Button>
+          </div>
+        )}
+        {mode === "incoming" && !selected ? (
+          <GlassCard padding="lg">
+            <h2 className="text-lg font-semibold">
+              Incoming funds requiring merge
+            </h2>
+            <p className="mt-3 text-2xl tabular-nums">
+              {ready ? displayAmount(view.receiving, 7) : "Unavailable"}
+            </p>
+            <p className="my-5 max-w-2xl text-sm leading-7 text-text-secondary">
+              This balance can include payroll, deposits and other transfers.
+              The token event feed does not establish which credits are salary.
+              Merging makes incoming funds available to spend.
+            </p>
+            <Button
+              disabled={!ready || view.receiving <= 0n || !!busy || uncertain}
+              isLoading={busy === "claim"}
+              onClick={() => run("claim", () => wallet.claimSalary())}
+            >
+              Merge incoming funds
+            </Button>
+          </GlassCard>
+        ) : (
+          <>
+            {loadError ? (
+              <GlassCard>
+                <ErrorBanner
+                  error={loadError}
+                  onDismiss={() => setLoadError(null)}
+                />
+                <Button className="mt-4" onClick={reload}>
+                  Retry loading payroll
+                </Button>
+              </GlassCard>
+            ) : loading ? (
+              <GlassCard>
+                <p role="status">Loading payroll contracts…</p>
+              </GlassCard>
+            ) : selected ? (
+              <div className="workspace-grid">
+                <GlassCard padding="lg">
+                  <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold">Payment runs</h2>
+                    <Button
+                      size="sm"
+                      disabled={
+                        !ready || !selected.active || !!busy || uncertain
+                      }
+                      onClick={async () => {
+                        if (
+                          await run(
+                            "openrun",
+                            () => wallet.createRun(selected.id).then(() => {}),
+                            { refresh: false },
+                          )
+                        )
+                          reload();
+                      }}
+                    >
+                      Create draft run
+                    </Button>
+                  </div>
+                  <p className="mb-5 text-sm leading-6 text-text-secondary">
+                    Draft → confirm readiness → review salaries → execute.
+                    Confirming readiness transfers no money and does not
+                    schedule a date.
+                  </p>
+                  {runs.filter((r) => r.templateId === selected.id).length ===
+                  0 ? (
+                    <Empty
+                      title="No runs yet"
+                      detail="Create a draft to start preparing a payment batch."
+                    />
+                  ) : (
+                    <div className="table-scroll">
+                      <table className="w-full text-left text-sm">
+                        <caption className="sr-only">
+                          Payment runs for this template
+                        </caption>
+                        <thead className="text-xs text-text-muted">
+                          <tr>
+                            <th scope="col">Run</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Next action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {runs
+                            .filter((r) => r.templateId === selected.id)
+                            .map((r) => (
+                              <tr key={r.id.toString()}>
+                                <td>#{r.id.toString()}</td>
+                                <td>
+                                  <Pill
+                                    tone={
+                                      r.status === RunStatus.Executed
+                                        ? "green"
+                                        : r.status === RunStatus.Cancelled
+                                          ? "red"
+                                          : "neutral"
+                                    }
+                                  >
+                                    {statuses[r.status]}
+                                  </Pill>
+                                </td>
+                                <td>
+                                  <div className="flex flex-wrap gap-2">
+                                    {r.status === RunStatus.Scheduled && (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="secondary"
+                                          disabled={
+                                            !ready || !!busy || uncertain
+                                          }
+                                          onClick={async () => {
+                                            if (
+                                              await run(
+                                                "fund",
+                                                () => wallet.fundRun(r.id),
+                                                { refresh: false },
+                                              )
+                                            )
+                                              reload();
+                                          }}
+                                        >
+                                          Confirm readiness
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled={!!busy || uncertain}
+                                          onClick={() => setCancel(r)}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </>
+                                    )}
+                                    {r.status === RunStatus.Funded && (
+                                      <Button
+                                        size="sm"
+                                        disabled={!ready || !!busy || uncertain}
+                                        onClick={() => {
+                                          setExecuting(r);
+                                          setSalaries({});
+                                          setReview(false);
+                                          setError(null);
+                                        }}
+                                      >
+                                        Prepare payments
+                                      </Button>
+                                    )}
+                                    {r.status === RunStatus.Executed && (
+                                      <span className="text-xs text-success">
+                                        All recipients paid
+                                      </span>
+                                    )}
+                                    {r.status === RunStatus.Cancelled && (
+                                      <span className="text-xs text-text-muted">
+                                        No payment executed
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </GlassCard>
+                <GlassCard padding="lg">
+                  <h2 className="font-semibold">Template recipients</h2>
+                  <p className="my-3 text-xs leading-6 text-text-muted">
+                    On-chain addresses are public. Salaries are entered for each
+                    run; no private employee directory is stored here.
+                  </p>
+                  <ol className="divide-y divide-border">
+                    {selected.employees.map((a, i) => (
+                      <li
+                        key={`${a}-${i}`}
+                        className="flex items-center justify-between gap-3 py-4"
+                      >
+                        <span className="text-xs text-text-muted">{i + 1}</span>
+                        <AddressDisplay address={a} chars={6} />
+                      </li>
+                    ))}
+                  </ol>
+                </GlassCard>
+              </div>
+            ) : (
+              <GlassCard padding="lg">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Recipient templates
+                    </h2>
+                    <p className="mt-2 text-sm text-text-secondary">
+                      Reusable on-chain recipient lists. Amounts are set per
+                      run.
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={reload}>
+                    Refresh
+                  </Button>
+                </div>
+                <div className="my-5 max-w-md">
+                  <Input
+                    label="Find a template"
+                    placeholder="Template ID or recipient address"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setPage(1);
+                    }}
+                  />
+                </div>
+                {visible.length === 0 ? (
+                  <Empty
+                    title="No templates found"
+                    detail="Create a recipient template, then prepare a payroll run."
+                  />
+                ) : (
+                  <div className="table-scroll">
+                    <table className="w-full text-left text-sm">
+                      <caption className="sr-only">
+                        Your payroll templates
+                      </caption>
+                      <thead className="text-xs text-text-muted">
+                        <tr>
+                          <th scope="col">Template</th>
+                          <th scope="col">Recipients</th>
+                          <th scope="col">Status</th>
+                          <th scope="col">Manage</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visible
+                          .slice((current - 1) * 10, current * 10)
+                          .map((t) => (
+                            <tr key={t.id.toString()}>
+                              <td className="font-medium">
+                                Template #{t.id.toString()}
+                              </td>
+                              <td>{t.employees.length}</td>
+                              <td>{t.active ? "Active" : "Inactive"}</td>
+                              <td>
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={() => setSelectedId(t.id)}
+                                >
+                                  Open
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
+                  <span>
+                    Page {current} of {pages}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={current <= 1}
+                      onClick={() => setPage(current - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={current >= pages}
+                      onClick={() => setPage(current + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              </GlassCard>
+            )}
+            <p className="text-xs leading-6 text-text-muted">
+              Recipient addresses are public. Demo auditor keys can decrypt
+              covered salaries. Payroll runs execute atomically; individual
+              partial settlement is not supported. This deployment has no
+              scheduling, approvals or organization management.
+            </p>
+          </>
+        )}
+      </div>
+      <Modal
+        open={createOpen}
+        busy={!!busy}
+        onClose={() => setCreateOpen(false)}
+        title="Create recipient template"
+      >
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
+        <p className="text-sm leading-6 text-text-secondary">
+          Add registered Testnet recipients. Addresses are stored on-chain; no
+          salaries are stored in the template.
+        </p>
+        {addresses.map((a, i) => (
+          <div key={i} className="flex items-end gap-2">
+            <div className="min-w-0 flex-1">
+              <Input
+                label={`Recipient ${i + 1}`}
+                placeholder="G…"
+                value={a}
+                disabled={!!busy}
+                onChange={(e) =>
+                  setAddresses((prev) =>
+                    prev.map((v, j) => (j === i ? e.target.value : v)),
+                  )
+                }
+                className="font-mono text-sm"
+                error={
+                  a.trim() && !StrKey.isValidEd25519PublicKey(a.trim())
+                    ? "Enter a valid Stellar G address."
+                    : undefined
+                }
+              />
+            </div>
+            <Button
+              variant="ghost"
+              aria-label={`Remove recipient ${i + 1}`}
+              disabled={addresses.length === 1 || !!busy}
+              onClick={() =>
+                setAddresses((prev) => prev.filter((_, j) => j !== i))
+              }
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
         <Button
-          fullWidth
-          size="lg"
-          isLoading={busy === "execute"}
-          disabled={overBudget || totalSalaries <= 0n}
-          onClick={onConfirm}
+          variant="secondary"
+          disabled={!!busy}
+          onClick={() => setAddresses((prev) => [...prev, ""])}
         >
-          Execute Payroll
+          Add recipient
+        </Button>
+        <p className="text-xs text-text-muted">
+          Registration is checked before the wallet approval.
+        </p>
+        <Button
+          disabled={
+            !ready ||
+            !!busy ||
+            uncertain ||
+            addresses.some((a) => !StrKey.isValidEd25519PublicKey(a.trim())) ||
+            new Set(addresses.map((a) => a.trim())).size !== addresses.length
+          }
+          isLoading={busy === "template"}
+          onClick={createTemplate}
+        >
+          Create template on Testnet
         </Button>
       </Modal>
-
+      <Modal
+        open={executing !== null}
+        busy={!!busy}
+        onClose={() => setExecuting(null)}
+        title={`${review ? "Review" : "Prepare"} payroll · Run #${executing?.id ?? ""}`}
+      >
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
+        <p className="text-sm leading-6 text-text-secondary">
+          {review
+            ? "Check every recipient and amount. The whole batch settles together after proof generation and wallet approval."
+            : "Enter a salary for every recipient. All salaries must be positive and within your available balance."}
+        </p>
+        <div className="space-y-3">
+          {employees.map((a, i) => (
+            <div
+              key={a}
+              className="grid items-center gap-3 rounded-lg border border-border p-4 sm:grid-cols-[1fr_180px]"
+            >
+              <div>
+                <span className="mb-2 block text-xs text-text-muted">
+                  Recipient {i + 1}
+                </span>
+                <AddressDisplay address={a} chars={7} />
+              </div>
+              {review ? (
+                <p className="font-mono text-right">{salaries[a]} USDC</p>
+              ) : (
+                <Input
+                  label={`Salary for recipient ${i + 1} (USDC)`}
+                  inputMode="decimal"
+                  value={salaries[a] ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (/^\d*(?:\.\d{0,7})?$/.test(v))
+                      setSalaries((prev) => ({ ...prev, [a]: v }));
+                  }}
+                  className="text-right font-mono"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+        <dl className="space-y-3 rounded-lg bg-card p-4 text-sm">
+          <div className="flex justify-between gap-3">
+            <dt>Batch total</dt>
+            <dd className="font-mono">{formatAmount(total, 7)} USDC</dd>
+          </div>
+          <div className="flex justify-between gap-3">
+            <dt className="text-text-secondary">Available balance</dt>
+            <dd className="font-mono">{formatAmount(available, 7)} USDC</dd>
+          </div>
+        </dl>
+        {total > available && (
+          <p role="alert" className="text-sm text-error">
+            The total exceeds your available balance.
+          </p>
+        )}
+        <p className="text-xs leading-6 text-text-muted">
+          Network fees use XLM and are shown by your wallet after simulation. If
+          confirmation is uncertain, check the run and account state before
+          retrying.
+        </p>
+        <div className="flex gap-3">
+          <Button
+            disabled={!ready || !valid || !!busy || uncertain}
+            isLoading={busy === "execute"}
+            onClick={() => (review ? execute() : setReview(true))}
+          >
+            {review ? "Confirm and pay batch" : "Review payroll"}
+          </Button>
+          {review && (
+            <Button
+              variant="secondary"
+              disabled={!!busy}
+              onClick={() => setReview(false)}
+            >
+              Edit amounts
+            </Button>
+          )}
+        </div>
+      </Modal>
+      <Modal
+        open={cancel !== null}
+        busy={!!busy}
+        onClose={() => setCancel(null)}
+        title="Cancel draft run"
+      >
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
+        <p className="text-sm text-text-secondary">
+          Cancel Run #{cancel?.id.toString()}. This does not execute any
+          salaries.
+        </p>
+        <Button
+          variant="danger"
+          disabled={!!busy || uncertain}
+          onClick={async () => {
+            if (
+              cancel &&
+              (await run("cancel", () => wallet.cancelRun(cancel.id), {
+                refresh: false,
+              }))
+            ) {
+              setCancel(null);
+              reload();
+            }
+          }}
+        >
+          Confirm cancellation
+        </Button>
+      </Modal>
       <ProofLoadingOverlay
         open={busy === "execute" && phase === "proving"}
-        estSeconds={12 * Math.max(executingEmployees.length, 1)}
         fullScreen
       />
-    </>
+    </AppShell>
+  );
+}
+function Empty({ title, detail }: { title: string; detail: string }) {
+  return (
+    <div className="py-12 text-center">
+      <Briefcase className="mx-auto mb-4 h-7 w-7 text-text-muted" />
+      <h3 className="font-medium">{title}</h3>
+      <p className="mt-2 text-sm text-text-muted">{detail}</p>
+    </div>
   );
 }
