@@ -246,7 +246,16 @@ export async function fetchEvents(
       ? { filters, cursor: pageCursor, limit }
       : { filters, startLedger: opts.startLedger!, limit };
 
-    const resp = await client.server.getEvents(req);
+    const resp = await client.server.getEvents(req).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/startLedger must be within the ledger range/i.test(message)) {
+        throw new Error(
+          `Requested event history is outside the RPC ledger range. Preserve browser storage. A full-history indexer or verified recovery may be needed; do not reset cached balances. RPC: ${message}`,
+          { cause: error },
+        );
+      }
+      throw error;
+    });
     latestLedger = resp.latestLedger;
 
     for (const ev of resp.events) {
