@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Analytics } from "@/components/analytics/Analytics";
+import { ActionProvider } from "@/lib/action-context";
 import { WalletProvider } from "@/lib/wallet-context";
 
 export const metadata: Metadata = {
@@ -13,8 +14,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#080808",
+  themeColor: "#101215",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -22,7 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-dvh bg-void font-sans text-text-primary antialiased">
         <Analytics />
-        <WalletProvider>{children}</WalletProvider>
+        <WalletProvider><ActionProvider>{children}</ActionProvider></WalletProvider>
       </body>
     </html>
   );

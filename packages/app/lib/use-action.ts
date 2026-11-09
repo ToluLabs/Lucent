@@ -1,43 +1,22 @@
 "use client";
-
-import { useCallback, useState } from "react";
-
-import { trackEvent, trackedAction } from "./analytics";
-
+import { useCallback,useState } from "react";
+import { trackEvent,trackedAction } from "./analytics";
 import { useWallet } from "./wallet-context";
 import { errMsg } from "./err";
 import type { TxPhase } from "./wallet";
-
-/**
- * Runs a named async action with UI bookkeeping: which action is busy, the
- * proof phase (for the button label), error capture, and a wallet refresh on
- * success. `run(key, fn)` — `fn` receives `setPhase` for proof-carrying ops.
- */
-export function useAction() {
-  const { refresh, setError } = useWallet();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [phase, setPhase] = useState<TxPhase | null>(null);
-
-  const run = useCallback(
-    async (key: string, fn: (setPhase: (p: TxPhase) => void) => Promise<void>, opts?: { refresh?: boolean }) => {
-      const action = trackedAction(window.location.pathname, key);
-      if (action) trackEvent("action_started", { action });
-      setError(null);
-      setBusy(key);
-      setPhase(null);
-      try {
-        await fn(setPhase);
-        if (opts?.refresh !== false) await refresh();
-      } catch (e) {
-        if (action) trackEvent("action_failed", { action });
-        setError(errMsg(e));
-      } finally {
-        setBusy(null);
-        setPhase(null);
-      }
-    },
-    [refresh, setError],
-  );
-
-  return { run, busy, phase };
+import { useActionContext } from "./action-context";
+import { transactionError } from "./action-result";
+export function useAction(){
+ const{refresh,setError}=useWallet(); const{state,setState,lock}=useActionContext();
+ const[phase,setPhase]=useState<TxPhase|null>(null);
+ const busy=state && ["working","proving","submitting"].includes(state.stage)?state.key:null;
+ const run=useCallback(async(key:string,fn:(setPhase:(p:TxPhase)=>void)=>Promise<void>,opts?:{refresh?:boolean}):Promise<boolean>=>{
+  if(lock.current || state?.stage==="uncertain")return false;
+  lock.current=true; const action=trackedAction(window.location.pathname,key);
+  if(action)trackEvent("action_started",{action}); setError(null);setState({key,stage:"working"});setPhase(null);
+  try{await fn(p=>{setPhase(p);setState({key,stage:p});});setState({key,stage:"confirmed"});if(opts?.refresh!==false)await refresh();return true;}
+  catch(e){const message=errMsg(e);const info=transactionError(message);if(action)trackEvent("action_failed",{action});setError(message);setState({key,stage:info.uncertain?"uncertain":"failed"});return false;}
+  finally{lock.current=false;setPhase(null);}
+ },[refresh,setError,setState,lock,state]);
+ return {run,busy,phase,uncertain:state?.stage==="uncertain"};
 }

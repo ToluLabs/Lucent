@@ -5,11 +5,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: '#080808',
-        surface: { DEFAULT: '#09090B', 2: '#111113' },
-        card: { DEFAULT: '#18181B', hover: '#27272A' },
+        void: '#101215',
+        surface: { DEFAULT: '#15181D', 2: '#1C2026' },
+        card: { DEFAULT: '#1C2026', hover: '#252B33' },
         border: { DEFAULT: 'rgba(255,255,255,0.08)', hover: 'rgba(255,255,255,0.18)' },
-        text: { primary: '#FFFFFF', secondary: '#A1A1AA', muted: '#71717A' },
+        text: { primary: '#FFFFFF', secondary: '#B8BEC8', muted: '#9AA3B1' },
         accent: {
           DEFAULT: '#FBBF24',
           hover: '#FCD34D',
@@ -22,12 +22,12 @@ export default {
           glow: 'rgba(167,139,250,0.15)',
         },
         success: '#34D399',
-        error: '#EF4444',
+        error: '#FF9292',
         warning: '#F59E0B',
       },
       fontFamily: {
-        sans: ['Space Grotesk', 'system-ui', 'sans-serif'],
-        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Inter', 'system-ui', 'sans-serif'],
         mono: ['IBM Plex Mono', 'ui-monospace', 'monospace'],
       },
       animation: {
