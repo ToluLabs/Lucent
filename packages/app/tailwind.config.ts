@@ -5,19 +5,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        void: "#101215",
-        surface: { DEFAULT: "#15181D", 2: "#1C2026" },
-        card: { DEFAULT: "#1C2026", hover: "#252B33" },
+        void: "#080A0E",
+        surface: { DEFAULT: "#0C0F14", 2: "#11151C" },
+        card: { DEFAULT: "#11151C", hover: "#191E27" },
         border: {
           DEFAULT: "rgba(255,255,255,0.08)",
           hover: "rgba(255,255,255,0.18)",
         },
         text: { primary: "#FFFFFF", secondary: "#B8BEC8", muted: "#9AA3B1" },
         accent: {
-          DEFAULT: "#FBBF24",
-          hover: "#FCD34D",
-          glow: "rgba(251,187,36,0.15)",
-          bg: "rgba(251,187,36,0.08)",
+          DEFAULT: "#EFD28D",
+          hover: "#F9E6B8",
+          glow: "rgba(239,210,141,0.12)",
+          bg: "rgba(239,210,141,0.07)",
         },
         encrypted: {
           DEFAULT: "#A78BFA",
@@ -29,8 +29,8 @@ export default {
         warning: "#F59E0B",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Inter", "system-ui", "sans-serif"],
+        sans: ["DM Sans", "system-ui", "sans-serif"],
+        display: ["Manrope", "system-ui", "sans-serif"],
         mono: ["IBM Plex Mono", "ui-monospace", "monospace"],
       },
       animation: {

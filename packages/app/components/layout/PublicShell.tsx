@@ -2,11 +2,11 @@ import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import Link from "next/link";
 export function PublicShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh">
+    <div className="public-shell min-h-dvh">
       <a href="#public-content" className="skip-link">
         Skip to content
       </a>
-      <header className="border-b border-border bg-surface">
+      <header className="public-header">
         <nav
           aria-label="Public navigation"
           className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-4 px-5 py-5 sm:px-8"

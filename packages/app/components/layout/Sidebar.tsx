@@ -11,7 +11,7 @@ import {
 export function Sidebar() {
   const path = usePathname();
   return (
-    <aside className="sticky top-0 flex h-dvh w-[220px] flex-col border-r border-border bg-surface xl:w-[240px]">
+    <aside className="console-sidebar sticky flex w-[220px] flex-col  xl:w-[240px]">
       <Link href="/" className="flex h-[76px] shrink-0 items-center gap-3 px-6">
         <LucentLogoMark size={28} />
         <span className="text-xl font-semibold tracking-tight">
@@ -33,7 +33,7 @@ export function Sidebar() {
                 href={href}
                 aria-current={path === href ? "page" : undefined}
                 className={cn(
-                  "mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
+                  "console-nav-link mb-1 flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm transition-colors",
                   path === href
                     ? "bg-accent-bg font-semibold text-accent"
                     : "text-text-secondary hover:bg-card hover:text-text-primary",

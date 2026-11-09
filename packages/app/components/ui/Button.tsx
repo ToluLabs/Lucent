@@ -15,10 +15,10 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const base =
-  "inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 select-none disabled:opacity-40 disabled:cursor-not-allowed";
+  "lucent-button inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-200 select-none disabled:opacity-40 disabled:cursor-not-allowed";
 
 const variants: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-black hover:bg-accent-hover",
+  primary: "lucent-button-primary bg-accent text-black hover:bg-accent-hover",
   secondary:
     "bg-card border border-border text-text-primary hover:bg-card-hover hover:border-border-hover",
   ghost: "text-text-secondary hover:text-text-primary hover:bg-white/5",

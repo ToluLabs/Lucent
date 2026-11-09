@@ -11,7 +11,7 @@ export function AppShell({
   showNav?: boolean;
 }) {
   return (
-    <div className="min-h-dvh bg-void">
+    <div className="lucent-workspace min-h-dvh">
       <a href="#workspace" className="skip-link">
         Skip to content
       </a>
@@ -26,8 +26,8 @@ export function AppShell({
             tabIndex={-1}
             className={
               showNav
-                ? "mx-auto max-w-[1500px] pb-24 md:pb-8"
-                : "mx-auto max-w-[1500px]"
+                ? "workspace-entry mx-auto max-w-[1500px] pb-24 md:pb-8"
+                : "workspace-entry mx-auto max-w-[1500px]"
             }
           >
             <ActionFeedback />

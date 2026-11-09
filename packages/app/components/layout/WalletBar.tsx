@@ -17,7 +17,7 @@ export function WalletBar() {
             ? "State needs attention"
             : "Account ready";
   return (
-    <header className="flex min-h-[76px] flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-5 py-4 md:px-8">
+    <header className="console-header flex min-h-[76px] flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-5 py-4 md:px-8">
       <Link
         href="/"
         aria-label="Lucent homepage"

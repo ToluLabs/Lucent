@@ -509,7 +509,7 @@ export function HomeClient() {
           </div>
         )}
         <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
-          <GlassCard padding="lg" className="border-accent/20">
+          <GlassCard padding="lg" className="balance-feature border-accent/20">
             <p className="text-sm text-text-secondary">
               Available confidential balance
             </p>

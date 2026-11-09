@@ -9,13 +9,13 @@ export function ConnectPrompt({ message }: { message: string }) {
   return (
     <div className="workspace-page">
       <div className="workspace-grid">
-        <section className="glass-card p-6 md:p-9">
+        <section className="onboarding-panel glass-card p-7 md:p-12">
           <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-xl bg-accent-bg">
             <Wallet className="h-6 w-6 text-accent" />
           </div>
           <p className="eyebrow">Your workspace starts here</p>
-          <h2 className="mt-3 max-w-lg text-3xl font-semibold leading-tight">
-            Payments with a little more discretion.
+          <h2 className="mt-3 max-w-lg text-4xl font-medium leading-[1.15] tracking-tight md:text-5xl">
+            Your money. A little more private.
           </h2>
           <p className="mb-7 mt-4 max-w-lg text-sm leading-7 text-text-secondary">
             {message} Your wallet authorizes transactions and derives your

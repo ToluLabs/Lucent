@@ -1,5 +1,5 @@
 "use client";
-import { Loader2 } from "lucide-react";
+import { PrivacyVisual } from "@/components/brand/PrivacyVisual";
 import { Modal } from "./Modal";
 interface Props {
   open: boolean;
@@ -16,10 +16,7 @@ export function ProofLoadingOverlay({
 }: Props) {
   const content = (
     <div role="status" aria-live="polite" className={className}>
-      <Loader2
-        aria-hidden="true"
-        className="mb-4 h-6 w-6 animate-spin text-accent"
-      />
+      <PrivacyVisual compact />
       <p className="text-sm leading-relaxed text-text-secondary">
         {message ||
           "Generating a proof locally in your browser. Duration depends on your device. Keep this tab open; no transaction is confirmed yet."}

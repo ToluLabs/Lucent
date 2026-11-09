@@ -34,6 +34,22 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
       <motion.div
         ref={ref}
         transition={{ duration: 0.15 }}
+        onPointerMove={(event) => {
+          if (
+            event.pointerType !== "mouse" ||
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          )
+            return;
+          const box = event.currentTarget.getBoundingClientRect();
+          event.currentTarget.style.setProperty(
+            "--spot-x",
+            `${event.clientX - box.left}px`,
+          );
+          event.currentTarget.style.setProperty(
+            "--spot-y",
+            `${event.clientY - box.top}px`,
+          );
+        }}
         className={cn(
           "glass-card relative overflow-hidden group",
           paddings[padding],
