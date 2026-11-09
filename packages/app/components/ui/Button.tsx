@@ -1,8 +1,8 @@
 "use client";
 
-import { ButtonHTMLAttributes, forwardRef } from "react";
-import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { Loader2 } from "lucide-react";
+import { ButtonHTMLAttributes, forwardRef } from "react";
 
 export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -19,7 +19,8 @@ const base =
 
 const variants: Record<ButtonVariant, string> = {
   primary: "bg-accent text-black hover:bg-accent-hover",
-  secondary: "bg-card border border-border text-text-primary hover:bg-card-hover hover:border-border-hover",
+  secondary:
+    "bg-card border border-border text-text-primary hover:bg-card-hover hover:border-border-hover",
   ghost: "text-text-secondary hover:text-text-primary hover:bg-white/5",
   danger: "bg-error/10 border border-error/25 text-error hover:bg-error/20",
 };
@@ -31,17 +32,37 @@ const sizes: Record<ButtonSize, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = "primary", size = "md", isLoading, fullWidth, className, children, disabled, ...props }, ref) => {
+  (
+    {
+      variant = "primary",
+      size = "md",
+      isLoading,
+      fullWidth,
+      className,
+      children,
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
     return (
       <button
         type="button"
         ref={ref}
         aria-busy={!!isLoading}
-        className={cn(base, variants[variant], sizes[size], fullWidth && "w-full", className)}
+        className={cn(
+          base,
+          variants[variant],
+          sizes[size],
+          fullWidth && "w-full",
+          className,
+        )}
         disabled={disabled || isLoading}
         {...props}
       >
-        {isLoading && <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />}
+        {isLoading && (
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+        )}
         {children}
       </button>
     );

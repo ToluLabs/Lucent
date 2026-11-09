@@ -1,9 +1,71 @@
 "use client";
-import { useState } from "react";
 import { useActionContext } from "@/lib/action-context";
 import { useWallet } from "@/lib/wallet-context";
+import { useState } from "react";
 import { Button } from "./Button";
-export function ActionFeedback(){const{state,setState}=useActionContext();const{refresh}=useWallet();const[ack,setAck]=useState(false);if(!state || state.stage==="failed")return null;
- const labels={working:"Preparing action · wallet approval and network confirmation may follow",proving:"Generating proof in this browser",submitting:"Wallet approval, submission and network confirmation",confirmed:"Action confirmed on Stellar Testnet",uncertain:"Confirmation uncertain · check before retrying"};
- return <div className="mx-5 mt-5 rounded-lg border border-border bg-surface p-4 md:mx-8"><div role="status" aria-live="polite" className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-medium">{labels[state.stage]}</p>{state.stage==="confirmed" && <button type="button" onClick={()=>setState(null)} className="min-h-10 text-sm text-accent">Dismiss</button>}</div>{state.stage==="uncertain" && <div className="mt-3 space-y-3"><p className="text-sm leading-6 text-text-secondary">The network may have accepted this action. Refresh balances, inspect recent activity and check any transaction link. Repeating an accepted payment can pay twice.</p><Button variant="secondary" onClick={refresh}>Refresh account</Button><label className="flex items-start gap-3 text-sm text-text-secondary"><input type="checkbox" checked={ack} onChange={e=>setAck(e.target.checked)} className="mt-1 h-4 w-4 accent-amber-400"/>I checked the transaction outcome and understand that retrying can duplicate a payment.</label><Button variant="secondary" disabled={!ack} onClick={()=>{setState(null);setAck(false);}}>Enable actions after checking</Button></div>}</div>;
+export function ActionFeedback() {
+  const { state, setState } = useActionContext();
+  const { refresh } = useWallet();
+  const [ack, setAck] = useState(false);
+  if (!state || state.stage === "failed") return null;
+  const labels = {
+    working:
+      "Preparing action · wallet approval and network confirmation may follow",
+    proving: "Generating proof in this browser",
+    submitting: "Wallet approval, submission and network confirmation",
+    confirmed: "Action confirmed on Stellar Testnet",
+    uncertain: "Confirmation uncertain · check before retrying",
+  };
+  return (
+    <div className="mx-5 mt-5 rounded-lg border border-border bg-surface p-4 md:mx-8">
+      <div
+        role="status"
+        aria-live="polite"
+        className="flex flex-wrap items-center justify-between gap-3"
+      >
+        <p className="text-sm font-medium">{labels[state.stage]}</p>
+        {state.stage === "confirmed" && (
+          <button
+            type="button"
+            onClick={() => setState(null)}
+            className="min-h-10 text-sm text-accent"
+          >
+            Dismiss
+          </button>
+        )}
+      </div>
+      {state.stage === "uncertain" && (
+        <div className="mt-3 space-y-3">
+          <p className="text-sm leading-6 text-text-secondary">
+            The network may have accepted this action. Refresh balances, inspect
+            recent activity and check any transaction link. Repeating an
+            accepted payment can pay twice.
+          </p>
+          <Button variant="secondary" onClick={refresh}>
+            Refresh account
+          </Button>
+          <label className="flex items-start gap-3 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={ack}
+              onChange={(e) => setAck(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-amber-400"
+            />
+            I checked the transaction outcome and understand that retrying can
+            duplicate a payment.
+          </label>
+          <Button
+            variant="secondary"
+            disabled={!ack}
+            onClick={() => {
+              setState(null);
+              setAck(false);
+            }}
+          >
+            Enable actions after checking
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
