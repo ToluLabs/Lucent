@@ -347,7 +347,7 @@ export default function EscrowPage() {
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <span className="font-mono text-xs uppercase tracking-wider text-text-muted">
+          <span className="font-sans text-xs uppercase tracking-wider text-text-muted">
             Timeout — depositor reclaims if no delivery
           </span>
           <div className="grid grid-cols-4 gap-2">
@@ -646,7 +646,7 @@ function EscrowRow({
               </span>
               <span
                 className={cn(
-                  "font-mono text-xs font-medium",
+                  "font-sans tabular-nums text-xs font-medium",
                   timeoutReached ? "text-warning" : "text-text-secondary",
                 )}
               >
@@ -661,7 +661,7 @@ function EscrowRow({
               </span>
               <span
                 className={cn(
-                  "font-mono text-xs font-medium",
+                  "font-sans tabular-nums text-xs font-medium",
                   releaseWindowElapsed ? "text-warning" : "text-text-secondary",
                 )}
               >

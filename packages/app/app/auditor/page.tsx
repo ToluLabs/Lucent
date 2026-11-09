@@ -422,7 +422,7 @@ export default function AuditorPage() {
                 </label>
                 {savedSecrets.length > 0 && (
                   <div className="mt-4 flex flex-col gap-1.5">
-                    <span className="font-mono text-[10px] uppercase tracking-wider text-text-muted">
+                    <span className="font-sans text-[10px] uppercase tracking-wider text-text-muted">
                       Recent keys
                     </span>
                     {savedSecrets.map((s) => (
@@ -568,12 +568,12 @@ export default function AuditorPage() {
                                     )}
                                   </div>
                                 </td>
-                                <td className="py-1.5 font-mono tabular-nums text-text-primary">
+                                <td className="py-1.5 font-sans tabular-nums text-text-primary">
                                   {a.spendable === null
                                     ? "?"
                                     : displayAmount(a.spendable)}
                                 </td>
-                                <td className="py-1.5 font-mono tabular-nums text-text-primary">
+                                <td className="py-1.5 font-sans tabular-nums text-text-primary">
                                   {displayAmount(a.receiving)}
                                 </td>
                                 <td className="py-1.5 text-text-muted">
@@ -881,7 +881,7 @@ function AuditRowView({ row }: { row: AuditRow }) {
         )}
         <span className="flex-1" />
         {row.amount !== null && (
-          <span className="font-mono text-sm font-medium tabular-nums text-accent">
+          <span className="font-sans text-sm font-medium tabular-nums text-accent">
             {displayAmount(row.amount)}
           </span>
         )}
@@ -937,7 +937,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
   return (
     <GlassCard padding="sm">
       <div className="flex flex-col gap-1">
-        <span className="font-mono text-[10px] uppercase tracking-widest text-text-muted">
+        <span className="font-sans text-[10px] uppercase tracking-widest text-text-muted">
           {label}
         </span>
         <span className="font-display text-xl font-bold tabular-nums text-text-primary">

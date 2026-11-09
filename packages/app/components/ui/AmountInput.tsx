@@ -42,7 +42,7 @@ export function AmountInput({
           error ||
           (exceeds ? "Amount exceeds the available balance." : undefined)
         }
-        className="py-5 font-mono text-3xl tabular-nums"
+        className="py-5 font-sans text-3xl tabular-nums"
       />
       {maxValue !== undefined && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-text-secondary">

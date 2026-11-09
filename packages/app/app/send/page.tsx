@@ -276,7 +276,7 @@ export default function SendPage() {
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-sm text-text-muted">Amount</dt>
-                    <dd className="font-mono text-xl tabular-nums">
+                    <dd className="font-sans text-xl tabular-nums">
                       {amount} USDC
                     </dd>
                   </div>
@@ -284,7 +284,7 @@ export default function SendPage() {
                     <dt className="text-sm text-text-muted">
                       Available after payment
                     </dt>
-                    <dd className="font-mono text-sm">
+                    <dd className="font-sans text-sm tabular-nums">
                       {formatAmount(spendable - toBaseUnits(amount), 7)} USDC
                     </dd>
                   </div>

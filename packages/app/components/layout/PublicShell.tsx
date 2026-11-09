@@ -1,8 +1,16 @@
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import Link from "next/link";
-export function PublicShell({ children }: { children: React.ReactNode }) {
+export function PublicShell({
+  children,
+  wide = false,
+}: {
+  children: React.ReactNode;
+  wide?: boolean;
+}) {
   return (
-    <div className="public-shell min-h-dvh">
+    <div
+      className={`public-shell min-h-dvh ${wide ? "public-shell-wide" : ""}`}
+    >
       <a href="#public-content" className="skip-link">
         Skip to content
       </a>

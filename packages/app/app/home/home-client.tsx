@@ -203,7 +203,7 @@ function ActivityRow({
             ) : (
               <span
                 className={cn(
-                  "font-mono text-sm font-medium tabular-nums",
+                  "font-sans text-sm font-medium tabular-nums",
                   iconColor,
                 )}
               >
@@ -212,12 +212,12 @@ function ActivityRow({
               </span>
             ))}
           {ev.type === "deposit" && (
-            <span className="font-mono text-sm font-medium tabular-nums text-accent">
+            <span className="font-sans text-sm font-medium tabular-nums text-accent">
               +{displayAmount(ev.amount)}
             </span>
           )}
           {ev.type === "withdraw" && (
-            <span className="font-mono text-sm font-medium tabular-nums text-accent">
+            <span className="font-sans text-sm font-medium tabular-nums text-accent">
               −{displayAmount(ev.amount)}
             </span>
           )}

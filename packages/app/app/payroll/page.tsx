@@ -650,7 +650,9 @@ export default function PayrollPage() {
                 <AddressDisplay address={a} chars={7} />
               </div>
               {review ? (
-                <p className="font-mono text-right">{salaries[a]} USDC</p>
+                <p className="font-sans tabular-nums text-right">
+                  {salaries[a]} USDC
+                </p>
               ) : (
                 <Input
                   label={`Salary for recipient ${i + 1} (USDC)`}
@@ -661,7 +663,7 @@ export default function PayrollPage() {
                     if (/^\d*(?:\.\d{0,7})?$/.test(v))
                       setSalaries((prev) => ({ ...prev, [a]: v }));
                   }}
-                  className="text-right font-mono"
+                  className="text-right font-sans tabular-nums"
                 />
               )}
             </div>
@@ -670,11 +672,15 @@ export default function PayrollPage() {
         <dl className="space-y-3 rounded-lg bg-card p-4 text-sm">
           <div className="flex justify-between gap-3">
             <dt>Batch total</dt>
-            <dd className="font-mono">{formatAmount(total, 7)} USDC</dd>
+            <dd className="font-sans tabular-nums">
+              {formatAmount(total, 7)} USDC
+            </dd>
           </div>
           <div className="flex justify-between gap-3">
             <dt className="text-text-secondary">Available balance</dt>
-            <dd className="font-mono">{formatAmount(available, 7)} USDC</dd>
+            <dd className="font-sans tabular-nums">
+              {formatAmount(available, 7)} USDC
+            </dd>
           </div>
         </dl>
         {total > available && (
