@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import { ConfidentialWallet, type WalletView } from "./wallet";
 import { freighterIsAllowed } from "./freighter";
 import { errMsg } from "./err";
+import { trackEvent } from "./analytics";
 
 interface WalletCtx {
   wallet: ConfidentialWallet | null;
@@ -77,7 +78,8 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setLogs((prev) => [`${new Date().toLocaleTimeString()}  ${msg}`, ...prev].slice(0, 80));
   }, []);
 
-  const connect = useCallback(async () => {
+  const connectWithMode = useCallback(async (mode: "manual" | "auto") => {
+    trackEvent("wallet_connect_started", { mode });
     setError(null);
     setConnecting(true);
     try {
@@ -85,18 +87,23 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setView(null);
       setLastSync(null);
       setWallet(w);
+      trackEvent("wallet_connected", { mode });
       const v = await w.refresh();
       setView(v);
       setLastSync(new Date());
       localStorage.removeItem(MANUALLY_DISCONNECTED_KEY);
+      trackEvent("wallet_ready", { mode });
       return w;
     } catch (e) {
+      trackEvent("wallet_connect_failed", { mode });
       setError(errMsg(e));
       return null;
     } finally {
       setConnecting(false);
     }
   }, [log]);
+
+  const connect = useCallback(() => connectWithMode("manual"), [connectWithMode]);
 
   // Reconnect silently on mount (page load, hard refresh) if this site was
   // already authorized in a prior session — otherwise every reload drops back
@@ -113,11 +120,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (localStorage.getItem(MANUALLY_DISCONNECTED_KEY)) return;
     freighterIsAllowed().then(async (allowed) => {
       if (!allowed) return;
-      await connect();
+      await connectWithMode("auto");
       // Preserve account-read/recovery errors so a connected wallet never
       // silently falls into the registration screen after a failed refresh.
     });
-  }, [connect]);
+  }, [connectWithMode]);
 
   const refresh = useCallback(async () => {
     if (!wallet) return;

@@ -12,6 +12,7 @@
 import { useCallback, useState } from "react";
 import type { TransferEvent, DisclosureRequest } from "@lucent/sdk";
 import type { ConfidentialWallet } from "@/lib/wallet";
+import { trackEvent } from "@/lib/analytics";
 import { errMsg } from "@/lib/err";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -52,6 +53,7 @@ export function DiscloseFlow({
       const request = parseDisclosureRequest(requestJson);
       const bundle =
         direction === "received" ? await wallet.discloseReceived(ev, request) : await wallet.discloseSent(ev, request);
+      trackEvent("disclosure_created", { direction });
       setBundleJson(JSON.stringify(bundle, null, 2));
     } catch (e) {
       setError(errMsg(e));

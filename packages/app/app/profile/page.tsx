@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Copy, Check, LogOut, Activity, BookOpen, Info, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -103,6 +104,8 @@ export default function ProfilePage() {
             </div>
           </div>
         </GlassCard>
+
+        <Link href="/privacy" className="text-sm text-accent">Privacy & analytics settings</Link>
 
         <SectionLabel>Protocol</SectionLabel>
 

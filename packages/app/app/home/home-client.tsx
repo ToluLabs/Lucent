@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ComponentType } from "react";
 import Link from "next/link";
+import { trackEvent } from "@/lib/analytics";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -359,6 +360,7 @@ export function HomeClient() {
   }
 
   async function handleRegister() {
+    trackEvent("action_started", { action: "registration" });
     setError(null);
     setRegisterSteps([{ id: "register", label: "Prove key ownership", status: "active", estSeconds: 4 }]);
     setRegistering(true);
@@ -367,6 +369,7 @@ export function HomeClient() {
       setRegisterSteps((s) => s.map((x) => ({ ...x, status: "done" })));
       await refresh();
     } catch (e) {
+      trackEvent("action_failed", { action: "registration" });
       setError(errMsg(e));
       setRegisterSteps((s) => s.map((x) => ({ ...x, status: "error" })));
     } finally {

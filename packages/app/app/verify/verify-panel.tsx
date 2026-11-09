@@ -7,6 +7,8 @@
  * binding are all re-read from the chain, never trusted from the bundle.
  */
 
+import { trackEvent } from "@/lib/analytics";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   ChainClient,
@@ -112,6 +114,7 @@ export function VerifyPanel() {
             pinnedVk: vkBytes(artifacts.vk.vkBase64),
           }),
         );
+        trackEvent("disclosure_verified");
       } finally {
         await prover.destroy();
       }
