@@ -12,7 +12,7 @@ let browser, server;
 try {
   await build({
     stdin: {
-      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{WalletProvider,useWallet}from'./lib/wallet-context';function Probe(){const c=useWallet();return <><p id="status">{c.connecting?'connecting':c.wallet?'connected':'disconnected'}</p><p id="error">{c.error}</p><button onClick={c.connect}>Connect</button><button onClick={c.disconnect}>Disconnect</button></>;}createRoot(document.getElementById('root')).render(<WalletProvider><Probe/></WalletProvider>);`,
+      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{WalletProvider,useWallet}from'./lib/wallet-context';function Probe(){const c=useWallet();return <><p id="status">{c.connecting?'connecting':c.wallet?'connected':'disconnected'}</p><p id="error">{c.error}</p><p id="view">{c.view?"available":"unavailable"}</p><button onClick={c.resync}>Recover</button><button onClick={c.connect}>Connect</button><button onClick={c.disconnect}>Disconnect</button></>;}createRoot(document.getElementById('root')).render(<WalletProvider><Probe/></WalletProvider>);`,
       resolveDir: app,
       loader: "tsx",
     },
@@ -52,7 +52,7 @@ try {
                   ? `export async function freighterIsAllowed(){window.__allowed=(window.__allowed??0)+1;return true;}`
                   : args.path === "analytics"
                     ? `export function trackEvent(){}`
-                    : `window.__walletLoads=(window.__walletLoads??0)+1;export class ConfidentialWallet{static async connect(){window.__connections=(window.__connections??0)+1;if(window.__reject)throw new Error('Wallet declined');return{address:'fixture',async refresh(){window.__refreshes=(window.__refreshes??0)+1;return{registered:true,matchesChain:true};}};}}`,
+                    : `window.__walletLoads=(window.__walletLoads??0)+1;export class ConfidentialWallet{static async connect(){window.__connections=(window.__connections??0)+1;if(window.__reject)throw new Error('Wallet declined');return{address:'fixture',async resync(){throw new Error('Recovery unavailable; state preserved');},async refresh(){window.__refreshes=(window.__refreshes??0)+1;return{registered:true,matchesChain:true};}};}}`,
           }));
         },
       },
@@ -110,6 +110,17 @@ try {
   assert.equal(await page.evaluate(() => window.__walletLoads), 1);
   assert.equal(await page.evaluate(() => window.__allowed), 1);
   assert.equal(await page.evaluate(() => window.__refreshes), 1);
+  await page.getByRole("button", { name: "Recover", exact: true }).click();
+  await page.waitForFunction(
+    () =>
+      document.querySelector("#error").textContent ===
+      "Recovery unavailable; state preserved",
+  );
+  assert.equal(
+    await page.locator("#view").textContent(),
+    "available",
+    "Failed recovery retains the account view",
+  );
   await page.evaluate(() => window.__go("/payroll"));
   await page.waitForTimeout(100);
   assert.equal(

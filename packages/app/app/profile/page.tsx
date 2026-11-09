@@ -99,10 +99,10 @@ export default function ProfilePage() {
                   Advanced recovery
                 </summary>
                 <p className="my-4 text-sm leading-7 text-text-secondary">
-                  Full replay clears cached balance state and rebuilds it from
-                  available events. Older events may be missing. This can leave
-                  an account unrecoverable without an archive. Keep existing
-                  storage; try an ordinary refresh first.
+                  Verified recovery rebuilds balances in memory from available
+                  events. It replaces cached state only when both balances match
+                  the chain. Older events may be missing; a failed recovery
+                  preserves your existing state. Try an ordinary refresh first.
                 </p>
                 <Button variant="danger" onClick={() => setConfirm(true)}>
                   Review full replay
@@ -166,12 +166,12 @@ export default function ProfilePage() {
         open={confirm}
         busy={busy}
         onClose={() => setConfirm(false)}
-        title="Full replay may not recover your state"
+        title="Verify recovery from available history"
       >
         <p className="text-sm leading-7 text-text-secondary">
-          The current recovery method discards cached balances before replay.
-          With incomplete historical data, it may not reconstruct the correct
-          balance. This operation does not restore missing history.
+          Recovery checks reconstructed balances against the chain before
+          saving. If history is incomplete or a request fails, existing cached
+          state is preserved. This operation cannot restore missing history.
         </p>
         <label className="flex items-start gap-3 text-sm">
           <input
@@ -180,8 +180,7 @@ export default function ProfilePage() {
             onChange={(e) => setAck(e.target.checked)}
             className="mt-1 h-4 w-4"
           />
-          I understand the history coverage risk and want to run the existing
-          replay procedure.
+          I understand that missing history may prevent recovery.
         </label>
         <Button
           variant="danger"

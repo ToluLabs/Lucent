@@ -1086,8 +1086,10 @@ pnpm --filter @lucent/app test:browser`}</Pre>
               Clearing storage can discard confidential state and retained proof
               openings. Re-deriving keys from the same wallet is not a guarantee
               that complete balances or sender disclosures can be reconstructed
-              without the missing history. The existing full-replay action is an
-              advanced recovery operation, not a routine reset.
+              without the missing history. Verified recovery rebuilds in memory
+              and replaces cached state only when both balances match the chain.
+              Failed recovery preserves existing state; it cannot restore
+              missing history.
             </Callout>
           </section>
           <section className="docs-section" aria-labelledby="contracts">

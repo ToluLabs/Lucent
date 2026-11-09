@@ -75,3 +75,46 @@ const credited = await engine.sync();
 assert(commit(7n, r1).add(incoming.recipientView.cTx)
   .equals(commit(credited.receiving.v, credited.receiving.r)));
 console.log("state-recovery: outage retry, incomplete backfill, no replay, and blinding accumulation passed");
+
+// Recovery must be atomic with respect to the durable cache: candidate state is
+// saved only after BOTH commitments match, even when the cache has a newer cursor.
+const recoveryStore = new MemoryStore();
+const saved = { ...freshState("owner"), cursor: cursor(190),
+  spendable: { v: 9n, r: 4n }, receiving: { v: 3n, r: 2n } };
+await recoveryStore.save(saved);
+let chain = { spendableBalance: commit(0n, 0n), receivingBalance: commit(5n, 0n) };
+let recoveryFailure = false;
+let verificationFailure = false;
+const recoveryClient = { ...client, confidentialBalance: async () => {
+  if (verificationFailure) throw new Error("verification unavailable");
+  return chain;
+} };
+const recoveryIndexer = { fetchEvents: async () => {
+  if (recoveryFailure) throw new Error("history unavailable");
+  return { events: [{ type: "deposit", to: "owner", amount: 5n,
+    ledger: 60, cursor: "deposit-60" }], latestLedger: 200 };
+} };
+const recovery = new StateEngine({ client: recoveryClient, indexer: recoveryIndexer,
+  store: recoveryStore, keys, address: "owner", fromLedger: 1 });
+// Receiving matches but spendable does not: refuse the entire candidate.
+chain.spendableBalance = commit(1n, 0n);
+await assert.rejects(recovery.rebuild(), /Previous local state was preserved/);
+assert.deepEqual(await recoveryStore.load("owner"), saved);
+chain.spendableBalance = commit(0n, 0n);
+chain.receivingBalance = commit(6n, 0n);
+await assert.rejects(recovery.rebuild(), /Previous local state was preserved/);
+assert.deepEqual(await recoveryStore.load("owner"), saved);
+recoveryFailure = true;
+await assert.rejects(recovery.rebuild(), /history unavailable/);
+assert.deepEqual(await recoveryStore.load("owner"), saved);
+recoveryFailure = false;
+verificationFailure = true;
+await assert.rejects(recovery.rebuild(), /verification unavailable/);
+assert.deepEqual(await recoveryStore.load("owner"), saved);
+verificationFailure = false;
+chain.receivingBalance = commit(5n, 0n);
+const recovered = await recovery.rebuild();
+assert.equal(recovered.receiving.v, 5n);
+assert.deepEqual(recovered.spendable, { v: 0n, r: 0n });
+assert.deepEqual(await recoveryStore.load("owner"), recovered);
+console.log("state-rebuild: both commitments required, failed history/verification preserves cache, successful recovery saved");

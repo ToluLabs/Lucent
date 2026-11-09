@@ -42,7 +42,7 @@ interface WalletCtx {
   refresh: () => Promise<void>;
   /**
    * Recovery path for a "Mismatch" badge a plain {@link refresh} doesn't
-   * clear: wipes locally cached state and fully replays event history.
+   * clear: rebuilds from available history and saves only verified balances.
    */
   resync: () => Promise<void>;
   /**
@@ -167,7 +167,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setView(v);
       setLastSync(new Date());
     } catch (e) {
-      setView(null);
       setError(errMsg(e));
     }
   }, [wallet]);

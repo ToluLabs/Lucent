@@ -831,16 +831,10 @@ export class ConfidentialWallet {
     return null;
   }
 
-  /**
-   * Recovery path for a persistent sync-badge mismatch: wipe locally cached
-   * state and fully replay event history from the deploy ledger, then refresh
-   * as normal. Use when a plain refresh doesn't clear a "Mismatch" — that
-   * means the divergent local state is already past the resume cursor, so a
-   * normal sync (which only fetches events after it) can't self-correct.
-   */
+  /** Rebuild from available events; preserve cached state if verification fails. */
   async resync(): Promise<WalletView> {
-    this.log("resyncing from chain history…");
-    await this.engine.reset();
+    this.log("verifying recovery from chain history…");
+    await this.engine.rebuild();
     return this.refresh();
   }
 
