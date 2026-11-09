@@ -10,7 +10,7 @@
  * provider silently checks Freighter for prior authorization and reconnects
  * without a popup if found (see the auto-connect effect below), so a refresh
  * doesn't drop the session. Explicitly disconnecting sticks across reloads
- * too, see {@link MANUALLY_DISCONNECTED_KEY}.
+ * too — see {@link MANUALLY_DISCONNECTED_KEY}.
  */
 
 import {
@@ -28,7 +28,6 @@ import { useRouter } from "next/navigation";
 import { ConfidentialWallet, type WalletView } from "./wallet";
 import { freighterIsAllowed } from "./freighter";
 import { errMsg } from "./err";
-import { createDemoWallet, demoEnabled, DEMO_VIEW } from "./demo";
 
 interface WalletCtx {
   wallet: ConfidentialWallet | null;
@@ -46,8 +45,8 @@ interface WalletCtx {
    */
   resync: () => Promise<void>;
   /**
-   * Forget the local session. Freighter itself stays connected, the browser
-   * extension owns that grant, but a flag is set so a later reload won't
+   * Forget the local session. Freighter itself stays connected — the browser
+   * extension owns that grant — but a flag is set so a later reload won't
    * silently auto-reconnect; only an explicit {@link connect} clears it.
    */
   disconnect: () => void;
@@ -60,7 +59,7 @@ const Ctx = createContext<WalletCtx | null>(null);
 /**
  * Set when the user explicitly disconnects, so a later reload doesn't
  * silently reconnect them again just because Freighter still has this site
- * authorized, disconnect should stick until they reconnect themselves.
+ * authorized — disconnect should stick until they reconnect themselves.
  * Cleared on the next successful connect (explicit or auto).
  */
 const MANUALLY_DISCONNECTED_KEY = "lucent:wallet:manually-disconnected";
@@ -100,23 +99,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   }, [log]);
 
   // Reconnect silently on mount (page load, hard refresh) if this site was
-  // already authorized in a prior session, otherwise every reload drops back
+  // already authorized in a prior session — otherwise every reload drops back
   // to a disconnected state even though nothing the user did asked for that.
   // No popup: `isAllowed()` is a read of Freighter's own memory, and
   // `requestAccess()` inside `connect()` won't prompt either once it's true.
-  // Silent by design, a failure here (Freighter locked, permission revoked,
+  // Silent by design — a failure here (Freighter locked, permission revoked,
   // extension missing) just leaves the user disconnected as before, not an
   // error message for something they didn't initiate.
   const autoConnectAttempted = useRef(false);
   useEffect(() => {
     if (autoConnectAttempted.current) return;
     autoConnectAttempted.current = true;
-    if (demoEnabled()) {
-      setWallet(createDemoWallet());
-      setView(DEMO_VIEW);
-      setLastSync(new Date());
-      return;
-    }
     if (localStorage.getItem(MANUALLY_DISCONNECTED_KEY)) return;
     freighterIsAllowed().then(async (allowed) => {
       if (!allowed) return;

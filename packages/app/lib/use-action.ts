@@ -9,7 +9,7 @@ import type { TxPhase } from "./wallet";
 /**
  * Runs a named async action with UI bookkeeping: which action is busy, the
  * proof phase (for the button label), error capture, and a wallet refresh on
- * success. `run(key, fn)`, `fn` receives `setPhase` for proof-carrying ops.
+ * success. `run(key, fn)` — `fn` receives `setPhase` for proof-carrying ops.
  */
 export function useAction() {
   const { refresh, setError } = useWallet();

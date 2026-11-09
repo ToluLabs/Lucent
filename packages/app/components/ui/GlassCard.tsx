@@ -23,15 +23,23 @@ export const GlassCard = forwardRef<HTMLDivElement, GlassCardProps>(
     return (
       <motion.div
         ref={ref}
+        whileHover={hover ? { y: -2 } : undefined}
+        transition={{ duration: 0.15 }}
         className={cn(
           "glass-card relative overflow-hidden group",
           paddings[padding],
-          glow && "before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-accent-solid/70 before:to-transparent",
-          hover && "cursor-pointer hover:border-border-hover",
+          glow && "shadow-[0_0_30px_rgba(251,187,36,0.12)]",
+          hover && "cursor-pointer",
           className,
         )}
         {...props}
       >
+        {hover && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:animate-shimmer group-hover:opacity-100"
+          />
+        )}
         {children}
       </motion.div>
     );

@@ -35,22 +35,20 @@ import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
 import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { Modal } from "@/components/ui/Modal";
-import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
 import { DiscloseFlow } from "./disclose-flow";
 import { useWallet } from "@/lib/wallet-context";
 import { shortAddress, timeAgo } from "@/lib/format";
-import { displayAmount, formatMoney } from "@/lib/amount";
+import { displayAmount } from "@/lib/amount";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
 import { errMsg } from "@/lib/err";
-import { DEMO_EVENTS, demoEnabled } from "@/lib/demo";
 
 const QUICK_ACTIONS = [
-  { href: "/shield", icon: ArrowDownUp, label: "Shield", hint: "Deposit or withdraw" },
-  { href: "/send", icon: Send, label: "Send", hint: "Pay an account" },
-  { href: "/payroll", icon: Briefcase, label: "Payroll", hint: "Run salaries" },
-  { href: "/escrow", icon: Lock, label: "Escrow", hint: "Hold funds" },
+  { href: "/shield", icon: ArrowDownUp, label: "Shield", tint: "text-accent bg-accent-bg" },
+  { href: "/send", icon: Send, label: "Send", tint: "text-success bg-success/10" },
+  { href: "/payroll", icon: Briefcase, label: "Payroll", tint: "text-encrypted bg-encrypted-bg" },
+  { href: "/escrow", icon: Lock, label: "Escrow", tint: "text-warning bg-warning/10" },
 ];
 
 /**
@@ -64,26 +62,26 @@ function relativeTime(ev: ConfidentialEvent): string {
   return `Ledger ${ev.ledger}`;
 }
 
-type IconType = ComponentType<{ className?: string; strokeWidth?: number }>;
+type IconType = ComponentType<{ className?: string }>;
 
 /**
  * Cross-referenced context that lets a plain `confidential_transfer`/`merge`
  * be relabeled with what it actually was. The token contract has no notion of
- * "payroll" or "escrow", a salary is just a transfer between two regular
+ * "payroll" or "escrow" — a salary is just a transfer between two regular
  * (G...) addresses, indistinguishable on-chain from a deliberate personal
  * Send between the same two people. Only escrow gets relabeled, because it's
  * the one case with a hard signal: the counterparty being a contract (C...)
- * address, every escrow instance IS its own confidential account, not a
+ * address — every escrow instance IS its own confidential account — not a
  * guess about intent. `escrowByAddress` resolves it to depositor/recipient.
  *
  * Payroll deliberately does NOT get the same treatment. An earlier version
  * relabeled any transfer to/from a known employer/employee of yours as
  * "Salary," but that's wrong the moment that employer and employee also send
- * each other money directly for any other reason, which is exactly a
+ * each other money directly for any other reason — which is exactly a
  * personal transfer, and mislabeling it erodes trust in the whole feed.
  * There's no on-chain marker that distinguishes a transfer submitted via
  * PayrollVault's execute_run from one submitted directly by a wallet with the
- * same from/to, the PayrollVault contract's own EmployeePaid/RunExecuted
+ * same from/to — the PayrollVault contract's own EmployeePaid/RunExecuted
  * events would be the correct signal (matched by transaction hash), but that
  * means fetching a second contract's event stream, not implemented here.
  * A merge is likewise NOT relabeled "Claimed payroll" for the same reason:
@@ -156,49 +154,50 @@ function ActivityRow({
   }
 
   return (
-    <li className="border-t border-border first:border-t-0">
+    <li className="border-b border-border last:border-0">
       <div
         role="button"
         tabIndex={0}
         onClick={openExplorer}
         onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && openExplorer()}
-        className="grid cursor-pointer grid-cols-[2rem_1fr_auto_auto] items-center gap-x-3 px-4 py-3.5 md:gap-x-4 md:px-5 transition-colors hover:bg-fg/[0.03] md:grid-cols-[2rem_minmax(0,1.6fr)_7rem_9rem_3.5rem]"
+        className="flex cursor-pointer items-center gap-3 rounded-lg py-3 transition-colors"
       >
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card">
-          <Icon className={cn("h-4 w-4", iconColor)} strokeWidth={1.8} />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-card">
+          <Icon className={cn("h-5 w-5", iconColor)} />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium text-text-primary">{label}</div>
-          <div className="text-xs text-text-muted md:hidden">{relativeTime(ev)}</div>
+          <div className="text-xs text-text-muted">{relativeTime(ev)}</div>
         </div>
-        <div className="hidden text-sm text-text-muted md:block">{relativeTime(ev)}</div>
-        <div className="flex items-center justify-end">
+        <div className="flex shrink-0 flex-col items-end gap-1">
           {ev.type === "transfer" &&
             (decryptedAmount === undefined ? (
               <Skeleton className="h-4 w-16" />
             ) : decryptedAmount === null ? (
               <EncryptedBadge />
             ) : (
-              <span className={cn("font-mono text-sm font-medium tabular-nums", direction === "received" ? "text-success" : "text-text-primary")}>
-                {direction === "received" ? "+" : "-"}
-                {formatMoney(decryptedAmount)}
+              <span className={cn("font-mono text-sm font-medium tabular-nums", iconColor)}>
+                {direction === "received" ? "+" : "−"}
+                {displayAmount(decryptedAmount)}
               </span>
             ))}
           {ev.type === "deposit" && (
-            <span className="font-mono text-sm font-medium tabular-nums text-success">+{formatMoney(ev.amount)}</span>
+            <span className="font-mono text-sm font-medium tabular-nums text-accent">
+              +{displayAmount(ev.amount)}
+            </span>
           )}
           {ev.type === "withdraw" && (
-            <span className="font-mono text-sm font-medium tabular-nums text-text-primary">-{formatMoney(ev.amount)}</span>
+            <span className="font-mono text-sm font-medium tabular-nums text-accent">
+              −{displayAmount(ev.amount)}
+            </span>
           )}
-        </div>
-        <div className="flex min-w-[2.75rem] justify-end">
           {direction && canDisclose && (
             <button
               onClick={(e) => {
                 e.stopPropagation();
                 setProveOpen((v) => !v);
               }}
-              className="rounded-md px-2 py-1 text-xs font-medium text-text-muted transition-colors hover:bg-fg/[0.06] hover:text-accent"
+              className="text-xs font-medium tracking-wide text-text-muted transition-colors duration-150 hover:text-accent"
             >
               {proveOpen ? "Close" : "Prove"}
             </button>
@@ -231,11 +230,6 @@ export function HomeClient() {
 
   useEffect(() => {
     if (!wallet) return;
-    if (demoEnabled()) {
-      setActivity(DEMO_EVENTS);
-      setActivityLoading(false);
-      return;
-    }
     let cancelled = false;
     (async () => {
       setActivityLoading(true);
@@ -266,7 +260,7 @@ export function HomeClient() {
         });
         if (!cancelled) setActivity(mine.slice(-20).reverse());
       } catch {
-        // Read-only history fetch, fall back to the empty state rather than
+        // Read-only history fetch — fall back to the empty state rather than
         // surfacing an error for something the user didn't initiate.
         if (!cancelled) setActivity([]);
       } finally {
@@ -278,7 +272,7 @@ export function HomeClient() {
     };
   }, [wallet]);
 
-  // Decrypt each transfer's amount for display, this is the account's own
+  // Decrypt each transfer's amount for display — this is the account's own
   // data, so there's no reason to keep it hidden from the owner the way it's
   // hidden from everyone else. Received transfers decrypt with just the
   // owner's own key; sent transfers need one extra RPC lookup per event (the
@@ -382,22 +376,31 @@ export function HomeClient() {
   }
 
   if (!wallet) {
+    if (connecting) {
+      return (
+        <AppShell>
+          <PageHeader title="Home" showBack={false} />
+          <div className="flex flex-col items-center gap-5 px-4 py-20 text-center">
+            <LucentLogoMark size={56} showBg={false} />
+          </div>
+        </AppShell>
+      );
+    }
     return (
       <AppShell>
-        <PageHeader title="Overview" subtitle="Your confidential balance and recent activity." showBack={false} />
-        {connecting ? (
-          <div className="px-4 pb-10 md:mx-auto md:max-w-2xl md:px-8">
-            <div className="glass-card flex items-center gap-4 p-6">
-              <Skeleton className="h-11 w-11" />
-              <div className="flex flex-1 flex-col gap-2">
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-3 w-64 max-w-full" />
-              </div>
-            </div>
+        <PageHeader title="Home" showBack={false} />
+        <div className="flex flex-col items-center gap-5 px-4 py-20 text-center">
+          <LucentLogoMark size={56} showBg={false} />
+          <div>
+            <h2 className="mb-2 font-display text-xl font-semibold text-text-primary">Welcome to Lucent</h2>
+            <p className="max-w-xs text-sm text-text-secondary">
+              Connect Freighter to view your confidential balance and activity.
+            </p>
           </div>
-        ) : (
-          <ConnectPrompt message="Connect your wallet to see your confidential balance, merge incoming funds and review your activity." />
-        )}
+          <Button isLoading={connecting} onClick={connect}>
+            Connect Freighter
+          </Button>
+        </div>
       </AppShell>
     );
   }
@@ -424,157 +427,163 @@ export function HomeClient() {
   if (!registered) {
     return (
       <AppShell>
-        <PageHeader
-          title="Register"
-          subtitle="One step before you can use Lucent."
-          showBack={false}
-          right={<AddressDisplay address={wallet.address} chars={5} />}
-        />
-        <div className="flex flex-col gap-5 px-4 pb-10 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
+        <PageHeader title="Home" showBack={false} />
+        <div className="flex flex-col gap-5 px-4 pb-8 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
           <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
-          <section className="glass-card overflow-hidden">
-            <div className="p-6 md:p-8">
-              <h2 className="font-serif text-4xl leading-tight tracking-tight">Bind your confidential keys.</h2>
-              <p className="mt-3 max-w-md text-sm leading-relaxed text-text-secondary">
-                Registration ties a key set, derived from a wallet signature, to your Stellar address
-                with a single zero-knowledge proof. Balances, sending, payroll and escrow all unlock after it.
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-text-muted">{greeting}</span>
+            <AddressDisplay address={wallet.address} chars={5} />
+          </div>
+
+          <div className="flex flex-col items-center gap-5 px-4 py-12 text-center">
+            <LucentLogoMark size={56} showBg={false} />
+            <div>
+              <h2 className="mb-2 font-display text-xl font-semibold text-text-primary">Register to continue</h2>
+              <p className="max-w-xs text-sm text-text-secondary">
+                Bind your confidential keys to the contract — a one-time proof. Everything else
+                unlocks after this: balances, sending, payroll, escrow.
               </p>
-              <ol className="mt-6 flex flex-col gap-3 text-sm">
-                {["Sign a message in your wallet to derive your keys", "Your browser proves ownership of them (about 4 seconds)", "The proof is verified on-chain, once"].map((t, i) => (
-                  <li key={t} className="flex items-start gap-3">
-                    <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border font-mono text-[10px] text-text-muted">
-                      {i + 1}
-                    </span>
-                    <span className="text-text-secondary">{t}</span>
-                  </li>
-                ))}
-              </ol>
             </div>
-            <div className="flex flex-col gap-4 border-t border-border bg-card/60 px-6 py-5 md:px-8">
+            <div className="flex w-full max-w-xs flex-col gap-3">
               {registerSteps.length > 0 && <TxStatus steps={registerSteps} />}
-              <Button size="lg" isLoading={registering} onClick={handleRegister} className="sm:w-fit sm:min-w-[200px]">
-                {registering ? "Registering…" : "Register account"}
+              <Button fullWidth size="lg" isLoading={registering} onClick={handleRegister}>
+                {registering ? "Registering…" : "Register"}
               </Button>
             </div>
-          </section>
+          </div>
         </div>
       </AppShell>
     );
   }
 
-  const total = spendable + receiving;
-
   return (
-    <AppShell wide>
-      <PageHeader
-        title="Overview"
-        subtitle={`${greeting}. Everything below is decrypted locally, only you can see it.`}
-        showBack={false}
-        right={
-          <div className="flex items-center gap-3">
-            <span className="hidden text-xs text-text-muted sm:inline">
-              {lastSync ? `Synced ${timeAgo(lastSync.getTime())}` : "Not synced yet"}
-            </span>
-            <Button size="sm" variant="secondary" isLoading={syncing} onClick={handleSync}>
-              Sync
-            </Button>
-          </div>
-        }
-      />
-      <div className="flex flex-col gap-6 px-4 pb-10 animate-fade-in-up md:px-8">
+    <AppShell>
+      <PageHeader title="Home" showBack={false} />
+      <div className="flex flex-col gap-5 px-4 pb-8 animate-fade-in-up md:mx-auto md:max-w-2xl md:px-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
 
-        {/* Balance */}
-        <section className="glass-card overflow-hidden">
-          <div className="grid md:grid-cols-[1.5fr_1fr_1fr]">
-            <div className="flex flex-col gap-3 p-6 md:p-8">
-              <div className="flex items-center gap-2 text-xs text-text-muted">
-                <span className="font-mono uppercase tracking-[0.14em]">Total balance</span>
-                <span className="inline-flex items-center gap-1 rounded-md bg-encrypted-bg px-1.5 py-0.5 text-[10px] font-medium text-encrypted">
-                  <Lock className="h-2.5 w-2.5" /> Confidential
-                </span>
+        {/* Greeting */}
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-text-muted">{greeting}</span>
+          <AddressDisplay address={wallet.address} chars={5} />
+        </div>
+
+        {/* Balance overview */}
+        <GlassCard padding="lg" glow>
+          <div className="flex flex-col gap-5">
+            <div className="flex items-start justify-between">
+              <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.35em] text-text-muted">
+                Total Balance
+              </span>
+              <span className="inline-flex items-center gap-1 rounded-full border border-encrypted/20 bg-encrypted-bg px-2 py-0.5 text-[10px] font-medium text-encrypted">
+                <Lock className="h-2.5 w-2.5" /> Confidential
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-2">
+              <span className="font-display text-3xl font-bold tabular-nums text-text-primary">
+                {displayAmount(spendable + receiving)}
+              </span>
+              <span className="font-mono text-sm text-text-muted">USDC</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-border bg-surface-2/60 p-3">
+                <div className="flex items-center gap-1.5 text-text-muted">
+                  <Lock className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">Spendable</span>
+                </div>
+                <div className="mt-1.5 font-mono text-lg font-semibold tabular-nums text-text-primary">
+                  {displayAmount(spendable)}
+                </div>
               </div>
-              <div className="flex items-baseline gap-2">
-                <span className="font-serif text-6xl leading-none tracking-tight tabular-nums md:text-7xl">{formatMoney(total)}</span>
-                <span className="font-mono text-sm text-text-muted">USDC</span>
+              <div className="rounded-xl border border-border bg-surface-2/60 p-3">
+                <div className="flex items-center gap-1.5 text-text-muted">
+                  <ArrowDownLeft className="h-3 w-3" />
+                  <span className="text-[10px] font-semibold uppercase tracking-wider">Receiving</span>
+                </div>
+                <div className="mt-1.5 font-mono text-lg font-semibold tabular-nums text-text-primary">
+                  {displayAmount(receiving)}
+                </div>
               </div>
             </div>
 
-            {[
-              { label: "Spendable", hint: "Ready to send or withdraw", value: spendable, Icon: Lock },
-              { label: "Receiving", hint: "Incoming, not yet merged", value: receiving, Icon: ArrowDownLeft },
-            ].map(({ label, hint, value, Icon }) => (
-              <div key={label} className="flex flex-col justify-between gap-6 border-t border-border p-6 md:border-l md:border-t-0 md:p-8">
-                <div className="flex items-center gap-2 text-text-muted">
-                  <Icon className="h-3.5 w-3.5" />
-                  <span className="font-mono text-xs uppercase tracking-[0.14em]">{label}</span>
-                </div>
-                <div>
-                  <div className="font-display text-2xl font-semibold tabular-nums">{formatMoney(value)}</div>
-                  <div className="mt-1 text-xs text-text-muted">{hint}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {receiving > 0n && (
-            <div className="flex flex-col gap-3 border-t border-border bg-card/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between md:px-8">
-              <p className="text-sm text-text-secondary">
-                You have <span className="font-medium text-text-primary">{formatMoney(receiving)} USDC</span> waiting to be merged into your spendable balance.
-              </p>
-              <div className="flex flex-col gap-2 sm:items-end">
-                <Button size="sm" isLoading={merging} onClick={handleMerge}>
+            {receiving > 0n && (
+              <div className="flex flex-col gap-2">
+                <Button size="sm" variant="secondary" isLoading={merging} onClick={handleMerge}>
                   Merge into spendable
                 </Button>
                 {mergeSteps.length > 0 && <TxStatus steps={mergeSteps} />}
               </div>
-            </div>
-          )}
-        </section>
+            )}
 
-        {/* Actions */}
-        <nav aria-label="Quick actions" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {QUICK_ACTIONS.map(({ href, icon: Icon, label, hint }) => (
-            <Link
-              key={href}
-              href={href}
-              className="group flex items-center justify-between gap-3 rounded-xl border border-border bg-panel px-4 py-3.5 shadow-card transition-colors hover:border-border-hover"
-            >
-              <span className="flex items-center gap-3">
-                <Icon className="h-[18px] w-[18px] text-text-secondary transition-colors group-hover:text-accent" strokeWidth={1.8} />
-                <span>
-                  <span className="block text-sm font-medium">{label}</span>
-                  <span className="hidden text-xs text-text-muted sm:block">{hint}</span>
-                </span>
+            {/*
+              "Pending payroll claims" was in the original design here, but
+              there's no on-chain data that distinguishes an unclaimed salary
+              from any other unmerged incoming transfer — PayrollVault's
+              claim() is just token.merge() under another name. The Receiving
+              row above already covers "money waiting to be merged" for any
+              source, payroll included, so a separate row would just repeat
+              the same number under a different label.
+            */}
+
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <span className="text-xs text-text-muted">
+                {lastSync ? `Synced ${timeAgo(lastSync.getTime())}` : "Not synced yet"}
               </span>
-              <ArrowUpRight className="h-4 w-4 text-text-muted transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent" />
-            </Link>
-          ))}
-        </nav>
+              <Button size="sm" variant="ghost" isLoading={syncing} onClick={handleSync}>
+                Sync
+              </Button>
+            </div>
+          </div>
+        </GlassCard>
 
-        {/* Activity */}
-        <section>
-          <div className="mb-3 flex items-end justify-between">
-            <h2 className="font-display text-lg font-semibold tracking-tight">Activity</h2>
-            {activity && activity.length > 0 && <span className="text-xs text-text-muted">Latest {activity.length}</span>}
+        {/* Quick actions — horizontal scroll on mobile, all 4 fit in a row on desktop */}
+        <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide md:grid md:grid-cols-4 md:overflow-visible">
+          {QUICK_ACTIONS.map(({ href, icon: Icon, label, tint }) => (
+            <motion.div
+              key={href}
+              whileHover={{ y: -2 }}
+              whileTap={{ scale: 0.94 }}
+              className="shrink-0 md:w-full"
+            >
+              <Link
+                href={href}
+                className="group flex shrink-0 flex-col items-center gap-2.5 rounded-2xl border border-border bg-card px-5 py-4 transition-all duration-150 hover:border-border-hover md:w-full"
+              >
+                <div className={cn("flex h-10 w-10 items-center justify-center rounded-full transition-colors", tint)}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <span className="text-xs font-medium text-text-secondary transition-colors group-hover:text-text-primary">
+                  {label}
+                </span>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Recent activity */}
+        <div>
+          <div className="mb-2 flex items-center gap-3">
+            <SectionLabel className="flex-1">Recent Activity</SectionLabel>
           </div>
 
           {activityLoading && (
-            <div className="glass-card flex flex-col gap-px overflow-hidden">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-[60px] rounded-none" />
-              ))}
+            <div className="flex flex-col gap-2">
+              <Skeleton className="h-16 rounded-2xl" />
+              <Skeleton className="h-16 rounded-2xl" />
+              <Skeleton className="h-16 rounded-2xl" />
             </div>
           )}
 
           {!activityLoading && activity && activity.length === 0 && (
-            <div className="glass-card flex flex-col items-start gap-3 p-8">
-              <Activity className="h-5 w-5 text-text-muted" />
-              <div>
-                <p className="font-medium">No activity yet</p>
-                <p className="mt-1 text-sm text-text-muted">Deposit USDC to create your first confidential balance.</p>
+            <div className="flex flex-col items-center gap-3 py-12 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-card">
+                <Activity className="text-text-muted" size={20} />
               </div>
+              <p className="text-sm text-text-secondary">No activity yet</p>
+              <p className="text-xs text-text-muted">Deposit USDC to get started</p>
               <Button size="sm" variant="secondary" onClick={() => router.push("/shield")}>
                 Deposit USDC
               </Button>
@@ -582,15 +591,8 @@ export function HomeClient() {
           )}
 
           {!activityLoading && activity && activity.length > 0 && (
-            <div className="glass-card overflow-hidden">
-              <div className="hidden grid-cols-[2rem_minmax(0,1.6fr)_7rem_9rem_3.5rem] gap-x-4 border-b border-border bg-card/50 px-5 py-2.5 font-mono text-[10px] uppercase tracking-[0.14em] text-text-muted md:grid">
-                <span />
-                <span>Event</span>
-                <span>When</span>
-                <span className="text-right">Amount (USDC)</span>
-                <span />
-              </div>
-              <ul>
+            <GlassCard padding="md">
+              <ul className="flex flex-col">
                 {activity.map((ev) => (
                   <ActivityRow
                     key={ev.cursor}
@@ -601,9 +603,9 @@ export function HomeClient() {
                   />
                 ))}
               </ul>
-            </div>
+            </GlassCard>
           )}
-        </section>
+        </div>
       </div>
     </AppShell>
   );

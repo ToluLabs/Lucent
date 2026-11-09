@@ -1,5 +1,5 @@
 /**
- * ConfidentialWallet, UI-facing orchestration over @lucent/sdk.
+ * ConfidentialWallet — UI-facing orchestration over @lucent/sdk.
  *
  * Holds the RPC client, the Freighter signer, the user's confidential key set,
  * a local state engine, and lazily-created provers. All proving happens in the
@@ -163,7 +163,7 @@ export class ConfidentialWallet {
     if (stored) {
       sk = fromHex(stored);
     } else {
-      log("sign the key-derivation message in your wallet…");
+      log("sign the key-derivation message in Freighter…");
       const signature = await signer.signMessage(
         keyDerivationMessage(DEPLOYMENT.networkPassphrase, DEPLOYMENT.contracts.token),
       );
@@ -266,7 +266,7 @@ export class ConfidentialWallet {
     // cached locally right now. If a transfer credited receiving on-chain
     // since the last sync, an unsynced local cache would fold a stale
     // (too-low) receiving into spendable while the real on-chain merge folds
-    // the true (higher) amount, leaving local state permanently short of
+    // the true (higher) amount — leaving local state permanently short of
     // chain, caught only later by verifyAgainstChain as an unspendable
     // mismatch. Same reason transfer()/withdraw() sync before proving.
     await this.engine.sync();
@@ -278,7 +278,7 @@ export class ConfidentialWallet {
 
   // ---- compliance (admin-only; the contract enforces this, not the app) ----
 
-  /** Freeze `account`, it can no longer deposit, transfer, receive, or withdraw. */
+  /** Freeze `account` — it can no longer deposit, transfer, receive, or withdraw. */
   async freeze(account: string): Promise<void> {
     this.log(`freezing ${account}…`);
     const r = await submitFreeze(this.client, this.signer, account, this.address);
@@ -325,7 +325,7 @@ export class ConfidentialWallet {
    * Turn the allowlist gate on or off. `enabled: true` wires the deployed
    * policy contract back in (only previously-allowlisted addresses can
    * register/transact); `false` disables the gate entirely so every address
-   * can register/transact freely. Freeze is unaffected by this either way,
+   * can register/transact freely. Freeze is unaffected by this either way —
    * see the SDK's `submitSetComplianceConfig` doc comment.
    */
   async setCompliancePolicy(enabled: boolean, policyAddress: string): Promise<void> {
@@ -413,7 +413,7 @@ export class ConfidentialWallet {
   }
 
   /**
-   * Employer: execute a run, one confidential transfer per employee, proven in
+   * Employer: execute a run — one confidential transfer per employee, proven in
    * the browser and routed atomically through the vault. Salaries never touch
    * chain storage; only the (encrypted) transfers do.
    */
@@ -504,7 +504,7 @@ export class ConfidentialWallet {
 
   /**
    * Depositor: fund an escrow. Builds every confidential blob the instance
-   * needs, a register proof for the instance's fresh Grumpkin identity, the
+   * needs — a register proof for the instance's fresh Grumpkin identity, the
    * depositor→instance transfer, and the two pre-generated payout proofs
    * (instance→recipient and instance→depositor). The instance's post-fund
    * spendable opening is deterministic `(amount, r_tx)`, so both payout proofs
@@ -676,13 +676,13 @@ export class ConfidentialWallet {
   }
 
   /**
-   * Other accounts with a `register` event, the way to enumerate possible
+   * Other accounts with a `register` event — the way to enumerate possible
    * transfer recipients. With an indexer this covers the full history; without
    * one, an account registered more than ~7 days ago won't appear.
    *
-   * Filtered to `G...` keypair addresses only. Contracts register too, every
+   * Filtered to `G...` keypair addresses only. Contracts register too — every
    * PrivateEscrow instance is its own confidential account (`C...`), since
-   * that's how it holds a balance, but Send is for paying people, not for
+   * that's how it holds a balance — but Send is for paying people, not for
    * transferring straight into an arbitrary escrow's custody outside its own
    * fund flow, so those addresses are excluded here.
    */
@@ -704,7 +704,7 @@ export class ConfidentialWallet {
    * full-history scan and fire near-simultaneously on connect. Concurrent
    * callers share ONE in-flight fetch; the moment it settles the slot is
    * cleared, so any LATER call (the activity panel's Reload, a post-tx refresh,
-   * the recipients refresh button) re-fetches and picks up new events,
+   * the recipients refresh button) re-fetches and picks up new events —
    * including ones from other accounts. This only de-duplicates overlapping
    * requests; it never serves stale data, so there is no cache to invalidate.
    */
@@ -738,7 +738,7 @@ export class ConfidentialWallet {
   /**
    * Recover the ephemeral scalar for an outgoing transfer:
    * `r_e = Poseidon2(EPHEMERAL_KEY, vk, sigma)`, checked against the event's
-   * `R_e`. No per-transfer state, `sigma` is public in the event. `null`
+   * `R_e`. No per-transfer state — `sigma` is public in the event. `null`
    * means the transfer wasn't built with this wallet's keys and the
    * deterministic derivation (e.g. a pre-derivation random-r_e transfer).
    */
@@ -778,7 +778,7 @@ export class ConfidentialWallet {
   /**
    * Produce a D-sender disclosure bundle for an outgoing transfer event. The
    * ephemeral scalar is re-derived from `vk` + the event's public `sigma`
-   * (deterministic r_e), no per-transfer state (§7).
+   * (deterministic r_e) — no per-transfer state (§7).
    */
   async discloseSent(event: TransferEvent, request: DisclosureRequest): Promise<DisclosureBundle> {
     if (event.from !== this.address) {
@@ -787,7 +787,7 @@ export class ConfidentialWallet {
     const rEScalar = this.recoverRE(event);
     if (rEScalar === null) {
       throw new Error(
-        "the event's R_e doesn't match this wallet's derived ephemeral scalar, the transfer wasn't sent with these keys (or used a non-deterministic r_e)",
+        "the event's R_e doesn't match this wallet's derived ephemeral scalar — the transfer wasn't sent with these keys (or used a non-deterministic r_e)",
       );
     }
     const recipient = await this.client.confidentialBalance(event.to);
@@ -806,11 +806,11 @@ export class ConfidentialWallet {
   }
 
   /**
-   * Decrypt a transfer's amount for the account itself, not a disclosure to
+   * Decrypt a transfer's amount for the account itself — not a disclosure to
    * a third party, no proof, just showing the owner their own plaintext.
    * Received transfers decrypt directly with the owner's own viewing key (no
    * extra round trip); sent transfers additionally need the recipient's
-   * public viewing key to reconstruct what they decrypted, the same lookup
+   * public viewing key to reconstruct what they decrypted — the same lookup
    * `discloseSent` makes. Returns `null` if the transfer can't be attributed
    * to this wallet (e.g. it didn't use the deterministic ephemeral scalar).
    */
@@ -832,7 +832,7 @@ export class ConfidentialWallet {
   /**
    * Recovery path for a persistent sync-badge mismatch: wipe locally cached
    * state and fully replay event history from the deploy ledger, then refresh
-   * as normal. Use when a plain refresh doesn't clear a "Mismatch", that
+   * as normal. Use when a plain refresh doesn't clear a "Mismatch" — that
    * means the divergent local state is already past the resume cursor, so a
    * normal sync (which only fetches events after it) can't self-correct.
    */

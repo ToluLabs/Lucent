@@ -57,55 +57,70 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <PageHeader title="Profile" subtitle="Your wallet and connection." showBack={false} />
+      <PageHeader title="Profile" showBack={false} />
 
       <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
-        <section className="glass-card overflow-hidden">
-          <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center">
-            <LucentLogoMark size={52} />
-            <div className="min-w-0 flex-1">
+        <GlassCard padding="md">
+          <div className="flex flex-col items-center gap-4 py-2">
+            <div className="relative">
+              <div
+                aria-hidden
+                className="absolute inset-0 rounded-2xl"
+                style={{ background: "radial-gradient(circle, rgba(251,187,36,0.2) 0%, transparent 70%)", filter: "blur(12px)" }}
+              />
+              <LucentLogoMark size={56} />
+            </div>
+
+            <div className="flex flex-col items-center gap-2">
               <div className="flex items-center gap-2">
-                <span className="truncate font-mono text-sm">{wallet.address.slice(0, 8)}…{wallet.address.slice(-6)}</span>
-                <button onClick={copy} aria-label="Copy address" className="text-text-muted transition-colors hover:text-accent">
+                <span className="font-mono text-sm text-text-primary">
+                  {wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}
+                </span>
+                <button onClick={copy} className="text-text-muted transition-colors hover:text-accent">
                   {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 </button>
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
+
+              <div className="flex items-center gap-2">
                 <Pill tone="amber">Stellar Testnet</Pill>
                 <Pill tone={synced ? "green" : mismatch ? "red" : "neutral"}>
-                  {synced ? "State matches chain" : mismatch ? "Mismatch" : view ? "Syncing…" : "-"}
+                  {synced ? "State matches chain" : mismatch ? "Mismatch" : view ? "Syncing…" : "—"}
                 </Pill>
               </div>
+
+              {mismatch && (
+                <div className="flex flex-col items-center gap-1.5">
+                  <p className="max-w-xs text-center text-xs text-text-muted">
+                    Local state disagrees with what&apos;s on-chain. A resync clears the local cache
+                    and fully replays event history to fix it.
+                  </p>
+                  <Button size="sm" variant="secondary" isLoading={resyncing} onClick={handleResync}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Resync from chain
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
-          {mismatch && (
-            <div className="flex flex-col gap-3 border-t border-border bg-card/60 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="max-w-md text-sm text-text-secondary">
-                Local state disagrees with the chain. A resync clears the local cache and replays event history.
-              </p>
-              <Button size="sm" variant="secondary" isLoading={resyncing} onClick={handleResync}>
-                <RefreshCw className="h-3.5 w-3.5" />
-                Resync from chain
-              </Button>
-            </div>
-          )}
-        </section>
+        </GlassCard>
 
         <SectionLabel>Protocol</SectionLabel>
 
-        <dl className="glass-card overflow-hidden">
+        <div className="flex flex-col gap-3">
           {[
             { label: "Encryption", value: "Pedersen commitments (Grumpkin)" },
             { label: "Proofs", value: "UltraHonk, verified on-chain" },
             { label: "Privacy", value: "Amount-hidden on-chain" },
             { label: "Network", value: "Stellar Testnet" },
           ].map(({ label, value }) => (
-            <div key={label} className="flex items-center justify-between gap-4 border-t border-border px-5 py-3.5 first:border-t-0">
-              <dt className="text-sm text-text-muted">{label}</dt>
-              <dd className="text-right font-mono text-xs text-text-secondary">{value}</dd>
-            </div>
+            <GlassCard key={label} padding="sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-text-muted">{label}</span>
+                <span className="font-mono text-xs text-text-secondary">{value}</span>
+              </div>
+            </GlassCard>
           ))}
-        </dl>
+        </div>
 
         <SectionLabel>Links</SectionLabel>
 

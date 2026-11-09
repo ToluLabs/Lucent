@@ -42,7 +42,7 @@ export function LucentLogoMark({ size = 32, showBg = true, ...props }: Props) {
         d={`M${cx} ${cy - ri} A${ri} ${ri} 0 0 1 ${cx} ${cy + ri} Z`}
         fill="#1A1200"
       />
-      {/* Centre dot, the hidden core */}
+      {/* Centre dot — the hidden core */}
       <circle cx={cx} cy={cy} r={rc} fill="#FBBF24" opacity={0.4} />
       {/* Vertical divider */}
       <line x1={cx} y1={cy - r} x2={cx} y2={cy + r} stroke="#000000" strokeWidth={size * 0.035} />

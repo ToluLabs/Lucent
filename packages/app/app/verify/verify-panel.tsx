@@ -3,7 +3,7 @@
 /**
  * Receiver side of selective disclosure (SELECTIVE_DISCLOSURE.md §5.3/§12). No
  * Stellar wallet: mint a one-time request, hand it to the holder, then verify
- * the bundle they return, the event, the disclosing key, and the contract
+ * the bundle they return — the event, the disclosing key, and the contract
  * binding are all re-read from the chain, never trusted from the bundle.
  */
 
@@ -144,7 +144,7 @@ export function VerifyPanel() {
       <GlassCard padding="md">
         <SectionLabel>Verify the Bundle</SectionLabel>
         <p className="mt-3 text-xs text-text-muted">
-          Paste the bundle the holder sent back. Everything is re-read from the chain, never trusted
+          Paste the bundle the holder sent back. Everything is re-read from the chain — never trusted
           from the bundle.
         </p>
         <Textarea

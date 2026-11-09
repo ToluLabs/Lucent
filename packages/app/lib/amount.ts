@@ -24,10 +24,3 @@ export function formatAmount(raw: bigint, maxDecimals = 2): string {
 export function displayAmount(raw: bigint, maxDecimals = 2): string {
   return `${formatAmount(raw, maxDecimals)} ${SYMBOL}`;
 }
-
-/** "12,845.00": grouped thousands, always two decimals, no unit. For headline figures. */
-export function formatMoney(raw: bigint): string {
-  const [whole, frac] = fromBaseUnits(raw).split(".");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return `${grouped}.${(frac ?? "").slice(0, 2).padEnd(2, "0")}`;
-}

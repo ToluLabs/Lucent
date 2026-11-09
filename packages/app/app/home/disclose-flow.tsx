@@ -5,7 +5,7 @@
  * inline to a transfer's activity row: paste a verifier's request (P_R, ν),
  * generate a D-recipient or D-sender proof in-browser, copy the bundle back.
  * No amount ever goes on-chain. Moved here from a standalone /prove tab so
- * disclosing lives right next to the transfer it's about, /verify is now
+ * disclosing lives right next to the transfer it's about — /verify is now
  * the verifier-only side of this exchange.
  */
 
@@ -69,7 +69,7 @@ export function DiscloseFlow({
         {direction === "received"
           ? "Prove this transfer paid you its exact amount."
           : "Prove you sent this transfer and what it paid the recipient."}{" "}
-        Paste the verifier&apos;s request (their <code>pR</code>{" "}key and one-time <code>nu</code>).
+        Paste the verifier&apos;s request (their <code>pR</code> key and one-time <code>nu</code>).
       </p>
       <Textarea
         className="h-20 font-mono text-xs"

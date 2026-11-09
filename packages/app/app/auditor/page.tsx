@@ -4,9 +4,9 @@
  * Auditor console (DESIGN.md §8). Whoever holds the auditor's Grumpkin secret
  * decrypts the dual-channel ciphertexts that each transfer and withdraw event
  * carries. Pure key-and-events work: no wallet, no proving, no holder
- * cooperation, just the secret, pasted in.
+ * cooperation — just the secret, pasted in.
  *
- * The secret never ships in the client bundle, `deploy.ts` redacts it from
+ * The secret never ships in the client bundle — `deploy.ts` redacts it from
  * the app's deployment file for exactly this reason (see `lib/deployment.ts`).
  * Once pasted in, it's remembered in this browser's localStorage (never sent
  * anywhere) so an auditor doesn't have to keep re-pasting it every visit; any
@@ -47,7 +47,6 @@ import { timeAgo } from "@/lib/format";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { Segmented } from "@/components/ui/Segmented";
 import { useWallet } from "@/lib/wallet-context";
 import { useAction } from "@/lib/use-action";
 import { cn } from "@/lib/cn";
@@ -137,7 +136,7 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
         a.spendable = senderBalance;
         rows.push({
           ev,
-          text: "withdrawal (public amount), checkpoint decrypted",
+          text: "withdrawal (public amount) — checkpoint decrypted",
           amount: ev.amount,
           senderBalance,
           channelsAgree: true,
@@ -155,7 +154,7 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
         rows.push({
           ev,
           text: d.channelsAgree
-            ? "confidential transfer, both channels decrypted"
+            ? "confidential transfer — both channels decrypted"
             : "transfer did NOT decrypt under this key",
           amount: d.channelsAgree ? d.amount : null,
           senderBalance: d.channelsAgree ? d.senderBalance : null,
@@ -172,7 +171,7 @@ function replay(events: ConfidentialEvent[], auditorSk: bigint): { rows: AuditRo
   };
 }
 
-/** Remembered auditor secrets, most-recent-first, see the module doc comment. */
+/** Remembered auditor secrets, most-recent-first — see the module doc comment. */
 const SAVED_SECRETS_KEY = "lucent:auditor:secrets";
 const MAX_SAVED_SECRETS = 6;
 
@@ -256,7 +255,7 @@ export default function AuditorPage() {
         contracts: DEPLOYMENT.contracts,
       });
       // Hybrid source: the indexer (when configured) backfills the full history
-      // below the RPC's ~7-day window, exactly what an auditor needs. The RPC
+      // below the RPC's ~7-day window — exactly what an auditor needs. The RPC
       // leg is clamped to the retention boundary internally.
       const indexer = DEPLOYMENT.indexerUrl
         ? new IndexerClient({ baseUrl: DEPLOYMENT.indexerUrl })
@@ -291,15 +290,20 @@ export default function AuditorPage() {
 
       <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
         {hasCompliance && (
-          <Segmented
-            value={tab}
-            onChange={setTab}
-            ariaLabel="Auditor view"
-            options={[
-              { value: "decrypt", label: "Decrypt" },
-              { value: "compliance", label: "Compliance" },
-            ]}
-          />
+          <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
+            {(["decrypt", "compliance"] as Tab[]).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={cn(
+                  "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
+                  tab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
+                )}
+              >
+                {t === "decrypt" ? "Decrypt" : "Compliance"}
+              </button>
+            ))}
+          </div>
         )}
 
         {tab === "compliance" && hasCompliance ? (
@@ -308,7 +312,7 @@ export default function AuditorPage() {
           <>
         <p className="text-sm leading-relaxed text-text-secondary">
           Whoever holds a registered auditor's Grumpkin secret decrypts every transfer and withdrawal
-          addressed to that key, no wallet, no proofs, no account cooperation required.
+          addressed to that key — no wallet, no proofs, no account cooperation required.
         </p>
 
         {auditorSk === null && (
@@ -322,8 +326,8 @@ export default function AuditorPage() {
           <GlassCard padding="md" className="border-accent/25">
             <SectionLabel>Unlock Console</SectionLabel>
             <p className="mb-3 mt-3 text-xs text-text-muted">
-              Paste your auditor secret key (the <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">k</code>{" "}whose
-              public point <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud = k·H</code>{" "}was
+              Paste your auditor secret key (the <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">k</code> whose
+              public point <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud = k·H</code> was
               registered on-chain) to decrypt with it.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
@@ -348,7 +352,7 @@ export default function AuditorPage() {
                 {savedSecrets.map((s) => (
                   <div
                     key={s}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-fg/[0.02] px-3 py-2"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-white/[0.02] px-3 py-2"
                   >
                     <button
                       onClick={() => unlockWith(s)}
@@ -378,8 +382,8 @@ export default function AuditorPage() {
                 </Button>
               </div>
               <p className="mb-3 mt-3 text-xs text-text-muted">
-                Console unlocked with the key you pasted in. Only <code className="rounded bg-fg/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud</code>,
-                the public point, is shown below; the secret itself is never redisplayed.
+                Console unlocked with the key you pasted in. Only <code className="rounded bg-white/[0.07] px-1 py-0.5 font-mono text-[0.85em] text-accent/90">K_aud</code> —
+                the public point — is shown below; the secret itself is never redisplayed.
               </p>
               {kAud && (
                 <dl className="space-y-1 break-all font-mono text-xs text-text-secondary">
@@ -412,7 +416,7 @@ export default function AuditorPage() {
                 Reconstructed from sender-channel balance checkpoints and decrypted inbound credits.{" "}
                 {hasIndexer
                   ? "Backed by the Goldsky indexer, so the full deployment history is decrypted."
-                  : "Only events inside the RPC's ~7-day retention window are available, accounts with older history may be incomplete."}
+                  : "Only events inside the RPC's ~7-day retention window are available — accounts with older history may be incomplete."}
               </p>
               {accounts.length === 0 && !busy && (
                 <p className="text-sm text-text-muted">No accounts in the retention window.</p>
@@ -458,7 +462,7 @@ export default function AuditorPage() {
               <h3 className="mb-1 font-semibold text-text-primary">Decrypted activity</h3>
               <p className="mb-3 text-xs text-text-muted">
                 Every token-contract event {hasIndexer ? "since deployment" : "in the retention window"},
-                newest first. Amounts every other screen shows encrypted appear here in cleartext,
+                newest first. Amounts every other screen shows encrypted appear here in cleartext —
                 decrypted with your key alone.
               </p>
               <ErrorBanner error={error} onDismiss={() => setError(null)} className="mb-3" size="sm" />
@@ -490,7 +494,7 @@ export default function AuditorPage() {
  * Freeze/unfreeze + allowlist management. Separate from the key-paste
  * decryption flow above: those are Grumpkin viewing keys, but compliance
  * actions are real on-chain transactions the token's `#[only_admin]` check
- * gates, they need a connected, signing wallet, not the auditor
+ * gates — they need a connected, signing Freighter wallet, not the auditor
  * secret. The app doesn't duplicate that authorization check; a connected
  * wallet that isn't the admin will just have its transaction rejected
  * on-chain, surfaced here as an error like anywhere else in the app.
@@ -535,21 +539,21 @@ function CompliancePanel() {
       </div>
       <p className="mb-3 mt-3 text-xs leading-relaxed text-text-muted">
         {gateEnabled
-          ? "The allowlist gate is ON, only allowlisted accounts can register, deposit, transfer, receive, or withdraw."
-          : "The allowlist gate is OFF, every account can register and transact freely. Freeze still works independently, for a specific bad-actor account."}{" "}
-        Both are enforced on-chain by the token contract, not by this page, only the compliance
+          ? "The allowlist gate is ON — only allowlisted accounts can register, deposit, transfer, receive, or withdraw."
+          : "The allowlist gate is OFF — every account can register and transact freely. Freeze still works independently, for a specific bad-actor account."}{" "}
+        Both are enforced on-chain by the token contract, not by this page — only the compliance
         admin set at deploy time can act here.
       </p>
 
       {!wallet ? (
         <Button fullWidth isLoading={connecting} onClick={connect}>
-          Connect your wallet to manage compliance
+          Connect Freighter to manage compliance
         </Button>
       ) : (
         <div className="flex flex-col gap-3">
           <ErrorBanner error={error} onDismiss={() => setError(null)} size="sm" />
 
-          <div className="flex items-center justify-between rounded-xl border border-border bg-fg/[0.02] px-3 py-2.5">
+          <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2.5">
             <div>
               <span className="text-xs font-medium text-text-primary">Allowlist gate</span>
               <p className="text-[11px] text-text-muted">
@@ -645,7 +649,7 @@ function CompliancePanel() {
 function AuditRowView({ row }: { row: AuditRow }) {
   const { ev } = row;
   return (
-    <li className="rounded-xl border border-border bg-fg/[0.02] p-3">
+    <li className="rounded-xl border border-border bg-white/[0.02] p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Pill tone={badgeTone(ev.type)}>{ev.type}</Pill>
         {ev.type === "register" || ev.type === "merge" ? (

@@ -68,7 +68,7 @@ export function NumericKeypad({
           </span>
           <motion.span
             aria-hidden
-            className="h-9 w-[3px] bg-accent-solid"
+            className="h-9 w-[3px] bg-accent"
             animate={{ opacity: [1, 1, 0, 0] }}
             transition={{ duration: 1, repeat: Infinity, times: [0, 0.5, 0.5, 1] }}
           />
@@ -103,7 +103,7 @@ export function NumericKeypad({
             whileTap={disabled ? undefined : { scale: 0.95 }}
             onClick={() => !disabled && press(key)}
             className={cn(
-              "flex h-16 select-none items-center justify-center rounded-xl border border-border bg-panel font-display text-2xl font-medium shadow-card text-text-primary transition-colors duration-100",
+              "flex h-16 select-none items-center justify-center rounded-2xl bg-card font-display text-2xl font-semibold text-text-primary transition-colors duration-100",
               !disabled && "hover:bg-card-hover active:scale-95",
             )}
           >

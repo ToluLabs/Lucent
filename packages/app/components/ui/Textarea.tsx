@@ -14,15 +14,15 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <div className="flex flex-col gap-2">
         {label && (
-          <label className="font-mono text-[11px] uppercase tracking-[0.12em] text-text-muted">{label}</label>
+          <label className="font-mono text-[10px] uppercase tracking-wider text-text-muted">{label}</label>
         )}
         <textarea
           ref={ref}
           className={cn(
-            "w-full rounded-lg border bg-card px-4 py-3 text-sm text-text-primary outline-none transition-all duration-200 placeholder:text-text-muted",
+            "w-full rounded-xl border bg-card px-4 py-3 text-sm text-text-primary outline-none transition-all duration-200 placeholder:text-text-muted",
             error
               ? "border-error/50"
-              : "border-border focus:border-accent/50 focus:shadow-[0_0_0_3px_rgb(var(--accent-solid)/0.18)]",
+              : "border-border focus:border-accent/50 focus:shadow-[0_0_0_3px_rgba(251,187,36,0.1)]",
             className,
           )}
           {...props}

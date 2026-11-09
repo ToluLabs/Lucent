@@ -26,7 +26,7 @@ export function EncryptedBadge({
     return (
       <span
         onClick={onReveal}
-        title="Encrypted value, click to reveal"
+        title="Encrypted value — click to reveal"
         className={cn(
           "inline-flex cursor-pointer select-none items-center gap-1.5 rounded-full border border-encrypted/20 bg-encrypted-bg px-2.5 py-1 text-xs font-medium text-encrypted transition-colors duration-200 hover:bg-encrypted/20",
         )}

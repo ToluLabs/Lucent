@@ -49,27 +49,27 @@ export function BottomNav() {
     <>
       <nav
         className="fixed bottom-0 left-0 right-0 z-30 flex items-center justify-around
-                   border-t border-border bg-void/90 pb-safe pt-2
-                   backdrop-blur-xl md:hidden"
+                   border-t border-border bg-[rgba(9,9,11,0.92)] pb-safe pt-2
+                   backdrop-blur-2xl md:hidden"
       >
         {PRIMARY_TABS.map(({ href, icon: Icon, label }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
-            <Link key={href} href={href} aria-label={label} className="flex min-w-[56px] flex-col items-center gap-0.5 px-2 py-1.5">
+            <Link key={href} href={href} aria-label={label} className="flex min-w-[48px] flex-col items-center gap-1 px-3 py-1.5">
               <motion.div whileTap={{ scale: 0.85 }}>
                 <Icon className={cn("h-[22px] w-[22px]", active ? "text-accent" : "text-text-muted")} strokeWidth={active ? 2.2 : 1.8} />
               </motion.div>
-              <span className={cn("text-[10px] font-medium", active ? "text-accent" : "text-text-muted")}>{label}</span>
+              {active && <motion.span layoutId="nav-dot" className="h-1 w-1 rounded-full bg-accent" />}
             </Link>
           );
         })}
 
         {/* More button */}
-        <button onClick={() => setMoreOpen(true)} aria-label="More" className="flex min-w-[56px] flex-col items-center gap-0.5 px-2 py-1.5">
+        <button onClick={() => setMoreOpen(true)} aria-label="More" className="flex min-w-[48px] flex-col items-center gap-1 px-3 py-1.5">
           <motion.div whileTap={{ scale: 0.85 }}>
             <MoreHorizontal className={cn("h-[22px] w-[22px]", moreActive ? "text-accent" : "text-text-muted")} strokeWidth={moreActive ? 2.2 : 1.8} />
           </motion.div>
-          <span className={cn("text-[10px] font-medium", moreActive ? "text-accent" : "text-text-muted")}>More</span>
+          {moreActive && <motion.span layoutId="nav-dot" className="h-1 w-1 rounded-full bg-accent" />}
         </button>
       </nav>
 
@@ -78,14 +78,14 @@ export function BottomNav() {
         {moreOpen && (
           <>
             <motion.div
-              className="fixed inset-0 z-40 bg-[rgb(var(--scrim))] backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setMoreOpen(false)}
             />
             <motion.div
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl border-t border-border bg-surface pb-safe shadow-pop md:hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl border-t border-border bg-surface pb-safe md:hidden"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -116,7 +116,7 @@ export function BottomNav() {
                       onClick={() => setMoreOpen(false)}
                       className={cn(
                         "flex items-center gap-4 rounded-2xl px-4 py-3 transition-colors",
-                        active ? "bg-accent-bg text-accent" : "text-text-primary hover:bg-fg/[0.05] active:bg-fg/[0.08]",
+                        active ? "bg-accent-bg text-accent" : "text-text-primary hover:bg-white/[0.04] active:bg-white/[0.06]",
                       )}
                     >
                       <div

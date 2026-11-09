@@ -10,7 +10,7 @@ export interface TxStep {
   id: string;
   label: string;
   status: TxStepStatus;
-  /** Estimated seconds for a proof-generating step, rendered as "(~Ns)". */
+  /** Estimated seconds for a proof-generating step — rendered as "(~Ns)". */
   estSeconds?: number;
 }
 

@@ -25,7 +25,6 @@ import { errMsg } from "@/lib/err";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { cn } from "@/lib/cn";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
-import { Segmented } from "@/components/ui/Segmented";
 
 type TopTab = "employer" | "employee";
 /** `list` = template cards, `template` = one template's employees + runs. */
@@ -271,7 +270,7 @@ export default function PayrollPage() {
 
             <SectionLabel>Runs</SectionLabel>
             {templateRuns.length === 0 ? (
-              <EmptyState icon={Briefcase} label="No runs yet, start one from the header" />
+              <EmptyState icon={Briefcase} label="No runs yet — start one from the header" />
             ) : (
               <div className="flex flex-col gap-3">
                 {templateRuns.map((r) => {
@@ -296,7 +295,7 @@ export default function PayrollPage() {
                             </Button>
                           </div>
                           <p className="text-xs text-text-muted">
-                            Confirm locks this run in, no money moves yet. Salaries are entered and
+                            Confirm locks this run in — no money moves yet. Salaries are entered and
                             transferred at Execute.
                           </p>
                         </div>
@@ -307,7 +306,7 @@ export default function PayrollPage() {
                             Execute Payroll
                           </Button>
                           <p className="text-xs text-text-muted">
-                            This is the step that actually pays everyone, each salary is proven and
+                            This is the step that actually pays everyone — each salary is proven and
                             transferred now.
                           </p>
                         </div>
@@ -360,19 +359,24 @@ export default function PayrollPage() {
         {!registered && topTab === "employer" && (
           <Callout>
             You need to register your confidential account before you can create payroll templates or
-            runs, head to <strong>Home</strong>{" "}to register, a one-time proof.
+            runs — head to <strong>Home</strong> to register, a one-time proof.
           </Callout>
         )}
 
-        <Segmented
-          value={topTab}
-          onChange={setTopTab}
-          ariaLabel="Payroll role"
-          options={[
-            { value: "employer", label: "Employer" },
-            { value: "employee", label: "Employee" },
-          ]}
-        />
+        <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
+          {(["employer", "employee"] as TopTab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTopTab(t)}
+              className={cn(
+                "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
+                topTab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
+              )}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
 
         {topTab === "employer" ? (
           templates === null ? (
@@ -385,26 +389,25 @@ export default function PayrollPage() {
             </EmptyState>
           ) : (
             <div className="flex flex-col gap-3">
-              <SectionLabel>Your templates</SectionLabel>
-              <ul className="glass-card overflow-hidden">
-                {templates.map((t) => (
-                  <li key={t.id.toString()} className="border-t border-border first:border-t-0">
-                    <button
-                      onClick={() => openTemplate(t.id)}
-                      className="grid w-full grid-cols-[1fr_auto_auto] items-center gap-4 px-5 py-4 text-left transition-colors hover:bg-fg/[0.03]"
-                    >
-                      <span>
-                        <span className="block text-sm font-medium">Template #{t.id.toString()}</span>
-                        <span className="mt-0.5 block text-xs text-text-muted">
+              <SectionLabel>Your Templates</SectionLabel>
+              {templates.map((t) => (
+                <button key={t.id.toString()} onClick={() => openTemplate(t.id)} className="w-full text-left">
+                  <GlassCard padding="md">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-bg">
+                        <Users className="h-4 w-4 text-accent" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-text-primary">Template #{t.id.toString()}</p>
+                        <p className="mt-0.5 text-xs text-text-muted">
                           {t.employees.length} employee{t.employees.length !== 1 ? "s" : ""}
-                        </span>
-                      </span>
-                      <Pill tone={t.active ? "green" : "neutral"}>{t.active ? "Active" : "Inactive"}</Pill>
+                        </p>
+                      </div>
                       <ChevronRight className="h-4 w-4 text-text-muted" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                    </div>
+                  </GlassCard>
+                </button>
+              ))}
             </div>
           )
         ) : (
@@ -556,7 +559,7 @@ function ExecuteRunModal({
       <Modal open={executingRun !== null} onClose={onClose} title={`Execute Run #${executingRun?.id.toString() ?? ""}`}>
         <p className="text-xs leading-relaxed text-text-muted">
           Enter each salary. One confidential transfer per employee is proven in your browser and
-          submitted atomically, this is the step that actually moves money.
+          submitted atomically — this is the step that actually moves money.
         </p>
         <div className="flex flex-col gap-2">
           {executingEmployees.map((a) => (
@@ -574,7 +577,7 @@ function ExecuteRunModal({
           ))}
         </div>
 
-        <div className="flex items-center justify-between rounded-xl border border-border bg-fg/[0.02] px-3 py-2.5">
+        <div className="flex items-center justify-between rounded-xl border border-border bg-white/[0.02] px-3 py-2.5">
           <span className="text-xs text-text-muted">Total</span>
           <span className={cn("font-mono text-sm font-medium tabular-nums", overBudget ? "text-error" : "text-text-primary")}>
             {formatAmount(totalSalaries, DECIMALS)} / {formatAmount(spendable, DECIMALS)} USDC
