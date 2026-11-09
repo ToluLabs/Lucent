@@ -164,6 +164,34 @@ try {
     .getByRole("button", { name: "Register confidential account" })
     .click();
   await page.getByText("Action confirmed on Stellar Testnet").waitFor();
+  await visit("/home?state=mismatch");
+  await page
+    .getByText("Recovery required before spending", { exact: true })
+    .waitFor();
+  assert.ok(
+    await page
+      .getByRole("button", { name: "Send payment", exact: true })
+      .isDisabled(),
+  );
+  assert.equal(
+    await page.getByRole("link", { name: "Send payment", exact: true }).count(),
+    0,
+  );
+  await page
+    .getByRole("link", {
+      name: "Review verified recovery in account settings",
+      exact: false,
+    })
+    .waitFor();
+  await visit("/home");
+  await page
+    .getByText("No events in the available history", { exact: true })
+    .waitFor();
+  assert.equal(
+    await page.evaluate(() => window.__historyCalls),
+    1,
+    "One activity request after account loading",
+  );
   await visit("/home?historyError=1");
   await page
     .getByText("RPC history unavailable")

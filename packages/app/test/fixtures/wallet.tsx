@@ -31,6 +31,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     };
     return {
       address: A,
+      listEvents: async () => {
+        (window as any).__historyCalls =
+          ((window as any).__historyCalls ?? 0) + 1;
+        if (settings().has("historyError"))
+          throw new Error("RPC history unavailable");
+        return [];
+      },
       isRecipientRegistered: async (_address: string) => {
         await new Promise((r) => setTimeout(r, 40));
         if (settings().has("rpcError")) throw new Error("RPC unavailable");

@@ -276,8 +276,9 @@ export function HomeClient() {
   const pages = Math.max(1, Math.ceil(filtered.length / 20));
   const currentPage = Math.min(page, pages);
 
+  const accountReady = !!view?.registered;
   useEffect(() => {
-    if (!wallet) return;
+    if (!wallet || !accountReady) return;
     let cancelled = false;
     (async () => {
       setActivityLoading(true);
@@ -285,35 +286,8 @@ export function HomeClient() {
       setActivity(null);
       setDecryptedAmounts(new Map());
       try {
-        const { ChainClient, IndexerClient, hybridFetchEvents } = await import(
-          "@lucent/sdk"
-        );
-        if (cancelled) return;
-        const client = new ChainClient({
-          rpcUrl: DEPLOYMENT.rpcUrl,
-          networkPassphrase: DEPLOYMENT.networkPassphrase,
-          contracts: DEPLOYMENT.contracts,
-        });
-        const indexer = DEPLOYMENT.indexerUrl
-          ? new IndexerClient({ baseUrl: DEPLOYMENT.indexerUrl })
-          : undefined;
-        const { events } = await hybridFetchEvents(client, indexer, {
-          fromLedger: DEPLOYMENT.deployedAtLedger,
-        });
-        const mine = events.filter((ev) => {
-          switch (ev.type) {
-            case "transfer":
-              return ev.from === wallet.address || ev.to === wallet.address;
-            case "deposit":
-              return ev.to === wallet.address;
-            case "withdraw":
-              return ev.from === wallet.address;
-            case "merge":
-            case "register":
-              return ev.account === wallet.address;
-          }
-        });
-        if (!cancelled) setActivity(mine.reverse());
+        const events = await wallet.listEvents();
+        if (!cancelled) setActivity(events);
       } catch (e) {
         if (!cancelled) setHistoryError(errMsg(e));
       } finally {
@@ -323,7 +297,7 @@ export function HomeClient() {
     return () => {
       cancelled = true;
     };
-  }, [wallet, lastSync, historyAttempt]);
+  }, [wallet, accountReady, lastSync, historyAttempt]);
 
   // Decrypt each transfer's amount for display — this is the account's own
   // data, so there's no reason to keep it hidden from the owner the way it's
@@ -506,7 +480,10 @@ export function HomeClient() {
           >
             Local state does not match the chain. Confidential balances cannot
             be relied on for spending. Refresh and inspect account settings
-            before proceeding. Do not clear browser storage.
+            before proceeding. Do not clear browser storage.{" "}
+            <Link href="/profile" className="underline">
+              Review verified recovery in account settings →
+            </Link>
           </div>
         )}
         <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr_1fr]">
@@ -520,16 +497,25 @@ export function HomeClient() {
                 : "Unavailable"}
             </p>
             <p className="mt-3 text-xs text-text-muted">
-              Ready for payments · USDC on Testnet
+              {view.matchesChain
+                ? "Ready for payments · USDC on Testnet"
+                : "Recovery required before spending"}
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                href="/send"
-                className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-black"
-              >
-                <Send className="h-4 w-4" />
-                Send payment
-              </Link>
+              {view.matchesChain ? (
+                <Link
+                  href="/send"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-accent px-4 text-sm font-semibold text-black"
+                >
+                  <Send className="h-4 w-4" />
+                  Send payment
+                </Link>
+              ) : (
+                <Button disabled>
+                  <Send className="h-4 w-4" />
+                  Send payment
+                </Button>
+              )}
               <Link
                 href="/shield"
                 className="inline-flex min-h-11 items-center rounded-lg border border-border px-4 text-sm"
