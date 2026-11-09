@@ -58,6 +58,10 @@ wallet integration.
 - [Acknowledgments](#acknowledgments)
 - [License](#license)
 
+## Tester analytics
+
+Traffic and explicit Testnet action tracking are prepared through Umami, disabled until production configuration is supplied. See [ANALYTICS.md](ANALYTICS.md) for account setup, privacy controls, launch checks and honest SCF evidence reporting.
+
 ## Quickstart
 
 Requires **Node ≥ 20**, **pnpm 10**. For contract work you'll also need Rust

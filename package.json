@@ -16,7 +16,8 @@
     "deploy:contracts": "pnpm --filter @lucent/sdk exec tsx ../../scripts/deploy.ts",
     "deploy:app": "pnpm --filter @lucent/app run deploy:cf",
     "e2e": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e.ts",
-    "e2e:disclosure": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e-disclosure.ts"
+    "e2e:disclosure": "pnpm --filter @lucent/sdk exec tsx ../../scripts/e2e-disclosure.ts",
+    "test:analytics": "pnpm --filter @lucent/sdk exec tsx --tsconfig ../../packages/app/tsconfig.json ../../packages/app/test/analytics.mjs"
   },
   "license": "MIT",
   "pnpm": {
