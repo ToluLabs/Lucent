@@ -1,14 +1,15 @@
 /**
  * Adapts the Freighter browser wallet to the SDK's {@link Signer} interface.
  */
+import type { Signer } from "@lucent/sdk";
 import {
-  isConnected,
+  signMessage as freighterSignMessage,
+  getNetworkDetails,
   isAllowed,
+  isConnected,
   requestAccess,
   signTransaction,
-  signMessage as freighterSignMessage,
 } from "@stellar/freighter-api";
-import type { Signer } from "@lucent/sdk";
 
 import { DEPLOYMENT } from "./deployment";
 import { errMsg } from "./err";
@@ -35,6 +36,18 @@ export interface MessageSigner extends Signer {
   signMessage(message: string): Promise<Uint8Array>;
 }
 
+export async function requireTestnet(): Promise<void> {
+  const network = await getNetworkDetails();
+  if (network.error || !network.networkPassphrase)
+    throw new Error(
+      "Could not read Freighter network. Unlock your wallet and retry.",
+    );
+  if (network.networkPassphrase !== DEPLOYMENT.networkPassphrase)
+    throw new Error(
+      "Wrong network. Switch Freighter to Stellar Testnet and reconnect before continuing.",
+    );
+}
+
 export async function connectFreighter(): Promise<MessageSigner> {
   const conn = await isConnected();
   if (!conn.isConnected) {
@@ -43,10 +56,12 @@ export async function connectFreighter(): Promise<MessageSigner> {
   const access = await requestAccess();
   if (access.error) throw new Error(errMsg(access.error));
   const address = access.address;
+  await requireTestnet();
 
   return {
     publicKey: address,
     async sign(txXdrBase64: string): Promise<string> {
+      await requireTestnet();
       const res = await signTransaction(txXdrBase64, {
         networkPassphrase: DEPLOYMENT.networkPassphrase,
         address,
@@ -55,13 +70,16 @@ export async function connectFreighter(): Promise<MessageSigner> {
       return res.signedTxXdr;
     },
     async signMessage(message: string): Promise<Uint8Array> {
+      await requireTestnet();
       const res = await freighterSignMessage(message, {
         networkPassphrase: DEPLOYMENT.networkPassphrase,
         address,
       });
       if (res.error) throw new Error(errMsg(res.error));
       if (res.signerAddress !== address) {
-        throw new Error(`Freighter signed with ${res.signerAddress}, expected ${address}`);
+        throw new Error(
+          `Freighter signed with ${res.signerAddress}, expected ${address}`,
+        );
       }
       return normalizeSignature(res.signedMessage);
     },
@@ -74,7 +92,11 @@ function normalizeSignature(signed: unknown): Uint8Array {
     return Uint8Array.from(atob(signed), (c) => c.charCodeAt(0));
   }
   if (signed instanceof Uint8Array) return new Uint8Array(signed);
-  if (signed && typeof signed === "object" && Array.isArray((signed as { data?: unknown }).data)) {
+  if (
+    signed &&
+    typeof signed === "object" &&
+    Array.isArray((signed as { data?: unknown }).data)
+  ) {
     return Uint8Array.from((signed as { data: number[] }).data);
   }
   throw new Error("Freighter returned no usable message signature");

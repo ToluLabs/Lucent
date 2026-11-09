@@ -131,6 +131,8 @@ export function trackPageview(pathname: string) {
 
 /** Only known payment actions; no dynamic IDs, admin actions or arbitrary labels. */
 export function trackedAction(pathname: string, key: string): AnalyticsAction | null {
+  if (pathname === "/home" && key === "register") return "registration";
+  if (pathname === "/home" && key === "merge") return "merge";
   if (pathname === "/send" && key === "send") return "transfer";
   if (pathname === "/shield") {
     if (key === "deposit") return "deposit";

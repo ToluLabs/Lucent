@@ -4,7 +4,8 @@ export const SYMBOL = "USDC";
 
 export function toBaseUnits(display: string): bigint {
   if (!display || display === ".") return 0n;
-  if (!/^\d*(?:\.\d{0,7})?$/.test(display)) throw new Error("Enter a valid amount with at most 7 decimal places.");
+  if (!/^\d*(?:\.\d{0,7})?$/.test(display))
+    throw new Error("Enter a valid amount with at most 7 decimal places.");
   const [whole, frac = ""] = display.split(".");
   const fracPadded = frac.padEnd(DECIMALS, "0").slice(0, DECIMALS);
   return BigInt(whole || "0") * SCALE + BigInt(fracPadded || "0");
@@ -31,5 +32,10 @@ export function sanitizeAmount(value: string): string {
   return /^\d*(?:\.\d{0,7})?$/.test(value) ? value : "";
 }
 export function validPayment(value: string, available: bigint): boolean {
-  try { const amount=toBaseUnits(value); return amount>0n && amount<=available; } catch { return false; }
+  try {
+    const amount = toBaseUnits(value);
+    return amount > 0n && amount <= available;
+  } catch {
+    return false;
+  }
 }

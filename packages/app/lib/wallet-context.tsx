@@ -134,6 +134,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setView(v);
       setLastSync(new Date());
     } catch (e) {
+      setView(null);
       setError(errMsg(e));
     }
   }, [wallet]);
@@ -146,6 +147,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setView(v);
       setLastSync(new Date());
     } catch (e) {
+      setView(null);
       setError(errMsg(e));
     }
   }, [wallet]);
