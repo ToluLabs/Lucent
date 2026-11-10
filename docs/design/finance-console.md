@@ -36,7 +36,7 @@ Complete durable history requires a deployed, monitored indexer and recovery des
 | `/verify` | Labeled request/bundle steps, accessible inputs and verification outcome separated from technical details. |
 | `/auditor` | Masked key input, opt-in unencrypted remembering, lock control, account filtering, progressive record display and data-coverage warnings. |
 | `/profile` | Account health, ordinary refresh, privacy controls and an explicit warning/confirmation before the existing full replay. |
-| `/about`, `/docs`, `/stats`, `/privacy` | Updated product claims, preserved technical explanations, no embedded demo private key, limited-window event counts, unavailable-data states and existing analytics opt-outs. |
+| `/about`, `/docs`, `/stats` | Updated product claims, preserved technical explanations, no embedded demo private key, limited-window event counts, unavailable-data states and browser analytics privacy signals. |
 
 Shared components provide solid slate panels, restrained gold actions, legible typography, associated form labels, native modal focus handling, keyboard focus indicators and reduced-motion behavior. Browser zoom is enabled. Desktop has grouped navigation and flexible content grids; mobile has visible navigation labels and an accessible tools dialog.
 
@@ -68,7 +68,7 @@ For contract regressions, run `cargo test` from `contracts/`. On Linux, browser 
 
 `test:ui` builds an isolated test fixture using the real page components and mocked wallet/event boundaries. It requires the app's built CSS. Its test hooks and synthetic balances are confined to test files and are not imported by production routes. It exercises disconnected/unknown/setup states, recipient registration failures, payment review, declined approvals with retained input, double submission, confirmation, timeout/reload recovery, payroll execution, failed template creation, duplicate recipients, escrow review and network switching before signatures. It also checks five connected screens at 320, 390, 768, 1440 and 1920 pixels.
 
-`test:browser` starts and stops its own local production server, or uses `UI_BASE_URL` when supplied. It checks all 13 public/app routes at those five widths. Both suites use axe rules tagged for WCAG A/AA through 2.2. Automated checks are not an accessibility certification or a substitute for assistive-technology user testing. CI includes the new form, browser, build and accessibility checks.
+`test:browser` starts and stops its own local production server, or uses `UI_BASE_URL` when supplied. It checks the current public/app routes at those five widths. Both suites use axe rules tagged for WCAG A/AA through 2.2. Automated checks are not an accessibility certification or a substitute for assistive-technology user testing. CI includes the new form, browser, build and accessibility checks.
 
 ## Verification results
 

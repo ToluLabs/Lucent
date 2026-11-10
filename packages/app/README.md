@@ -74,7 +74,8 @@ The fix is already in place:
 
 Collection is off by default and enabled only for the configured HTTPS production hostname.
 Implementation lives in `lib/analytics.ts` and `components/analytics/Analytics.tsx`.
-Visitor settings and the notice live at `/privacy`. Never send wallet/payment data to analytics.
+Browser Do Not Track and Global Privacy Control signals remain respected.
+Never send wallet/payment data to analytics.
 
 ## Wallet branding
 

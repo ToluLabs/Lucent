@@ -119,9 +119,6 @@ export default function ProfilePage() {
                 method. Deposits, withdrawals, addresses and metadata remain
                 public. Public demo auditor keys reveal covered amounts.
               </p>
-              <Link href="/privacy" className="text-sm text-accent">
-                Privacy & analytics controls →
-              </Link>
             </GlassCard>
             <GlassCard padding="lg">
               <h2 className="font-semibold">Technical details</h2>

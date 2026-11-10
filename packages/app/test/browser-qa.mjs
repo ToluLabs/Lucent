@@ -84,7 +84,6 @@ try {
       "/about",
       "/docs",
       "/stats",
-      "/privacy",
     ]) {
       console.log(`Checking ${width} ${route}`);
       await page.goto(base + route, { waitUntil: "domcontentloaded" });

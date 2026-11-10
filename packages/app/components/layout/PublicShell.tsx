@@ -77,7 +77,6 @@ export function PublicShell({
             <Link prefetch={false} href="/stats">
               Testnet activity
             </Link>
-            <Link href="/privacy">Privacy</Link>
             <a
               href="https://github.com/ToluLabs/Lucent"
               target="_blank"

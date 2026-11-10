@@ -1,5 +1,5 @@
 /** Explicit, allowlisted analytics. Never pass wallet data or raw errors here. */
-export const ROUTES = ["/", "/home", "/shield", "/send", "/payroll", "/escrow", "/auditor", "/verify", "/profile", "/docs", "/about", "/stats", "/privacy"] as const;
+export const ROUTES = ["/", "/home", "/shield", "/send", "/payroll", "/escrow", "/auditor", "/verify", "/profile", "/docs", "/about", "/stats"] as const;
 export const EVENTS = [
   "wallet_connect_started", "wallet_connected", "wallet_ready", "wallet_connect_failed",
   "action_started", "action_failed", "registration_confirmed", "deposit_confirmed",
