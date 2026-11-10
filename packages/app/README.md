@@ -17,12 +17,12 @@ and about pages, plus the app itself —
 - **`/profile`** — wallet identity, protocol info, disconnect.
 
 All screens (except `/auditor` and the verify side of `/prove`) require a
-connected Freighter wallet and redirect to `/` if none is connected. Every
+connected Varial wallet and redirect to `/` if none is connected. Every
 proof-carrying action (register, withdraw, send, payroll execute, escrow
 fund) generates its UltraHonk proof **in the browser** via bb.js and shows a
 progress state immediately on tap.
 
-The orchestration (prover cache, Freighter signing, every on-chain operation)
+The orchestration (prover cache, Varial signing, every on-chain operation)
 lives in `lib/wallet.ts` — a `ConfidentialWallet` class over
 [`@lucent/sdk`](../sdk/README.md) — shared across the app through
 `lib/wallet-context.tsx`.
@@ -37,7 +37,7 @@ pnpm dev   # http://localhost:3000
 workspace package the app imports from its compiled `dist/`, not from
 source.
 
-The confidential `sk` is derived deterministically from a Freighter `signMessage` signature over a deployment-bound message (Ed25519 signatures are deterministic, so the key is recoverable on any device and useless on other deployments), then cached in `localStorage` — a production wallet would store it encrypted.
+The confidential `sk` is derived deterministically from a Varial `signMessage` signature over a deployment-bound message (Ed25519 signatures are deterministic, so the key is recoverable on any device and useless on other deployments), then cached in `localStorage` — a production wallet would store it encrypted.
 
 ## Event history & the indexer
 
@@ -73,3 +73,13 @@ The fix is already in place:
 ## Tester analytics
 
 See [the analytics setup and recruitment guide](../../ANALYTICS.md). Collection is off by default, enabled only for the configured HTTPS production hostname. Public settings and the notice live at `/privacy`. Never add a second automatic tracker snippet or send wallet/payment data to analytics.
+
+## Wallet branding
+
+Varial is the new name for Freighter. The integration continues to use
+`@stellar/freighter-api`; the adapter file and internal function names retain
+the SDK name. The deployment-bound key-derivation message and storage keys
+remain unchanged so this branding update does not change confidential keys.
+
+References: [official rebrand announcement](https://stellar.org/blog/foundation-news/freighter-is-now-varial)
+and [Varial changelog](https://varialwallet.com/changelog).

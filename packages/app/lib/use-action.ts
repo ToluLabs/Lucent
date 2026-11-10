@@ -1,43 +1,53 @@
 "use client";
-
 import { useCallback, useState } from "react";
-
+import { useActionContext } from "./action-context";
+import { transactionError } from "./action-result";
 import { trackEvent, trackedAction } from "./analytics";
-
-import { useWallet } from "./wallet-context";
 import { errMsg } from "./err";
 import type { TxPhase } from "./wallet";
-
-/**
- * Runs a named async action with UI bookkeeping: which action is busy, the
- * proof phase (for the button label), error capture, and a wallet refresh on
- * success. `run(key, fn)` — `fn` receives `setPhase` for proof-carrying ops.
- */
+import { useWallet } from "./wallet-context";
 export function useAction() {
   const { refresh, setError } = useWallet();
-  const [busy, setBusy] = useState<string | null>(null);
+  const { state, setState, lock } = useActionContext();
   const [phase, setPhase] = useState<TxPhase | null>(null);
-
+  const busy =
+    state && ["working", "proving", "submitting"].includes(state.stage)
+      ? state.key
+      : null;
   const run = useCallback(
-    async (key: string, fn: (setPhase: (p: TxPhase) => void) => Promise<void>, opts?: { refresh?: boolean }) => {
+    async (
+      key: string,
+      fn: (setPhase: (p: TxPhase) => void) => Promise<void>,
+      opts?: { refresh?: boolean },
+    ): Promise<boolean> => {
+      if (lock.current || state?.stage === "uncertain") return false;
+      lock.current = true;
       const action = trackedAction(window.location.pathname, key);
       if (action) trackEvent("action_started", { action });
       setError(null);
-      setBusy(key);
+      setState({ key, stage: "working" });
       setPhase(null);
       try {
-        await fn(setPhase);
+        await fn((p) => {
+          setPhase(p);
+          setState({ key, stage: p });
+        });
+        setState({ key, stage: "confirmed" });
         if (opts?.refresh !== false) await refresh();
+        return true;
       } catch (e) {
-        if (action) trackEvent("action_failed", { action });
-        setError(errMsg(e));
+        const message = errMsg(e);
+        const info = transactionError(message);
+        if (action && !info.uncertain) trackEvent("action_failed", { action });
+        setError(message);
+        setState({ key, stage: info.uncertain ? "uncertain" : "failed" });
+        return false;
       } finally {
-        setBusy(null);
+        lock.current = false;
         setPhase(null);
       }
     },
-    [refresh, setError],
+    [refresh, setError, setState, lock, state],
   );
-
-  return { run, busy, phase };
+  return { run, busy, phase, uncertain: state?.stage === "uncertain" };
 }

@@ -43,7 +43,11 @@ export function EncryptedBadge({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      {label && <span className="text-xs uppercase tracking-wider text-text-muted">{label}</span>}
+      {label && (
+        <span className="text-xs uppercase tracking-wider text-text-muted">
+          {label}
+        </span>
+      )}
       <div className="flex flex-col items-center gap-2">
         {isLoading ? (
           <div className="h-11 w-48 animate-shimmer rounded-xl bg-card" />
@@ -57,7 +61,9 @@ export function EncryptedBadge({
             >
               {isRevealed && value ? value : "••••••"}
             </span>
-            {unit && <span className="font-mono text-sm text-text-muted">{unit}</span>}
+            {unit && (
+              <span className="font-sans text-sm text-text-muted">{unit}</span>
+            )}
           </div>
         )}
 

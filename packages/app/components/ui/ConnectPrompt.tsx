@@ -1,26 +1,72 @@
 "use client";
-
-import { Wallet } from "lucide-react";
-import { Button } from "./Button";
 import { useWallet } from "@/lib/wallet-context";
-
-/**
- * Inline stand-in for wallet-gated screens. Pages that need a connected
- * wallet render this instead of their real content when disconnected —
- * no redirect, so the nav stays put and Auditor/Prove stay one tap away.
- */
+import { ArrowRight, ShieldCheck, Wallet } from "lucide-react";
+import Link from "next/link";
+import { Button } from "./Button";
+import { ErrorBanner } from "./ErrorBanner";
 export function ConnectPrompt({ message }: { message: string }) {
-  const { connecting, connect } = useWallet();
-
+  const { connecting, connect, error, setError } = useWallet();
   return (
-    <div className="flex flex-col items-center gap-4 px-4 py-16 text-center">
-      <div className="glass-card flex h-14 w-14 items-center justify-center">
-        <Wallet className="h-6 w-6 text-text-muted" />
+    <div className="workspace-page">
+      <div className="workspace-grid">
+        <section className="onboarding-panel glass-card p-7 md:p-12">
+          <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-xl bg-accent-bg">
+            <Wallet className="h-6 w-6 text-accent" />
+          </div>
+          <p className="eyebrow">Your workspace starts here</p>
+          <h2 className="mt-3 max-w-lg text-4xl font-medium leading-[1.15] tracking-tight md:text-5xl">
+            Your money. A little more private.
+          </h2>
+          <p className="mb-7 mt-4 max-w-lg text-sm leading-7 text-text-secondary">
+            {message} Your wallet authorizes transactions and derives your
+            confidential account keys in this browser.
+          </p>
+          <ErrorBanner error={error} onDismiss={() => setError(null)} />
+          <Button size="lg" isLoading={connecting} onClick={connect}>
+            Connect Varial <ArrowRight className="h-4 w-4" />
+          </Button>
+          <p className="mt-4 text-xs text-text-muted">
+            Use the Varial browser extension with Stellar Testnet selected.
+          </p>
+          <a
+            href="https://varialwallet.com/"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 inline-block text-sm text-accent underline"
+          >
+            Get Varial
+          </a>
+        </section>
+        <aside className="space-y-6 p-2 md:p-6">
+          <h3 className="font-semibold">Ready in three steps</h3>
+          {[
+            "Connect your Testnet wallet.",
+            "Register your confidential account with a one-time proof.",
+            "Deposit test USDC, then merge incoming funds to start paying.",
+          ].map((s, i) => (
+            <div key={s} className="flex items-start gap-4">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border text-xs text-accent">
+                {i + 1}
+              </span>
+              <p className="text-sm leading-6 text-text-secondary">{s}</p>
+            </div>
+          ))}
+          <div className="border-t border-border pt-6">
+            <ShieldCheck className="mb-3 h-5 w-5 text-text-muted" />
+            <p className="text-sm leading-6 text-text-secondary">
+              Transfer amounts are confidential. Addresses, metadata, deposits
+              and withdrawals remain public. Demo auditor access is not
+              exclusive.
+            </p>
+            <Link
+              href="/docs"
+              className="mt-3 inline-block text-sm text-accent"
+            >
+              Understand the privacy boundaries →
+            </Link>
+          </div>
+        </aside>
       </div>
-      <p className="max-w-xs text-sm text-text-muted">{message}</p>
-      <Button isLoading={connecting} onClick={connect}>
-        Connect Wallet
-      </Button>
     </div>
   );
 }

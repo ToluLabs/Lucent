@@ -34,7 +34,7 @@ import type { ChainClient } from "../chain/client.js";
 import { type ConfidentialEvent } from "../chain/events.js";
 import { hybridFetchEvents } from "../chain/event-source.js";
 import type { IndexerClient } from "../chain/indexer.js";
-import type { StateStore } from "./store.js";
+import { MemoryStore, type StateStore } from "./store.js";
 import { freshState, type AccountState, type Opening } from "./types.js";
 
 export interface StateEngineConfig {
@@ -134,6 +134,17 @@ export class StateEngine {
 
     await this.cfg.store.save(state);
     return state;
+  }
+
+  /** Rebuild in isolation; never replace cached openings with an unverified replay. */
+  async rebuild(): Promise<AccountState> {
+    const candidate = new StateEngine({ ...this.cfg, store: new MemoryStore() });
+    const next = await candidate.sync();
+    if (!(await candidate.verifyAgainstChain()).ok) {
+      throw new Error("Available history could not reconstruct balances matching the chain. Previous local state was preserved. Missing older events may require a full-history indexer or a valid state backup.");
+    }
+    await this.cfg.store.save(next);
+    return next;
   }
 
   /** Read current state without syncing (or a fresh zero-state). */

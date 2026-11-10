@@ -35,7 +35,7 @@ operators, no relayers, no custodians.
 On top of that primitive, Lucent ships a full payments product: shielded
 deposits and withdrawals, confidential transfers, confidential payroll,
 confidential escrow, an auditor console for compliance, and off-chain
-selective disclosure — plus a complete Next.js front-end and a Freighter
+selective disclosure — plus a complete Next.js front-end and a Varial
 wallet integration.
 
 <a id="not-production-ready"></a>
@@ -76,8 +76,8 @@ pnpm dev                     # http://localhost:3000
 a workspace package the app imports from its compiled `dist/`, not from
 source) — no separate build step needed.
 
-Install [Freighter](https://freighter.app/), switch it to **Testnet**, and
-fund your account (Freighter's built-in friendbot). `next dev` already serves
+Install [Varial](https://varialwallet.com/) (formerly Freighter), switch it to **Testnet**, and
+fund your account (Varial's built-in friendbot). `next dev` already serves
 the cross-origin-isolation headers in-browser proving needs, so there's
 nothing extra to configure locally.
 
@@ -99,7 +99,7 @@ page's Auditor section has a demo key you can paste straight in.
 | **Auditor console** | The party holding the registered Grumpkin auditor key decrypts every transfer amount and balance checkpoint across the deployment, for every account, without needing anyone's cooperation. |
 | **Compliance** | An allowlist policy and per-account freezing, both enforced on-chain by the token contract itself and gated behind a single compliance admin. An account off the allowlist, or frozen, is rejected before any amount is touched — the primitive KYC-gated payroll needs. Managed from the Auditor screen. |
 | **Selective disclosure** | A holder proves that one specific transfer paid exactly one amount to one counterparty, off-chain, revealing nothing else. The counterparty verifies the proof against the chain itself. |
-| **Freighter wallet** | The only supported signer. Confidential keys are derived deterministically from a Freighter message signature and cached locally, so the signing prompt only appears once per account. |
+| **Varial wallet** | The only supported signer. Confidential keys are derived deterministically from a Varial message signature and cached locally, so the signing prompt only appears once per account. |
 | **Local state engine** | Every balance read goes through a client-side reconstruction layer that persists decrypted openings and re-verifies them against on-chain commitments — load-bearing, not a cache, since the Soroban RPC only serves ~7 days of event history. |
 | **Proof UX** | Every proof-carrying action shows a progress state immediately on tap; nothing ever looks frozen while a proof generates in-browser (typically a few seconds, up to tens of seconds for multi-proof flows like escrow funding). |
 
@@ -286,7 +286,7 @@ a redeploy, e.g. to point at someone else's.)
 
 A full end-to-end walkthrough, real proofs on testnet:
 
-1. **Shield** — connect Freighter, register, deposit, merge.
+1. **Shield** — connect Varial, register, deposit, merge.
 2. **Send** — confidential transfer to a second registered account.
 3. **Payroll** — create a template of employees, open + confirm a run, enter
    salaries, execute; then **Auditor** decrypts every salary amount.
@@ -313,7 +313,7 @@ contracts/                    Rust/Soroban (separate Cargo workspace)
 packages/
   sdk/        @lucent/sdk        crypto · witness · proving · chain (incl. payroll/escrow) · state · auditor · disclosure
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
-  app/        @lucent/app        Next.js product front-end (Freighter wallet)
+  app/        @lucent/app        Next.js product front-end (Varial wallet)
   indexer/    @lucent/indexer    optional Goldsky indexer for full event history
 scripts/                         deploy.ts · e2e.ts · e2e-disclosure.ts
 ```

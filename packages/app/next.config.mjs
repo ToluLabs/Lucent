@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 /**
  * The confidential wallet generates UltraHonk proofs in the browser via bb.js,
  * which needs multithreading → SharedArrayBuffer → cross-origin isolation.
@@ -16,14 +17,35 @@ const crossOriginIsolation = [
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  outputFileTracingRoot: fileURLToPath(new URL("../../", import.meta.url)),
   transpilePackages: ["@lucent/sdk"],
   async headers() {
-    return [{ source: "/(.*)", headers: crossOriginIsolation }];
+    return [
+      { source: "/(.*)", headers: crossOriginIsolation },
+      {
+        source: "/fonts/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
   },
   webpack: (config, { isServer }) => {
-    config.experiments = { ...config.experiments, asyncWebAssembly: true, topLevelAwait: true };
+    config.experiments = {
+      ...config.experiments,
+      asyncWebAssembly: true,
+      topLevelAwait: true,
+    };
     // bb.js / noir pull in optional Node built-ins that the browser doesn't need.
-    config.resolve.fallback = { ...config.resolve.fallback, fs: false, path: false, crypto: false };
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      crypto: false,
+    };
     // Never bundle bb.js on the client. Its pre-built browser bundle declares a
     // top-level `__webpack_exports__` that collides with webpack's module
     // runtime, and it spawns a wasm Web Worker via `new Worker(new URL(

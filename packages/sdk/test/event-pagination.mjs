@@ -27,3 +27,17 @@ const resolved = await resolveEventRef(client, { ledger, txHash: "tx",
 assert.equal(resolved?.amount, 1n);
 assert.equal(calls, 2);
 console.log("event-pagination: full head-ledger pages and disclosure lookup passed");
+
+const rangeError = new Error("startLedger must be within the ledger range: 100 - 200 (code -32600)");
+let rangeCalls = 0;
+await assert.rejects(fetchEvents({ cfg: client.cfg, server: { getEvents: async () => {
+  rangeCalls++;
+  throw rangeError;
+} } }, { startCursor: "1-0" }), (error) => {
+  assert.match(error.message, /Preserve browser storage/);
+  assert.match(error.message, /100 - 200/);
+  assert.equal(error.cause, rangeError);
+  return true;
+});
+assert.equal(rangeCalls, 1, "Never silently skip missing history or retry from a newer cursor");
+console.log("event-range: actionable error preserves RPC cause and does not skip history");

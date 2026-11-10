@@ -11,6 +11,21 @@ const TONE: Record<PillTone, string> = {
   violet: "bg-encrypted-bg text-encrypted",
 };
 
-export function Pill({ children, tone = "neutral" }: { children: React.ReactNode; tone?: PillTone }) {
-  return <span className={cn("rounded-full px-2.5 py-1 text-[11px] font-medium", TONE[tone])}>{children}</span>;
+export function Pill({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: PillTone;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center whitespace-nowrap rounded-md px-2.5 py-1 text-xs font-medium",
+        TONE[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
 }

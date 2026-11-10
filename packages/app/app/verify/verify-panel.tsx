@@ -9,44 +9,47 @@
 
 import { trackEvent } from "@/lib/analytics";
 
-import { useCallback, useEffect, useState } from "react";
-import {
-  ChainClient,
-  IndexerClient,
-  CircuitProver,
-  proverFromArtifact,
-  generateRecipientKeys,
-  recipientKeysFromSecret,
-  newDisclosureRequest,
-  verifyDisclosure,
-  DisclosureVerifyError,
-  toHex32,
-  fromHex,
-  type RecipientKeys,
-  type DisclosureRequest,
-  type DisclosureBundle,
-  type VerifiedDisclosure,
-} from "@lucent/sdk";
 import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_recipient.json";
 import discloseRecipientVk from "@lucent/disclosure/artifacts/disclose_recipient.vk.json";
 import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
 import discloseSenderVk from "@lucent/disclosure/artifacts/disclose_sender.vk.json";
+import {
+  ChainClient,
+  CircuitProver,
+  DisclosureVerifyError,
+  fromHex,
+  generateRecipientKeys,
+  IndexerClient,
+  newDisclosureRequest,
+  proverFromArtifact,
+  recipientKeysFromSecret,
+  toHex32,
+  verifyDisclosure,
+  type DisclosureBundle,
+  type DisclosureRequest,
+  type RecipientKeys,
+  type VerifiedDisclosure,
+} from "@lucent/sdk";
+import { useCallback, useEffect, useState } from "react";
 
-import { DEPLOYMENT } from "@/lib/deployment";
-import { ensureBrowserBackend } from "@/lib/bb-loader";
-import { errMsg } from "@/lib/err";
-import { displayAmount } from "@/lib/amount";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import { Textarea } from "@/components/ui/Textarea";
+import { GlassCard } from "@/components/ui/GlassCard";
 import { SectionLabel } from "@/components/ui/SectionLabel";
+import { Textarea } from "@/components/ui/Textarea";
+import { displayAmount } from "@/lib/amount";
+import { ensureBrowserBackend } from "@/lib/bb-loader";
+import { DEPLOYMENT } from "@/lib/deployment";
+import { errMsg } from "@/lib/err";
 import { CopyButton } from "../copy-button";
 
 const RR_KEY = "lucent:disclosure:rR";
 const REQUEST_KEY = "lucent:disclosure:request";
 
 const ARTIFACTS = {
-  disclose_recipient: { circuit: discloseRecipientCircuit, vk: discloseRecipientVk },
+  disclose_recipient: {
+    circuit: discloseRecipientCircuit,
+    vk: discloseRecipientVk,
+  },
   disclose_sender: { circuit: discloseSenderCircuit, vk: discloseSenderVk },
 } as const;
 
@@ -63,17 +66,29 @@ export function VerifyPanel() {
   const [bundleJson, setBundleJson] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<VerifiedDisclosure | null>(null);
-  const [error, setError] = useState<{ stage: string; message: string } | null>(null);
+  const [error, setError] = useState<{ stage: string; message: string } | null>(
+    null,
+  );
 
   useEffect(() => {
-    const storedRr = localStorage.getItem(RR_KEY);
-    const k = storedRr ? recipientKeysFromSecret(fromHex(storedRr)) : generateRecipientKeys();
-    if (!storedRr) localStorage.setItem(RR_KEY, toHex32(k.rR));
-    setKeys(k);
-    const storedReq = localStorage.getItem(REQUEST_KEY);
-    if (storedReq) {
-      const req = JSON.parse(storedReq) as DisclosureRequest;
-      if (req.pR.x === k.pR.x && req.pR.y === k.pR.y) setRequest(req);
+    try {
+      const storedRr = localStorage.getItem(RR_KEY);
+      const k = storedRr
+        ? recipientKeysFromSecret(fromHex(storedRr))
+        : generateRecipientKeys();
+      if (!storedRr) localStorage.setItem(RR_KEY, toHex32(k.rR));
+      setKeys(k);
+      const storedReq = localStorage.getItem(REQUEST_KEY);
+      if (storedReq) {
+        const req = JSON.parse(storedReq) as DisclosureRequest;
+        if (req.pR.x === k.pR.x && req.pR.y === k.pR.y) setRequest(req);
+      }
+    } catch {
+      setError({
+        stage: "storage",
+        message:
+          "Verification storage is unavailable or invalid. Allow local storage before creating a request. Do not clear wallet storage.",
+      });
     }
   }, []);
 
@@ -99,9 +114,13 @@ export function VerifyPanel() {
         networkPassphrase: DEPLOYMENT.networkPassphrase,
         contracts: DEPLOYMENT.contracts,
       });
-      const indexer = DEPLOYMENT.indexerUrl ? new IndexerClient({ baseUrl: DEPLOYMENT.indexerUrl }) : undefined;
+      const indexer = DEPLOYMENT.indexerUrl
+        ? new IndexerClient({ baseUrl: DEPLOYMENT.indexerUrl })
+        : undefined;
       const artifacts = ARTIFACTS[bundle.circuitId];
-      const prover: CircuitProver = proverFromArtifact(artifacts.circuit as never);
+      const prover: CircuitProver = proverFromArtifact(
+        artifacts.circuit as never,
+      );
       try {
         setResult(
           await verifyDisclosure({
@@ -119,7 +138,8 @@ export function VerifyPanel() {
         await prover.destroy();
       }
     } catch (e) {
-      if (e instanceof DisclosureVerifyError) setError({ stage: e.stage, message: e.message });
+      if (e instanceof DisclosureVerifyError)
+        setError({ stage: e.stage, message: e.message });
       else setError({ stage: "input", message: errMsg(e) });
     } finally {
       setBusy(false);
@@ -127,53 +147,81 @@ export function VerifyPanel() {
   }, [keys, request, bundleJson]);
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="grid items-start gap-6 xl:grid-cols-2">
       <GlassCard padding="md">
-        <SectionLabel>Your Request</SectionLabel>
+        <SectionLabel>1. Create a verification request</SectionLabel>
         <p className="mt-3 text-xs text-text-muted">
-          Hand this to the holder; they disclose against it from their Home screen. The nonce is one-time.
+          Hand this to the holder; they disclose against it from their Overview
+          activity. The nonce is one-time.
         </p>
         <div className="mt-3 flex items-center gap-2">
           <Button variant="secondary" disabled={!keys} onClick={mintRequest}>
             {request ? "New request (fresh nonce)" : "Create request"}
           </Button>
-          {request && <CopyButton label="Copy request" payload={() => JSON.stringify(request, null, 2)} />}
+          {request && (
+            <CopyButton
+              label="Copy request"
+              payload={() => JSON.stringify(request, null, 2)}
+            />
+          )}
         </div>
         {request && (
-          <Textarea readOnly className="mt-3 h-24 font-mono text-xs" value={JSON.stringify(request, null, 2)} />
+          <Textarea
+            label="Request JSON to send to the holder"
+            readOnly
+            className="mt-3 h-24 font-mono text-xs"
+            value={JSON.stringify(request, null, 2)}
+          />
         )}
       </GlassCard>
 
       <GlassCard padding="md">
-        <SectionLabel>Verify the Bundle</SectionLabel>
+        <SectionLabel>
+          2. Receive and verify the holder’s disclosure
+        </SectionLabel>
         <p className="mt-3 text-xs text-text-muted">
-          Paste the bundle the holder sent back. Everything is re-read from the chain — never trusted
-          from the bundle.
+          Paste the bundle the holder sent back. Everything is re-read from the
+          chain — never trusted from the bundle.
         </p>
         <Textarea
+          label="Holder disclosure bundle (JSON)"
           className="mt-3 h-28 font-mono text-xs"
           placeholder='{"circuitId":"disclose_recipient","refE":{…},"proof":"0x…","rDisc":{…},"vTildeDisc":"0x…"}'
           value={bundleJson}
           onChange={(e) => setBundleJson(e.target.value)}
         />
         <div className="mt-2">
-          <Button isLoading={busy} disabled={!request || !bundleJson.trim()} onClick={verify}>
+          <Button
+            isLoading={busy}
+            disabled={!request || !bundleJson.trim()}
+            onClick={verify}
+          >
             Verify against chain
           </Button>
         </div>
-        {!request && <p className="mt-2 text-xs text-warning">Create a request first.</p>}
+        {!request && (
+          <p className="mt-2 text-xs text-warning">Create a request first.</p>
+        )}
       </GlassCard>
 
       {error && (
-        <GlassCard padding="md" className="border-error/40">
-          <h3 className="mb-1 text-md font-medium text-error">Rejected at: {error.stage}</h3>
+        <GlassCard padding="md" className="border-error/40 xl:col-span-2">
+          <h3 className="mb-1 text-lg font-medium text-error">
+            Disclosure not verified
+          </h3>
+          <details className="my-3 text-sm">
+            <summary>Verification stage</summary>
+            {error.stage}
+          </details>
           <p className="text-sm text-error/90">{error.message}</p>
         </GlassCard>
       )}
 
       {result && (
-        <GlassCard padding="md" className="border-success/40">
-          <h3 className="mb-2 font-medium text-md text-success">Disclosure verified ✓</h3>
+        <GlassCard padding="md" className="border-success/40 xl:col-span-2">
+          <h3 className="mb-2 font-medium text-md text-success">
+            Disclosure verified ✓
+          </h3>
           <div className="mb-3">
             <span className="font-display text-3xl font-bold tabular-nums text-accent">
               {displayAmount(result.amount)}
@@ -191,8 +239,11 @@ export function VerifyPanel() {
             </a>{" "}
             (ledger {result.event.ledger}){" "}
             {result.role === "recipient" ? "paid" : "was sent by"}{" "}
-            <span className="font-mono text-xs">{result.disclosingAccount.slice(0, 8)}…</span> exactly this amount. You
-            learned nothing else.
+            <span className="font-mono text-xs">
+              {result.disclosingAccount.slice(0, 8)}…
+            </span>{" "}
+            exactly this amount. The proof discloses this amount and binds it to
+            the public event; it does not disclose other balances.
           </p>
         </GlassCard>
       )}
@@ -218,7 +269,9 @@ function parseBundle(json: string): DisclosureBundle {
     !bundle?.rDisc?.y ||
     !bundle?.vTildeDisc
   ) {
-    throw new Error("bundle must contain circuitId, refE {ledger,id,txHash}, proof, rDisc {x,y}, vTildeDisc");
+    throw new Error(
+      "bundle must contain circuitId, refE {ledger,id,txHash}, proof, rDisc {x,y}, vTildeDisc",
+    );
   }
   return bundle;
 }

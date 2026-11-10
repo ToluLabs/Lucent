@@ -1,195 +1,245 @@
 "use client";
-
-import { useState } from "react";
-import { motion } from "framer-motion";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
-import { NumericKeypad } from "@/components/ui/NumericKeypad";
-import { ProofStatusPill } from "@/components/ui/ProofStatusPill";
-import { TxStatus, type TxStep } from "@/components/ui/TxStatus";
-import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
 import { Callout } from "@/components/ui/Callout";
-import { useWallet } from "@/lib/wallet-context";
-import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
 import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { AmountInput } from "@/components/ui/AmountInput";
+import { ProofLoadingOverlay } from "@/components/ui/ProofLoadingOverlay";
+import {
+  displayAmount,
+  formatAmount,
+  toBaseUnits,
+  validPayment,
+} from "@/lib/amount";
 import { useAction } from "@/lib/use-action";
-import { toBaseUnits, formatAmount, displayAmount, DECIMALS } from "@/lib/amount";
-import { cn } from "@/lib/cn";
-
-type Tab = "deposit" | "withdraw";
-
+import { useWallet } from "@/lib/wallet-context";
+import Link from "next/link";
+import { useState } from "react";
 export default function ShieldPage() {
-  const wallet = useRequireWallet();
-  const { view, error, setError } = useWallet();
-  const { run, busy, phase } = useAction();
-  const [tab, setTab] = useState<Tab>("deposit");
-  const [depositAmt, setDepositAmt] = useState("");
-  const [withdrawAmt, setWithdrawAmt] = useState("");
-  const [steps, setSteps] = useState<TxStep[]>([]);
-
-  if (!wallet) {
+  const { wallet, view, error, setError } = useWallet();
+  const { run, busy, phase, uncertain } = useAction();
+  const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
+  const [amount, setAmount] = useState("");
+  const [review, setReview] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  if (!wallet)
     return (
       <AppShell>
-        <PageHeader title="Shield" showBack={false} />
-        <ConnectPrompt message="Connect your wallet to deposit, withdraw, and shield USDC into a confidential balance." />
+        <PageHeader title="Funding" />
+        <ConnectPrompt message="Connect to deposit public USDC or withdraw from your confidential balance." />
       </AppShell>
     );
-  }
-
-  const registered = view?.registered ?? false;
-  const receiving = view?.receiving ?? 0n;
-  const spendable = view?.spendable ?? 0n;
-  const publicUSDC = view?.publicUSDC ?? 0n;
-
-  async function deposit() {
-    if (!depositAmt) return;
-    await run("deposit", async () => {
-      await wallet!.deposit(toBaseUnits(depositAmt));
-      setDepositAmt("");
+  const available =
+    tab === "deposit" ? (view?.publicUSDC ?? 0n) : (view?.spendable ?? 0n);
+  const ready = !!view?.registered && view.matchesChain;
+  const valid = validPayment(amount, available);
+  async function submit() {
+    if (!ready || !valid) return;
+    const ok = await run(tab, async (sp) => {
+      if (tab === "deposit") await wallet!.deposit(toBaseUnits(amount));
+      else await wallet!.withdraw(toBaseUnits(amount), sp);
     });
+    if (ok) {
+      setConfirmed(true);
+      setReview(false);
+    }
   }
-
-  async function withdraw() {
-    if (!withdrawAmt) return;
-    setSteps([
-      { id: "prove", label: "Generate withdraw proof", status: "active", estSeconds: 12 },
-      { id: "submit", label: "Submit withdrawal", status: "pending" },
-    ]);
-    await run("withdraw", async (sp) => {
-      await wallet!.withdraw(toBaseUnits(withdrawAmt), (p) => {
-        sp(p);
-        setSteps((s) =>
-          s.map((x) =>
-            p === "submitting"
-              ? x.id === "prove"
-                ? { ...x, status: "done" }
-                : x.id === "submit"
-                  ? { ...x, status: "active" }
-                  : x
-              : x,
-          ),
-        );
-      });
-      setSteps((s) => s.map((x) => ({ ...x, status: "done" })));
-      setWithdrawAmt("");
-    });
-    setTimeout(() => setSteps([]), 1500);
-  }
-
-  const isProving = busy === "withdraw" && phase === "proving";
-
   return (
     <AppShell>
-      <PageHeader title="Shield" showBack={false} />
-
-      <motion.div
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex flex-col gap-5 px-4 pb-6 md:mx-auto md:max-w-2xl md:px-8"
-      >
+      <PageHeader title="Funding" />
+      <div className="workspace-page space-y-6">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
-
-        {!registered && (
+        {!ready && (
           <Callout>
-            You need to register your confidential account before you can deposit or withdraw —
-            head to <strong>Home</strong> to register, a one-time proof.
+            Account setup or synchronization is required before funding.{" "}
+            <Link href="/home" className="underline">
+              Check Overview
+            </Link>
+            .
           </Callout>
         )}
-
-        <div className="flex gap-2 rounded-2xl border border-border bg-card p-1">
-          {(["deposit", "withdraw"] as Tab[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "flex-1 rounded-xl py-2.5 text-sm font-medium capitalize transition-all duration-200",
-                tab === t ? "bg-accent text-black" : "text-text-muted hover:text-text-secondary",
-              )}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-
-        {tab === "deposit" && (
-          <>
-            <GlassCard padding="sm" className="border-accent/20 bg-accent-bg">
-              <div className="flex items-start gap-3">
-                <span className="text-accent text-sm">💡</span>
-                <p className="text-xs text-text-secondary leading-relaxed">
-                  Need testnet USDC?{" "}
-                  <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer"
-                     className="text-accent hover:text-accent-hover underline underline-offset-2">
-                    Get some at faucet.circle.com
-                  </a>
-                  {" "}— free, instant, no account required.
+        <div className="workspace-grid">
+          <GlassCard padding="lg">
+            <div className="mb-7 flex gap-2 border-b border-border pb-4">
+              {(["deposit", "withdraw"] as const).map((t) => (
+                <Button
+                  key={t}
+                  variant={tab === t ? "primary" : "ghost"}
+                  disabled={!!busy}
+                  aria-pressed={tab === t}
+                  onClick={() => {
+                    setTab(t);
+                    setAmount("");
+                    setReview(false);
+                    setConfirmed(false);
+                  }}
+                >
+                  {t === "deposit" ? "Deposit USDC" : "Withdraw USDC"}
+                </Button>
+              ))}
+            </div>
+            {confirmed ? (
+              <div role="status">
+                <h2 className="text-xl font-semibold text-success">
+                  {tab === "deposit"
+                    ? "Deposit confirmed"
+                    : "Withdrawal confirmed"}
+                </h2>
+                <p className="my-4 text-sm leading-6 text-text-secondary">
+                  {amount} USDC.{" "}
+                  {tab === "deposit"
+                    ? "Your deposit enters the receiving balance. Merge it before spending."
+                    : "Funds were withdrawn to your public wallet."}
                 </p>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setConfirmed(false);
+                    setAmount("");
+                  }}
+                >
+                  Make another {tab}
+                </Button>
               </div>
-            </GlassCard>
-            <GlassCard padding="md">
-              <NumericKeypad
-                value={depositAmt}
-                onChange={setDepositAmt}
-                unit="USDC"
-                maxValue={formatAmount(publicUSDC, DECIMALS)}
-                onMax={() => setDepositAmt(formatAmount(publicUSDC, DECIMALS))}
-              />
-            </GlassCard>
-            <div className="flex justify-center">
-              <ProofStatusPill status="idle" />
-            </div>
-            <p className="px-2 text-center text-xs leading-relaxed text-text-muted">
-              Moves public USDC into your receiving balance at a 1:1 ratio — no proof required.
-            </p>
-            <Button fullWidth size="lg" isLoading={busy === "deposit"} disabled={!depositAmt || !registered} onClick={deposit}>
-              Deposit {depositAmt || "0"} USDC
-            </Button>
-          </>
-        )}
-
-        {tab === "withdraw" && (
-          <>
-            {receiving > 0n && (
-              <GlassCard padding="sm" className="border-accent/25">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs text-text-secondary">
-                    You have {displayAmount(receiving)} unmerged — merge before withdrawing more than spendable.
-                  </span>
-                  <Button size="sm" variant="secondary" isLoading={busy === "merge"} onClick={() => run("merge", () => wallet!.merge())}>
-                    Merge
+            ) : (
+              <form
+                className="space-y-6"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (valid && ready) setReview(true);
+                }}
+              >
+                <h2 className="text-xl font-semibold">
+                  {review
+                    ? "Review your " + tab
+                    : tab === "deposit"
+                      ? "Add to your confidential account"
+                      : "Return funds to your public wallet"}
+                </h2>
+                <AmountInput
+                  value={amount}
+                  onChange={(v) => {
+                    setAmount(v);
+                    setReview(false);
+                  }}
+                  disabled={!!busy}
+                  maxValue={formatAmount(available, 7)}
+                  onMax={() => {
+                    setAmount(formatAmount(available, 7));
+                    setReview(false);
+                  }}
+                />
+                {review && (
+                  <div className="rounded-lg border border-warning/30 p-4 text-sm leading-6 text-text-secondary">
+                    This {tab} reveals the amount publicly on-chain.{" "}
+                    {tab === "deposit"
+                      ? "The funds enter your receiving balance and need a merge before spending."
+                      : "The funds leave your available confidential balance and return to your connected wallet."}{" "}
+                    Check the simulated fee in Varial.
+                  </div>
+                )}
+                {review ? (
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={submit}
+                      disabled={!valid || !ready || !!busy || uncertain}
+                      isLoading={busy === tab}
+                    >
+                      Confirm {tab}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      disabled={!!busy}
+                      onClick={() => setReview(false)}
+                    >
+                      Edit
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    type="submit"
+                    disabled={!valid || !ready || !!busy || uncertain}
+                  >
+                    Review {tab}
                   </Button>
+                )}
+              </form>
+            )}
+          </GlassCard>
+          <aside className="space-y-5">
+            <GlassCard padding="lg">
+              <h2 className="font-semibold">Keep your balances distinct</h2>
+              <dl className="mt-5 space-y-4 text-sm">
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt className="text-text-secondary">Public USDC</dt>
+                  <dd>
+                    {view ? displayAmount(view.publicUSDC, 7) : "Unavailable"}
+                  </dd>
                 </div>
-              </GlassCard>
-            )}
-            <GlassCard padding="md">
-              <NumericKeypad
-                value={withdrawAmt}
-                onChange={setWithdrawAmt}
-                unit="USDC"
-                maxValue={formatAmount(spendable, DECIMALS)}
-                onMax={() => setWithdrawAmt(formatAmount(spendable, DECIMALS))}
-              />
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt className="text-text-secondary">
+                    Available confidential
+                  </dt>
+                  <dd>
+                    {view?.matchesChain
+                      ? displayAmount(view.spendable, 7)
+                      : "Unavailable"}
+                  </dd>
+                </div>
+                <div className="flex flex-wrap justify-between gap-2">
+                  <dt className="text-text-secondary">
+                    Incoming · needs merge
+                  </dt>
+                  <dd>
+                    {view?.matchesChain
+                      ? displayAmount(view.receiving, 7)
+                      : "Unavailable"}
+                  </dd>
+                </div>
+              </dl>
+              {!!view?.receiving && (
+                <Button
+                  className="mt-5"
+                  variant="secondary"
+                  disabled={!ready || !!busy || uncertain}
+                  isLoading={busy === "merge"}
+                  onClick={() => run("merge", () => wallet.merge())}
+                >
+                  Merge incoming funds
+                </Button>
+              )}
             </GlassCard>
-            <div className="flex justify-center">
-              <ProofStatusPill status={isProving ? "encrypting" : "idle"} />
+            <div className="p-3 text-sm leading-7 text-text-secondary">
+              <h3 className="mb-2 font-semibold text-text-primary">
+                Testing on Stellar
+              </h3>
+              <p>
+                Friendbot funds Testnet XLM for fees. The USDC issuer must match
+                this deployment; a different issuer's asset cannot fund this
+                token.
+              </p>
+              <a
+                href={`https://friendbot.stellar.org/?addr=${wallet.address}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-block text-accent"
+              >
+                Fund wallet with Testnet XLM ↗
+              </a>
+              <p className="mt-4 text-xs">
+                Experimental software. Use test assets only.
+              </p>
             </div>
-            {steps.length > 0 && (
-              <GlassCard padding="md">
-                <TxStatus steps={steps} />
-              </GlassCard>
-            )}
-            <Button fullWidth size="lg" isLoading={busy === "withdraw"} disabled={!withdrawAmt || !registered} onClick={withdraw}>
-              Withdraw {withdrawAmt || "0"} USDC
-            </Button>
-          </>
-        )}
-      </motion.div>
-
-      <ProofLoadingOverlay open={busy === "withdraw" && phase === "proving"} estSeconds={12} fullScreen />
+          </aside>
+        </div>
+      </div>
+      <ProofLoadingOverlay
+        open={busy === "withdraw" && phase === "proving"}
+        fullScreen
+      />
     </AppShell>
   );
 }

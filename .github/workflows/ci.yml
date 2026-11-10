@@ -40,6 +40,21 @@ jobs:
       - name: SDK tests (fast — excludes live proving/network)
         run: pnpm --filter @lucent/sdk test:fast
 
+      - name: Financial form tests
+        run: pnpm test:forms
+
+      - name: Build production app
+        run: pnpm --filter @lucent/app build
+
+      - name: Install browser for UI checks
+        run: pnpm --filter @lucent/app exec playwright-core install --with-deps chromium
+
+      - name: Mocked financial workflows and connected accessibility
+        run: pnpm test:ui
+
+      - name: Production routes, responsiveness and accessibility
+        run: pnpm --filter @lucent/app test:browser
+
   contracts:
     name: Contracts (Rust/Soroban)
     runs-on: ubuntu-latest

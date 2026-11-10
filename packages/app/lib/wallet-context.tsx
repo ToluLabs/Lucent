@@ -6,8 +6,8 @@
  * powers the sync badge. Connecting once (and signing the key-derivation message
  * once) serves the whole product.
  *
- * The connection itself persists across reloads: on mount, a disconnected
- * provider silently checks Freighter for prior authorization and reconnects
+ * The connection itself persists across reloads: on wallet routes, a disconnected
+ * provider silently checks Varial for prior authorization and reconnects
  * without a popup if found (see the auto-connect effect below), so a refresh
  * doesn't drop the session. Explicitly disconnecting sticks across reloads
  * too — see {@link MANUALLY_DISCONNECTED_KEY}.
@@ -23,9 +23,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
-import { ConfidentialWallet, type WalletView } from "./wallet";
+import type { ConfidentialWallet, WalletView } from "./wallet";
 import { freighterIsAllowed } from "./freighter";
 import { errMsg } from "./err";
 import { trackEvent } from "./analytics";
@@ -42,11 +42,11 @@ interface WalletCtx {
   refresh: () => Promise<void>;
   /**
    * Recovery path for a "Mismatch" badge a plain {@link refresh} doesn't
-   * clear: wipes locally cached state and fully replays event history.
+   * clear: rebuilds from available history and saves only verified balances.
    */
   resync: () => Promise<void>;
   /**
-   * Forget the local session. Freighter itself stays connected — the browser
+   * Forget the local session. Varial itself stays connected — the browser
    * extension owns that grant — but a flag is set so a later reload won't
    * silently auto-reconnect; only an explicit {@link connect} clears it.
    */
@@ -59,11 +59,20 @@ const Ctx = createContext<WalletCtx | null>(null);
 
 /**
  * Set when the user explicitly disconnects, so a later reload doesn't
- * silently reconnect them again just because Freighter still has this site
+ * silently reconnect them again just because Varial still has this site
  * authorized — disconnect should stick until they reconnect themselves.
  * Cleared on the next successful connect (explicit or auto).
  */
 const MANUALLY_DISCONNECTED_KEY = "lucent:wallet:manually-disconnected";
+const WALLET_ROUTES = new Set([
+  "/home",
+  "/send",
+  "/shield",
+  "/payroll",
+  "/escrow",
+  "/auditor",
+  "/profile",
+]);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [wallet, setWallet] = useState<ConfidentialWallet | null>(null);
@@ -72,50 +81,61 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [lastSync, setLastSync] = useState<Date | null>(null);
-  const router = useRouter();
+  const pathname = usePathname();
 
   const log = useCallback((msg: string) => {
-    setLogs((prev) => [`${new Date().toLocaleTimeString()}  ${msg}`, ...prev].slice(0, 80));
+    setLogs((prev) =>
+      [`${new Date().toLocaleTimeString()}  ${msg}`, ...prev].slice(0, 80),
+    );
   }, []);
 
-  const connectWithMode = useCallback(async (mode: "manual" | "auto") => {
-    trackEvent("wallet_connect_started", { mode });
-    setError(null);
-    setConnecting(true);
-    try {
-      const w = await ConfidentialWallet.connect(log);
-      setView(null);
-      setLastSync(null);
-      setWallet(w);
-      trackEvent("wallet_connected", { mode });
-      const v = await w.refresh();
-      setView(v);
-      setLastSync(new Date());
-      localStorage.removeItem(MANUALLY_DISCONNECTED_KEY);
-      trackEvent("wallet_ready", { mode });
-      return w;
-    } catch (e) {
-      trackEvent("wallet_connect_failed", { mode });
-      setError(errMsg(e));
-      return null;
-    } finally {
-      setConnecting(false);
-    }
-  }, [log]);
+  const connectWithMode = useCallback(
+    async (mode: "manual" | "auto") => {
+      trackEvent("wallet_connect_started", { mode });
+      setError(null);
+      setConnecting(true);
+      try {
+        // Keep cryptography, circuit artifacts and proving dependencies out of
+        // public-page startup. Load the same wallet engine only when needed.
+        const { ConfidentialWallet } = await import("./wallet");
+        const w = await ConfidentialWallet.connect(log);
+        setView(null);
+        setLastSync(null);
+        setWallet(w);
+        trackEvent("wallet_connected", { mode });
+        const v = await w.refresh();
+        setView(v);
+        setLastSync(new Date());
+        localStorage.removeItem(MANUALLY_DISCONNECTED_KEY);
+        trackEvent("wallet_ready", { mode });
+        return w;
+      } catch (e) {
+        trackEvent("wallet_connect_failed", { mode });
+        setError(errMsg(e));
+        return null;
+      } finally {
+        setConnecting(false);
+      }
+    },
+    [log],
+  );
 
-  const connect = useCallback(() => connectWithMode("manual"), [connectWithMode]);
+  const connect = useCallback(
+    () => connectWithMode("manual"),
+    [connectWithMode],
+  );
 
-  // Reconnect silently on mount (page load, hard refresh) if this site was
+  // Reconnect silently on wallet-route entry if this site was
   // already authorized in a prior session — otherwise every reload drops back
   // to a disconnected state even though nothing the user did asked for that.
-  // No popup: `isAllowed()` is a read of Freighter's own memory, and
+  // No popup: `isAllowed()` is a read of Varial's own memory, and
   // `requestAccess()` inside `connect()` won't prompt either once it's true.
-  // Silent by design — a failure here (Freighter locked, permission revoked,
+  // Silent by design — a failure here (Varial locked, permission revoked,
   // extension missing) just leaves the user disconnected as before, not an
   // error message for something they didn't initiate.
   const autoConnectAttempted = useRef(false);
   useEffect(() => {
-    if (autoConnectAttempted.current) return;
+    if (!WALLET_ROUTES.has(pathname) || autoConnectAttempted.current) return;
     autoConnectAttempted.current = true;
     if (localStorage.getItem(MANUALLY_DISCONNECTED_KEY)) return;
     freighterIsAllowed().then(async (allowed) => {
@@ -124,7 +144,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       // Preserve account-read/recovery errors so a connected wallet never
       // silently falls into the registration screen after a failed refresh.
     });
-  }, [connectWithMode]);
+  }, [connectWithMode, pathname]);
 
   const refresh = useCallback(async () => {
     if (!wallet) return;
@@ -134,6 +154,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       setView(v);
       setLastSync(new Date());
     } catch (e) {
+      setView(null);
       setError(errMsg(e));
     }
   }, [wallet]);
@@ -156,12 +177,36 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setLastSync(null);
     setError(null);
     localStorage.setItem(MANUALLY_DISCONNECTED_KEY, "1");
-    // router.push("/");
-  }, [router]);
+  }, []);
 
   const value = useMemo(
-    () => ({ wallet, view, connecting, error, logs, lastSync, connect, refresh, resync, disconnect, log, setError }),
-    [wallet, view, connecting, error, logs, lastSync, connect, refresh, resync, disconnect, log],
+    () => ({
+      wallet,
+      view,
+      connecting,
+      error,
+      logs,
+      lastSync,
+      connect,
+      refresh,
+      resync,
+      disconnect,
+      log,
+      setError,
+    }),
+    [
+      wallet,
+      view,
+      connecting,
+      error,
+      logs,
+      lastSync,
+      connect,
+      refresh,
+      resync,
+      disconnect,
+      log,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -1,163 +1,204 @@
 "use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Copy, Check, LogOut, Activity, BookOpen, Info, RefreshCw } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { GlassCard } from "@/components/ui/GlassCard";
+import { AddressDisplay } from "@/components/ui/AddressDisplay";
 import { Button } from "@/components/ui/Button";
-import { SectionLabel } from "@/components/ui/SectionLabel";
-import { Pill } from "@/components/ui/Pill";
-import { LucentLogoMark } from "@/components/icons/LucentLogoMark";
-import { useWallet } from "@/lib/wallet-context";
-import { useRequireWallet } from "@/lib/use-require-wallet";
 import { ConnectPrompt } from "@/components/ui/ConnectPrompt";
+import { ErrorBanner } from "@/components/ui/ErrorBanner";
+import { GlassCard } from "@/components/ui/GlassCard";
+import { Modal } from "@/components/ui/Modal";
 import { DEPLOYMENT } from "@/lib/deployment";
-
+import { useWallet } from "@/lib/wallet-context";
+import Link from "next/link";
+import { useState } from "react";
 export default function ProfilePage() {
-  const wallet = useRequireWallet();
-  const { view, disconnect, resync } = useWallet();
-  const router = useRouter();
-  const [copied, setCopied] = useState(false);
-  const [resyncing, setResyncing] = useState(false);
-
-  async function copy() {
-    if (!wallet) return;
-    await navigator.clipboard.writeText(wallet.address);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }
-
-  function handleDisconnect() {
-    disconnect();
-    router.push("/");
-  }
-
-  async function handleResync() {
-    setResyncing(true);
-    try {
-      await resync();
-    } finally {
-      setResyncing(false);
-    }
-  }
-
-  if (!wallet) {
+  const {
+    wallet,
+    view,
+    disconnect,
+    refresh,
+    resync,
+    error,
+    setError,
+    lastSync,
+  } = useWallet();
+  const [confirm, setConfirm] = useState(false);
+  const [ack, setAck] = useState(false);
+  const [busy, setBusy] = useState(false);
+  if (!wallet)
     return (
       <AppShell>
-        <PageHeader title="Profile" showBack={false} />
-        <ConnectPrompt message="Connect your wallet to view your profile." />
+        <PageHeader title="Account settings" />
+        <ConnectPrompt message="Connect to inspect account health and manage your wallet session." />
       </AppShell>
     );
-  }
-
-  const synced = view?.matchesChain === true;
-  const mismatch = view?.matchesChain === false;
-
   return (
     <AppShell>
-      <PageHeader title="Profile" showBack={false} />
-
-      <div className="flex flex-col gap-5 px-4 pb-8 md:mx-auto md:max-w-2xl md:px-8">
-        <GlassCard padding="md">
-          <div className="flex flex-col items-center gap-4 py-2">
-            <div className="relative">
-              <div
-                aria-hidden
-                className="absolute inset-0 rounded-2xl"
-                style={{ background: "radial-gradient(circle, rgba(251,187,36,0.2) 0%, transparent 70%)", filter: "blur(12px)" }}
-              />
-              <LucentLogoMark size={56} />
-            </div>
-
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm text-text-primary">
-                  {wallet.address.slice(0, 6)}…{wallet.address.slice(-4)}
-                </span>
-                <button onClick={copy} className="text-text-muted transition-colors hover:text-accent">
-                  {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                </button>
+      <PageHeader title="Account settings" />
+      <div className="workspace-page space-y-6">
+        <ErrorBanner error={error} onDismiss={() => setError(null)} />
+        <div className="workspace-grid">
+          <div className="space-y-6">
+            <GlassCard padding="lg">
+              <h2 className="text-lg font-semibold">Connected wallet</h2>
+              <div className="my-5">
+                <AddressDisplay address={wallet.address} chars={8} />
               </div>
-
-              <div className="flex items-center gap-2">
-                <Pill tone="amber">Stellar Testnet</Pill>
-                <Pill tone={synced ? "green" : mismatch ? "red" : "neutral"}>
-                  {synced ? "State matches chain" : mismatch ? "Mismatch" : view ? "Syncing…" : "—"}
-                </Pill>
-              </div>
-
-              {mismatch && (
-                <div className="flex flex-col items-center gap-1.5">
-                  <p className="max-w-xs text-center text-xs text-text-muted">
-                    Local state disagrees with what&apos;s on-chain. A resync clears the local cache
-                    and fully replays event history to fix it.
-                  </p>
-                  <Button size="sm" variant="secondary" isLoading={resyncing} onClick={handleResync}>
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Resync from chain
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        </GlassCard>
-
-        <Link href="/privacy" className="text-sm text-accent">Privacy & analytics settings</Link>
-
-        <SectionLabel>Protocol</SectionLabel>
-
-        <div className="flex flex-col gap-3">
-          {[
-            { label: "Encryption", value: "Pedersen commitments (Grumpkin)" },
-            { label: "Proofs", value: "UltraHonk, verified on-chain" },
-            { label: "Privacy", value: "Amount-hidden on-chain" },
-            { label: "Network", value: "Stellar Testnet" },
-          ].map(({ label, value }) => (
-            <GlassCard key={label} padding="sm">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-text-muted">{label}</span>
-                <span className="font-mono text-xs text-text-secondary">{value}</span>
+              <p className="text-sm leading-6 text-text-secondary">
+                Varial authorizes transactions. Disconnecting ends this app
+                session without deleting confidential keys or payment state from
+                this browser.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-3">
+                <Button variant="secondary" onClick={disconnect}>
+                  Disconnect wallet
+                </Button>
+                <a
+                  href={`https://stellar.expert/explorer/testnet/account/${wallet.address}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-3 text-sm text-accent"
+                >
+                  View wallet on explorer ↗
+                </a>
               </div>
             </GlassCard>
-          ))}
+            <GlassCard padding="lg">
+              <h2 className="text-lg font-semibold">Account health</h2>
+              <p className="my-4 text-sm">
+                {!view
+                  ? "Account status unavailable"
+                  : !view.registered
+                    ? "Registration required"
+                    : view.matchesChain
+                      ? "Local confidential state matches the chain"
+                      : "Local confidential state does not match the chain"}
+              </p>
+              <p className="text-xs text-text-muted">
+                {lastSync
+                  ? `Last successful check: ${lastSync.toLocaleString()}`
+                  : "No successful account check yet"}
+              </p>
+              <Button
+                className="mt-5"
+                variant="secondary"
+                isLoading={busy}
+                onClick={async () => {
+                  setBusy(true);
+                  try {
+                    await refresh();
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Refresh account
+              </Button>
+              <details className="mt-6 border-t border-border pt-4">
+                <summary className="text-sm font-medium">
+                  Advanced recovery
+                </summary>
+                <p className="my-4 text-sm leading-7 text-text-secondary">
+                  Verified recovery rebuilds balances in memory from available
+                  events. It replaces cached state only when both balances match
+                  the chain. Older events may be missing; a failed recovery
+                  preserves your existing state. Try an ordinary refresh first.
+                </p>
+                <Button variant="danger" onClick={() => setConfirm(true)}>
+                  Review full replay
+                </Button>
+              </details>
+            </GlassCard>
+          </div>
+          <aside className="space-y-6">
+            <GlassCard padding="lg">
+              <h2 className="font-semibold">Privacy and storage</h2>
+              <p className="my-4 text-sm leading-7 text-text-secondary">
+                Browser storage contains confidential state and retained proof
+                openings. Clearing it is not a guaranteed reset or recovery
+                method. Deposits, withdrawals, addresses and metadata remain
+                public. Public demo auditor keys reveal covered amounts.
+              </p>
+              <Link href="/privacy" className="text-sm text-accent">
+                Privacy & analytics controls →
+              </Link>
+            </GlassCard>
+            <GlassCard padding="lg">
+              <h2 className="font-semibold">Technical details</h2>
+              <dl className="mt-5 space-y-4 text-sm">
+                <div>
+                  <dt className="text-text-muted">Network</dt>
+                  <dd className="mt-1">Stellar Testnet</dd>
+                </div>
+                <div>
+                  <dt className="text-text-muted">Commitments</dt>
+                  <dd className="mt-1">Pedersen · Grumpkin</dd>
+                </div>
+                <div>
+                  <dt className="text-text-muted">Proof system</dt>
+                  <dd className="mt-1">UltraHonk · browser proving</dd>
+                </div>
+              </dl>
+              <details className="mt-5">
+                <summary className="text-sm text-text-secondary">
+                  Token contract
+                </summary>
+                <a
+                  href={`https://stellar.expert/explorer/testnet/contract/${DEPLOYMENT.contracts.token}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 block break-all font-mono text-xs leading-6 text-accent"
+                >
+                  {DEPLOYMENT.contracts.token}
+                </a>
+              </details>
+              <Link
+                href="/docs"
+                className="mt-5 inline-block text-sm text-accent"
+              >
+                Read documentation →
+              </Link>
+            </GlassCard>
+          </aside>
         </div>
-
-        <SectionLabel>Links</SectionLabel>
-
-        <div className="flex flex-col gap-2 px-1">
-          <a
-            href={`https://stellar.expert/explorer/testnet/account/${wallet.address}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-accent"
-          >
-            <Activity className="h-4 w-4" />
-            View on Stellar Expert
-          </a>
-          <a href="/docs" className="flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-accent">
-            <BookOpen className="h-4 w-4" />
-            Documentation
-          </a>
-          <a href="/about" className="flex items-center gap-2 text-sm text-text-secondary transition-colors hover:text-accent">
-            <Info className="h-4 w-4" />
-            About Lucent
-          </a>
-        </div>
-
-        <div className="pt-2">
-          <Button variant="danger" fullWidth size="lg" onClick={handleDisconnect}>
-            <LogOut className="h-4 w-4" />
-            Disconnect
-          </Button>
-        </div>
-
-        <footer className="text-center font-mono text-[11px] text-text-muted">
-          token {DEPLOYMENT.contracts.token.slice(0, 4)}…{DEPLOYMENT.contracts.token.slice(-4)}
-        </footer>
       </div>
+      <Modal
+        open={confirm}
+        busy={busy}
+        onClose={() => setConfirm(false)}
+        title="Verify recovery from available history"
+      >
+        <p className="text-sm leading-7 text-text-secondary">
+          Recovery checks reconstructed balances against the chain before
+          saving. If history is incomplete or a request fails, existing cached
+          state is preserved. This operation cannot restore missing history.
+        </p>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+            className="mt-1 h-4 w-4"
+          />
+          I understand that missing history may prevent recovery.
+        </label>
+        <Button
+          variant="danger"
+          disabled={!ack}
+          isLoading={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await resync();
+              setConfirm(false);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Run full replay
+        </Button>
+      </Modal>
     </AppShell>
   );
 }

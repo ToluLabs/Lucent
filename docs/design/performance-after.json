@@ -1,0 +1,142 @@
+{
+  "settings": {
+    "cpuSlowdown": 4,
+    "networkThrottling": false,
+    "viewport": {
+      "width": 1440,
+      "height": 1000
+    },
+    "cache": "disabled",
+    "wallet": "disconnected",
+    "analytics": "excluded",
+    "samplesPerRoute": 1
+  },
+  "routes": [
+    {
+      "target": "local-production",
+      "route": "/",
+      "heading": "Move money.Keep yourbusiness yours.",
+      "ttfb": 14,
+      "domReady": 215,
+      "lcp": 487,
+      "jsDecodedKB": 507,
+      "jsEncodedKB": 155,
+      "jsRequests": 11,
+      "longTasks": 1,
+      "blockingMs": 105,
+      "fonts": [],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      },
+      "localFontStatus": 200,
+      "localFontCache": "public, max-age=31536000, immutable"
+    },
+    {
+      "target": "local-production",
+      "route": "/docs",
+      "heading": "Build with Lucent.",
+      "ttfb": 4,
+      "domReady": 58,
+      "lcp": 277,
+      "jsDecodedKB": 507,
+      "jsEncodedKB": 155,
+      "jsRequests": 11,
+      "longTasks": 2,
+      "blockingMs": 196,
+      "fonts": [],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      },
+      "localFontStatus": 200,
+      "localFontCache": "public, max-age=31536000, immutable"
+    },
+    {
+      "target": "local-production",
+      "route": "/home",
+      "heading": "Overview",
+      "ttfb": 10,
+      "domReady": 60,
+      "lcp": 148,
+      "jsDecodedKB": 683,
+      "jsEncodedKB": 213,
+      "jsRequests": 14,
+      "longTasks": 1,
+      "blockingMs": 82,
+      "fonts": [],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      },
+      "localFontStatus": 200,
+      "localFontCache": "public, max-age=31536000, immutable"
+    },
+    {
+      "target": "local-development",
+      "route": "/",
+      "heading": "Move money.Keep yourbusiness yours.",
+      "ttfb": 1251,
+      "domReady": 1310,
+      "lcp": 3063,
+      "jsDecodedKB": 12743,
+      "jsEncodedKB": 2908,
+      "jsRequests": 5,
+      "longTasks": 2,
+      "blockingMs": 1065,
+      "fonts": [],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      },
+      "localFontStatus": 200,
+      "localFontCache": "public, max-age=31536000, immutable"
+    },
+    {
+      "target": "local-development",
+      "route": "/docs",
+      "heading": "Build with Lucent.",
+      "ttfb": 949,
+      "domReady": 1189,
+      "lcp": 1203,
+      "jsDecodedKB": 13187,
+      "jsEncodedKB": 2975,
+      "jsRequests": 5,
+      "longTasks": 2,
+      "blockingMs": 1061,
+      "fonts": [],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      },
+      "localFontStatus": 200,
+      "localFontCache": "public, max-age=31536000, immutable"
+    },
+    {
+      "target": "local-development",
+      "route": "/home",
+      "heading": "Overview",
+      "ttfb": 75,
+      "domReady": 194,
+      "lcp": 1865,
+      "jsDecodedKB": 15294,
+      "jsEncodedKB": 3426,
+      "jsRequests": 5,
+      "longTasks": 1,
+      "blockingMs": 1140,
+      "fonts": [],
+      "frames": {
+        "samples": 37,
+        "gapsOver50": 0,
+        "maxGap": 33
+      },
+      "localFontStatus": 200,
+      "localFontCache": "public, max-age=31536000, immutable"
+    }
+  ]
+}

@@ -1,28 +1,43 @@
+import { Analytics } from "@/components/analytics/Analytics";
+import { ActionProvider } from "@/lib/action-context";
+import { WalletProvider } from "@/lib/wallet-context";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { Analytics } from "@/components/analytics/Analytics";
-import { WalletProvider } from "@/lib/wallet-context";
 
 export const metadata: Metadata = {
-  title: "Lucent — The amount is the only secret",
+  title: "Lucent — Confidential payments on Stellar",
   description:
-    "Confidential payments on Stellar. Sender and receiver are public; only the amount is encrypted, proven with zero-knowledge and verified natively on-chain.",
+    "Test confidential USDC transfers and payroll on Stellar Testnet. Participants and metadata remain public. Experimental, unaudited software; use test funds only.",
   icons: { icon: "/favicon.svg" },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  themeColor: "#080808",
+  themeColor: "#101215",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link
+          rel="preload"
+          href="/fonts/manrope-v23-latin.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-dvh bg-void font-sans text-text-primary antialiased">
         <Analytics />
-        <WalletProvider>{children}</WalletProvider>
+        <WalletProvider>
+          <ActionProvider>{children}</ActionProvider>
+        </WalletProvider>
       </body>
     </html>
   );
