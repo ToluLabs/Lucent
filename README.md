@@ -31,8 +31,8 @@ Sender and receiver stay public and verifiable on-chain. Only the amount moves i
 
 Balances are Pedersen commitments on the Grumpkin curve. Every register,
 withdraw, and transfer carries an UltraHonk zero-knowledge proof, generated
-in the browser and verified natively on-chain by Soroban — no off-chain
-operators, no relayers, no custodians.
+in the browser and verified on-chain by Soroban without an off-chain proof
+verifier. Escrow has separate custody and authorization assumptions, described below.
 
 On top of that primitive, Lucent ships a full payments product: shielded
 deposits and withdrawals, confidential transfers, confidential payroll,
@@ -148,13 +148,14 @@ single constraint is what shapes Payroll and Escrow into the design below.
 template of employees and opens a run against it. Salaries are never written
 to chain storage — at `execute_run` the employer's browser proves one
 `confidential_transfer` per employee, and the vault routes them atomically
-and records run state. The employer registers as the run's auditor, so every
-salary stays decryptable to them and opaque to everyone else.
+and records run state. Audit access depends on the registered auditor keys, not the employer role.
+The current app uses its configured common demo auditor ID; employer-only
+audit access is not established by creating a payroll run.
 
 **PrivateEscrow** is custodial: each escrow deploys its own **instance
 contract**, giving it its own isolated confidential account (a confidential
 balance is keyed by contract address, so custody requires a dedicated address
-per escrow). Funding takes four on-chain calls:
+per escrow). The current source funding flow takes four on-chain calls:
 
 1. `prepare_funding` stores the exact registration and transfer-in inputs.
 2. `store_payout_proof(true, …)` verifies the recipient payout against the future funded commitment.
@@ -165,9 +166,13 @@ Each payout call also supplies the remaining balance blinding factor. The token
 checks that the remaining commitment opens to zero, so a partial-transfer proof
 cannot settle an escrow. Amounts remain confidential.
 
-The updated payout interface requires redeploying the token, escrow instance
-WASM, and factory together before using the updated SDK/app. Existing deployed
-instances retain their previous interface.
+The updated payout interface requires a compatible token, escrow instance
+WASM and factory deployment before using the updated SDK/app. The 10 November
+2026 read-only architecture audit found that the configured token lacks
+`verify_escrow_payout` and the manifest-recorded instance WASM is legacy.
+The four-step source flow is therefore not verified as deployed at those
+references. See the [SCF technical architecture](SCF-46-TECHNICAL-ARCHITECTURE.md).
+Existing instances retain their previous interface.
 
 No funds move until both proofs pass. Re-preparing clears both validated proofs.
 Separate calls keep the proof payloads within Soroban's transaction size limit.
@@ -180,11 +185,13 @@ outgoing `confidential_transfer` by invocation, so no one needs to hold its
 key at settlement time. See the in-app Docs page for the full
 funding-to-settlement flow.
 
-> **Escrow trust caveat.** To pre-generate those two payout proofs, the
-> depositor derives the instance's Grumpkin secret at fund time and must
-> discard it afterward. A depositor who retains it could re-spend the
-> escrowed balance and invalidate both stored proofs. Acceptable for a
-> testnet demo; not for production.
+> **Escrow custody caveat.** The funding client learns the instance's
+> confidential secret/witness material to pre-generate payout proofs. This
+> requires custody/privacy review. The pinned token also enforces Soroban
+> owner authorization: retaining that secret alone does not authorize a
+> contract address to spend. A secret-only bypass has not been demonstrated;
+> all invocation/delegation paths still require adversarial validation.
+> Testnet only; not independently audited for production.
 
 **Compliance Policy** is a separate, admin-gated allowlist contract, wired
 onto the token via `ComplianceConfig` (from OpenZeppelin's confidential

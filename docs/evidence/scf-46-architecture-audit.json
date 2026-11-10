@@ -1,0 +1,220 @@
+{
+  "checkedAt": "2026-11-10T15:49:56.110Z",
+  "network": "Stellar Testnet",
+  "rpc": "https://soroban-testnet.stellar.org",
+  "latestLedger": 5660427,
+  "oldestLedger": 5539468,
+  "checks": [
+    {
+      "role": "token",
+      "address": "CACKEFUKVPBGDJM6Z4NOTY3H44MUMJDYIRNBLH6MDFN3QUSFWENXAABF",
+      "wasmSha256": "5cba837d75f80e236b0f24036a32c68fee69571c0f10168ee7a71fbdf992350e",
+      "localArtifactMatches": false,
+      "functions": [
+        "merge",
+        "freeze",
+        "deposit",
+        "has_role",
+        "register",
+        "unfreeze",
+        "withdraw",
+        "get_admin",
+        "is_frozen",
+        "grant_role",
+        "is_spender",
+        "revoke_role",
+        "set_spender",
+        "__constructor",
+        "renounce_role",
+        "get_role_admin",
+        "renounce_admin",
+        "revoke_spender",
+        "set_role_admin",
+        "get_role_member",
+        "compliance_config",
+        "get_existing_roles",
+        "transfer_admin_role",
+        "confidential_balance",
+        "accept_admin_transfer",
+        "confidential_transfer",
+        "get_role_member_count",
+        "set_compliance_config",
+        "get_spender_delegation",
+        "confidential_transfer_from"
+      ]
+    },
+    {
+      "role": "verifier",
+      "address": "CAL32C7RZ5AB4IIYJBAH6XHPFZPFMUGMJ4ZDYQPOA3X7LX6EOJCZSTYN",
+      "wasmSha256": "2186fc2f3234636f703ab577f346c5026425eb2c32970e3c6071f7027292e33d",
+      "localArtifactMatches": true,
+      "functions": [
+        "has_role",
+        "get_admin",
+        "grant_role",
+        "revoke_role",
+        "verify_proof",
+        "__constructor",
+        "renounce_role",
+        "get_role_admin",
+        "renounce_admin",
+        "set_role_admin",
+        "get_role_member",
+        "get_existing_roles",
+        "transfer_admin_role",
+        "get_verification_key",
+        "accept_admin_transfer",
+        "get_role_member_count",
+        "update_verification_key",
+        "register_verification_key"
+      ]
+    },
+    {
+      "role": "auditor",
+      "address": "CB6FOYTSTRCCBYZGOZJVNY5RGCT5LXEEPV5D2BZK7O3LMKSLLLQ7QRUQ",
+      "wasmSha256": "c486cc0a742acde96579dc6d4299441b29dbdf04148f16d3fe23eb6772fa3371",
+      "localArtifactMatches": true,
+      "functions": [
+        "get_key",
+        "has_role",
+        "get_admin",
+        "grant_role",
+        "rotate_key",
+        "revoke_role",
+        "register_key",
+        "__constructor",
+        "renounce_role",
+        "get_role_admin",
+        "renounce_admin",
+        "set_role_admin",
+        "get_role_member",
+        "get_existing_roles",
+        "transfer_admin_role",
+        "accept_admin_transfer",
+        "get_role_member_count"
+      ]
+    },
+    {
+      "role": "payroll",
+      "address": "CCO6LMKLPJCWUQYDEHOY2EHYPITYOGT6JPKXIRHDXKEUYTXQEAJPPVVS",
+      "wasmSha256": "41850e8ce8275e8da07f5caf99bd0756d1579d96503e33a3e015bd222ea8721e",
+      "localArtifactMatches": true,
+      "functions": [
+        "claim",
+        "token",
+        "get_run",
+        "fund_run",
+        "run_count",
+        "cancel_run",
+        "create_run",
+        "execute_run",
+        "get_template",
+        "__constructor",
+        "template_count",
+        "create_template"
+      ]
+    },
+    {
+      "role": "escrowFactory",
+      "address": "CCGJ5XEZDFSKJSLWEO7D22KZXOSPRNWE4R3RFO4SQBWPQ5RZ3WK7I2XS",
+      "wasmSha256": "f5245ca30923382541a4d0a7372c023936a19c1d34274e4c8b03a2a51114e383",
+      "localArtifactMatches": true,
+      "functions": [
+        "token",
+        "escrow_count",
+        "__constructor",
+        "create_escrow",
+        "escrow_address"
+      ]
+    },
+    {
+      "role": "policy",
+      "address": "CB6Z7YIWYMKU3QUALYBJZMJEF72QRKBPFOCDHECPD3V5DCIRMU674UME",
+      "wasmSha256": "df2249e0b90b3793107a14f7d0345be6dd0be139acfab29338647ee99e6584e8",
+      "localArtifactMatches": true,
+      "functions": [
+        "add",
+        "remove",
+        "is_allowed",
+        "__constructor",
+        "is_authorized"
+      ]
+    },
+    {
+      "role": "manifestInstanceWasm",
+      "wasmSha256": "44c5852692374c24c5fe2cc6c9e7fcfa936418365ae352266182743794501306",
+      "localArtifactMatches": false,
+      "functions": [
+        "fund",
+        "token",
+        "cancel",
+        "release",
+        "timeout",
+        "get_escrow",
+        "__constructor",
+        "mark_completed",
+        "claim_after_window",
+        "dispute_with_proof",
+        "store_payout_proofs",
+        "resolve_to_depositor",
+        "resolve_to_recipient"
+      ]
+    }
+  ],
+  "sourceCommit": "00c2270a54b0fff3cd96f4b30e015851bb9abc7d",
+  "method": "Read-only RPC getHealth, getContractWasmByContractId, getContractWasmByHash; SHA-256 artifact comparison and contract.Spec.fromWasm export inspection. No transaction signed or submitted. Additional read-only simulation: get_verification_key for register/withdraw/transfer, and auditor get_key(0).",
+  "limitations": [
+    "Code presence/export metadata is not successful transaction evidence.",
+    "Binary parity does not independently establish reproducible source builds or circuit-to-VK derivation.",
+    "Manifest instance WASM is not proof of every live instance or factory-stored configuration.",
+    "No newly executed live payment, escrow settlement, deployed indexer parity or pilot."
+  ],
+  "tests": [
+    {
+      "command": "pnpm --filter @lucent/sdk test:fast",
+      "result": "passed",
+      "skipped": "Live indexer-parity case: no endpoint configured."
+    },
+    {
+      "command": "cargo test --manifest-path contracts/Cargo.toml --locked --offline",
+      "result": "passed",
+      "passed": 44,
+      "breakdown": {
+        "policy": 3,
+        "token": 6,
+        "payroll": 10,
+        "factory": 1,
+        "instance": 24
+      },
+      "limitations": "Some tests mock authorization and token/proof verification; verifier/auditor wrappers have zero dedicated Rust tests in this run."
+    }
+  ],
+  "verificationKeys": [
+    {
+      "circuit": "register",
+      "discriminant": 0,
+      "bytes": 1760,
+      "sha256": "79a2f5f78e0466d711745c3e0ab0d974065ed5f6abcda3cebb80d5e5d4a839b0",
+      "matchesRepository": true
+    },
+    {
+      "circuit": "withdraw",
+      "discriminant": 1,
+      "bytes": 1760,
+      "sha256": "7c9e5e55409617123e6a48cd8e92b10f6f71d2bb00f23b11115307d396098d19",
+      "matchesRepository": true
+    },
+    {
+      "circuit": "transfer",
+      "discriminant": 2,
+      "bytes": 1760,
+      "sha256": "7d3de3ce979e3f42d44afdfd4e90774ad540d75920c66939cb2cebaad9bd373d",
+      "matchesRepository": true
+    }
+  ],
+  "auditorKey": {
+    "id": 0,
+    "matchesManifest": true
+  },
+  "keyChecksAt": "2026-11-10T15:57:21.331685+00:00"
+}
