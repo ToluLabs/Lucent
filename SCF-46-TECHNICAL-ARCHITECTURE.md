@@ -8,9 +8,9 @@ description: Audited implementation status, Stellar-specific SCF-funded architec
 
 **Audit date: 10 November 2026.** Lucent implements experimental amount-confidential payments on **Stellar Testnet** using Soroban, Grumpkin commitments and UltraHonk proofs. This document supports the applicant's submitted **SCF #46 Open Track Build Award request of $70,000**. Source claims are pinned to [`00c2270`](https://github.com/ToluLabs/Lucent/tree/00c2270); live read-only checks are recorded separately. Proposed interfaces/circuit names are designs, not deployed APIs.
 
-**Funded endpoint:** the applicant reports SCF has confirmed that the final funded milestone may conclude with a **production-ready Stellar Testnet implementation**, including security validation, monitoring, user testing and Mainnet readiness. This records the application-specific agreement supplied for this audit, not a general SCF policy determination. **Mainnet deployment is not a funded deliverable, and no SCF funds are allocated to it.** Readiness is an acceptance target, not the current state or an audit already achieved.
+**Funded endpoint:** under Lucent's application-specific arrangement with SCF, the final funded milestone concludes with a **production-ready Stellar Testnet implementation**, including security validation, monitoring, user testing and Mainnet readiness. **Mainnet deployment is not a funded deliverable, and no SCF funds are allocated to it.** Production readiness is an acceptance target; the current implementation remains experimental and unaudited. The agreement was supplied by the applicant for this audit and is not a statement of general SCF policy.
 
-**Budget reconciliation needed:** the supplied tranche breakdown totals **$63,000** ($14,000 + $21,000 + $28,000), not $70,000. The remaining **$7,000 is not explained in that breakdown**. No allocation has been invented or silently added. The applicant must reconcile it with the submitted application/agreement; section 10 preserves the supplied amounts.
+**Budget reconciliation pending:** the supplied tranche breakdown totals **$63,000** ($14,000 + $21,000 + $28,000) against a stated request of $70,000. The remaining **$7,000 allocation requires confirmation** against the submitted application. Section 10 preserves the supplied deliverable amounts.
 
 ### Status labels
 
