@@ -167,8 +167,8 @@ checks that the remaining commitment opens to zero, so a partial-transfer proof
 cannot settle an escrow. Amounts remain confidential.
 
 The updated payout interface requires a compatible token, escrow instance
-WASM and factory deployment before using the updated SDK/app. The 10 November
-2026 read-only architecture audit found that the configured token lacks
+WASM and factory deployment before using the updated SDK/app. Our read-only checks on 10 November
+2026 found that the configured token lacks
 `verify_escrow_payout` and the manifest-recorded instance WASM is legacy.
 The four-step source flow is therefore not verified as deployed at those
 references. See the [SCF technical architecture](SCF-46-TECHNICAL-ARCHITECTURE.md).

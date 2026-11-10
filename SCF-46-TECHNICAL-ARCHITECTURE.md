@@ -1,16 +1,18 @@
 ---
-description: Audited implementation status, Stellar-specific SCF-funded architecture, security boundaries, deployment evidence and measurable verification gates.
+description: What we have built on Stellar Testnet, what we plan to build with SCF funding, and how we will verify it.
 ---
 
 # SCF #46 Technical Architecture
 
 ## 1. Executive Technical Summary
 
-**Audit date: 10 November 2026.** Lucent implements experimental amount-confidential payments on **Stellar Testnet** using Soroban, Grumpkin commitments and UltraHonk proofs. This document supports the applicant's submitted **SCF #46 Open Track Build Award request of $70,000**. Source claims are pinned to [`00c2270`](https://github.com/ToluLabs/Lucent/tree/00c2270); live read-only checks are recorded separately. Proposed interfaces/circuit names are designs, not deployed APIs.
+**Last checked: 10 November 2026.** We're building Lucent to make confidential payments usable on Stellar. We've implemented an experimental Stellar Testnet application using Soroban contracts, Grumpkin commitments and UltraHonk proofs. We applied to the **SCF #46 Open Track Build Award for $70,000** to turn that foundation into more reliable payment infrastructure and developer tooling.
 
-**Funded endpoint:** under Lucent's application-specific arrangement with SCF, the final funded milestone concludes with a **production-ready Stellar Testnet implementation**, including security validation, monitoring, user testing and Mainnet readiness. **Mainnet deployment is not a funded deliverable, and no SCF funds are allocated to it.** Production readiness is an acceptance target; the current implementation remains experimental and unaudited. The agreement was supplied by the applicant for this audit and is not a statement of general SCF policy.
+This page explains what we've built, what is actually deployed, and what we plan to build with the award. The source snapshot is [`00c2270`](https://github.com/ToluLabs/Lucent/tree/00c2270); our live deployment checks are linked separately. Interfaces and circuit names marked proposed are still designs, not available APIs.
 
-**Budget reconciliation pending:** the supplied tranche breakdown totals **$63,000** ($14,000 + $21,000 + $28,000) against a stated request of $70,000. The remaining **$7,000 allocation requires confirmation** against the submitted application. Section 10 preserves the supplied deliverable amounts.
+**Where the funded work ends:** SCF has confirmed that our final funded milestone can conclude with a **production-ready Stellar Testnet implementation**, including security validation, monitoring, user testing and Mainnet readiness. **We are not allocating SCF funding to Mainnet deployment.** Production readiness is our target for that milestone; our current implementation is experimental and unaudited.
+
+**Our funding schedule:** **Tranche 0 is $7,000 upon award acceptance**. The remaining **$63,000** is split across Tranches 1–3: **$14,000, $21,000 and $28,000**. Together, they make up the **$70,000 request**. Tranche 0 is the initial acceptance payment, not an extra technical workstream.
 
 ### Status labels
 
@@ -41,9 +43,9 @@ description: Audited implementation status, Stellar-specific SCF-funded architec
 
 ### Observed deployment, not assumed source parity
 
-On 10 November 2026, read-only `getContractWasmByContractId` calls retrieved the configured token, verifier, auditor, payroll, factory and policy WASM. SHA-256 comparison matched the repository artifact for **verifier, auditor, payroll, factory and policy**. The **token did not match**. Read-only simulations also confirmed that the registered register/withdraw/transfer verification-key bytes match the repository VK files, and auditor ID 0 matches the manifest public key. This does not prove circuit soundness or live proof acceptance. The separately fetched, manifest-recorded instance WASM also **did not match** the current instance binary; this does not identify the version of every existing instance or prove the factory's stored WASM selection.
+On 10 November 2026, we used read-only `getContractWasmByContractId` calls to retrieve the configured token, verifier, auditor, payroll, factory and policy WASM. We compared SHA-256 hashes and found matching repository artifacts for **verifier, auditor, payroll, factory and policy**. The **token did not match**. We also confirmed through read-only simulations that the registered register/withdraw/transfer verification-key bytes match the repository VK files, and auditor ID 0 matches the manifest public key. This does not prove circuit soundness or live proof acceptance. The separately fetched, manifest-recorded instance WASM also **did not match** the current instance binary; this does not identify the version of every existing instance or prove the factory's stored WASM selection.
 
-The configured token's public interface lacks `verify_escrow_payout`. The manifest-recorded instance exports `store_payout_proofs`, not the source's newer two preflight methods. Consequently, the newer source escrow flow is not a compatible deployed feature at those manifest references. No contract was upgraded and no live payment was submitted during this audit.
+The configured token's public interface lacks `verify_escrow_payout`. The manifest-recorded instance exports `store_payout_proofs`, not the source's newer two preflight methods. Consequently, the newer source escrow flow is not a compatible deployed feature at those manifest references. We did not upgrade contracts or submit live payments during these checks.
 
 | Configured contract | Public Testnet reference | Audit conclusion |
 | --- | --- | --- |
@@ -151,13 +153,13 @@ The $5,000 Tranche 1 workstream reuses the hybrid event client, state engine and
 
 The current factory creates a dedicated Soroban contract address for each escrow. Funding prepares registration and transfer inputs, verifies release and refund proofs in separate calls, and only then atomically registers, transfers and merges. The token's payout preflight checks bind both branches to the prepared funded commitment and require a zero remaining value; changing preparation invalidates both stored approvals. Settlement does not merge unsolicited later credits into the frozen spendable balance.
 
-The funding client generates the instance's confidential secret and therefore learns its witness material. Existing source comments recommend discarding it, which is a custody/privacy concern. **However, the pinned upstream token also calls `from.require_auth()` for transfer/withdraw, and owner authorization is required to create a delegation. A confidential secret or valid proof alone does not authorize a Soroban contract address.** This audit did not demonstrate the bypass previously asserted by the page. Mock-authorized tests do not establish that a bypass exists or that all authorization paths are safe. Treat retained-witness misuse as a threat to test, not a proven theft route.
+The funding client generates the instance's confidential secret and therefore learns its witness material. Existing source comments recommend discarding it, which is a custody/privacy concern. **However, the pinned upstream token also calls `from.require_auth()` for transfer/withdraw, and owner authorization is required to create a delegation. A confidential secret or valid proof alone does not authorize a Soroban contract address.** We have not demonstrated a secret-only authorization bypass. Mock-authorized tests do not establish that a bypass exists or that all authorization paths are safe. Treat retained-witness misuse as a threat to test, not a proven theft route.
 
 The source preflight flow above is **local implementation**, not the currently configured live interface. Read-only WASM inspection found no `verify_escrow_payout` export on the configured token, and the manifest-recorded instance WASM exports the older `store_payout_proofs` interface rather than `prepare_funding`/`store_payout_proof`. The current app funding sequence must not be reported as demonstrated against that pair.
 
 #### Proposed components, interactions and data flow
 
-Start from the existing Soroban contract authorization checks and audit the full invocation/delegation surface. A proposed hardening design is an explicit **contract-controlled confidential account mode** in a versioned token; whether this new mode/circuit is necessary rather than a smaller authorization change remains a design decision. Registration binds the account to an escrow contract and authorization policy. Funding binds the incoming commitment to an escrow identifier and immutable payout policy. The escrow state machine selects the allowed release/refund branch, then invokes a dedicated settlement endpoint.
+We'll start with the existing Soroban authorization checks and review every invocation and delegation path. A proposed hardening design is an explicit **contract-controlled confidential account mode** in a versioned token; whether this new mode/circuit is necessary rather than a smaller authorization change remains a design decision. Registration binds the account to an escrow contract and authorization policy. Funding binds the incoming commitment to an escrow identifier and immutable payout policy. The escrow state machine selects the allowed release/refund branch, then invokes a dedicated settlement endpoint.
 
 A proposed `EscrowSettlement` circuit proves conservation, valid recipient encryption, required auditor encryption and the permitted remaining value, with public inputs binding the escrow contract, current commitment, branch, recipient and settlement nonce. The token reconstructs these inputs from state and the authorized invocation. Possession of a funding-time secret or valid alternative proof must not substitute for authorization from the escrow contract. General spending/delegation entry points must not bypass this account mode.
 
@@ -179,7 +181,7 @@ Sources for the existing implementation: [instance](https://github.com/ToluLabs/
 
 #### Proposed components, interactions and data flow
 
-Create a versioned payroll run manifest with a run ID, payer, network/token, policy epoch and a commitment root for ordered recipient/payment leaves. Salary commitments must use proper blinding; an ordinary unsalted hash of a low-entropy salary is not confidentiality. The employer/organization approves this manifest, then workers or the client prepare **bounded chunks** of proofs against the current payer state.
+We'll add a versioned payroll run manifest with a run ID, payer, network/token, policy epoch and a commitment root for ordered recipient/payment leaves. Salary commitments must use proper blinding; an ordinary unsalted hash of a low-entropy salary is not confidentiality. The employer/organization approves this manifest, then workers or the client prepare **bounded chunks** of proofs against the current payer state.
 
 A proposed payroll transfer circuit binds the paid amount to its authorized leaf commitment and recipient, together with run ID and leaf index. The contract validates membership and an on-chain paid-index bitmap/nullifier before executing each chunk atomically. Progress is persisted per run and exposed through indexed queries. Failed chunks can be retried against fresh state; already paid leaves cannot execute twice. Cancellation can stop unpaid leaves only. **A multi-transaction run is resumable, not globally atomic.**
 
@@ -201,7 +203,7 @@ Current payroll mutations require the employer's authorization. Registry manager
 
 #### Proposed components, interactions and data flow
 
-Add an organization policy/treasury contract with members, roles, thresholds, policy epochs and expiring proposals. The initiating client constructs a canonical manifest containing network/token identity, treasury, destination or payroll root, action type, nonce, expiry and policy version. Authorized reviewers inspect the confidential details through an explicitly shared encrypted manifest and approve its digest using Stellar authorization. Public storage contains commitments and approval state, not plaintext salaries.
+We'll build an organization policy/treasury contract with members, roles, thresholds, policy epochs and expiring proposals. The initiating client constructs a canonical manifest containing network/token identity, treasury, destination or payroll root, action type, nonce, expiry and policy version. Authorized reviewers inspect the confidential details through an explicitly shared encrypted manifest and approve its digest using Stellar authorization. Public storage contains commitments and approval state, not plaintext salaries.
 
 Once the threshold is met, the treasury authorizes **only** the exact approved Soroban invocation and consumes the nonce atomically. UI approval records alone are insufficient. The token/treasury integration must enforce Soroban contract authorization on every spending/delegation route; the existing `require_auth` checks are a starting point. A new explicit account mode is a proposed option, not evidence that the current token permits a secret-only bypass. Integrate this with escrow-v2's authorization work; ordinary wallet-owned token accounts must not be advertised as policy-enforced organization treasuries.
 
@@ -217,7 +219,7 @@ Existing authorization sources: [payroll](https://github.com/ToluLabs/Lucent/blo
 
 ### 6.5 Recurring confidential payroll
 
-**Reuse and components:** build on the bounded payroll run/manifest and organization policy, adding a versioned schedule record with period identifier, due window, end/revocation condition, approved budget/recipient root and consumed-period state. Proposed functions are schedule creation/revocation and bounded period-run execution; exact interfaces remain to be frozen.
+**What we'll build:** we'll build on the bounded payroll run/manifest and organization policy, adding a versioned schedule record with period identifier, due window, end/revocation condition, approved budget/recipient root and consumed-period state. Proposed functions are schedule creation/revocation and bounded period-run execution; exact interfaces remain to be frozen.
 
 **Flow and Stellar interaction:** a client or untrusted off-chain scheduler notices a due window from Soroban ledger time, prepares or obtains the current-state proofs, and submits a normal authorized Testnet transaction. The contract validates the schedule/policy epoch, exact period/manifest, time window and duplicate-period marker before routing a chunk. Soroban contracts do not wake themselves or generate proofs. Reusing the approved-leaf circuit needs period/schedule binding where not already constrained; recurrence is not just a cron job calling today's unrestricted `execute_run`.
 
@@ -227,7 +229,7 @@ Existing authorization sources: [payroll](https://github.com/ToluLabs/Lucent/blo
 
 ### 6.6 Confidential invoicing and reconciliation
 
-**Reuse and components:** reuse encrypted records, recipient checking and selective-disclosure circuits. Add a versioned, locally encrypted invoice record with issuer/payee, network/token, amount commitment, invoice identifier, status and settlement evidence. A proposed minimal Soroban invoice registry can store issuer-authorized commitment/status and prevent duplicate acknowledgment; whether on-chain registration is necessary for the first version remains an explicit design decision.
+**What we'll build:** we'll reuse encrypted records, recipient checking and selective-disclosure circuits. Add a versioned, locally encrypted invoice record with issuer/payee, network/token, amount commitment, invoice identifier, status and settlement evidence. A proposed minimal Soroban invoice registry can store issuer-authorized commitment/status and prevent duplicate acknowledgment; whether on-chain registration is necessary for the first version remains an explicit design decision.
 
 **Flow and verification:** the issuer creates/signs an invoice commitment using fresh blinding, the payer pays through the confidential token, and a dedicated invoice-bound receipt proves that the resolved payment amount/recipient satisfies that invoice commitment. Reconciliation verifies that proof against the invoice record and independent chain event. The existing amount-disclosure circuit alone does **not** bind arbitrary invoice metadata. A new disclosure circuit/artifact is needed for that claim. If settlement status is updated on-chain, use an authenticated token callback or independently verified invoice-bound proof—not an arbitrary caller-supplied transaction hash.
 
@@ -239,11 +241,11 @@ Existing authorization sources: [payroll](https://github.com/ToluLabs/Lucent/blo
 
 #### Existing behavior and gap
 
-The auditor registry stores public keys by auditor ID. Transfer ciphertexts provide a sender channel (amount and post-transfer spendable balance) and recipient channel (amount and transfer blinding). The current app uses a common configured demo auditor ID. Someone holding a corresponding secret can decrypt covered channels; merely filtering the console does not restrict that power. Registry rotation cannot revoke access to historical ciphertext already encrypted to an old key.
+The auditor registry stores public keys by auditor ID. Transfer ciphertexts provide a sender channel (amount and post-transfer spendable balance) and recipient channel (amount and transfer blinding). Our current app uses a common configured demo auditor ID. Someone holding a corresponding secret can decrypt covered channels; merely filtering the console does not restrict that power. Registry rotation cannot revoke access to historical ciphertext already encrypted to an old key.
 
 #### Proposed components, interactions and data flow
 
-Introduce a versioned scope record binding organization, purpose, permitted disclosure type and key epoch to an auditor public key. The client resolves the authorized scope, constructs scoped ciphertexts, and proves their linkage to the same payment amount. The token resolves the scope/key from authorized policy and reconstructs the circuit inputs; it must reject a client selecting an arbitrary auditor or using a scope from another organization.
+We plan to add a versioned scope record binding organization, purpose, permitted disclosure type and key epoch to an auditor public key. The client resolves the authorized scope, constructs scoped ciphertexts, and proves their linkage to the same payment amount. The token resolves the scope/key from authorized policy and reconstructs the circuit inputs; it must reject a client selecting an arbitrary auditor or using a scope from another organization.
 
 Design minimal disclosure channels explicitly: an amount-only audit must not silently include the current sender balance or the recipient's opening randomness. Scope IDs and encryption domains must be cryptographically bound, not just labels in an API. New registry/policy fields, ciphertext/event versions, circuit constraints, verification keys, SDK decryptors and migration rules are required. Multiple simultaneous auditors would need an explicit costed design; it is not assumed to be a free extension of the existing two channels.
 
@@ -257,7 +259,7 @@ Sources: [auditor registry](https://github.com/ToluLabs/Lucent/blob/00c2270/cont
 
 ### 6.8 Threat model and on-chain monitoring
 
-**Components and data flow:** turn section 7's boundaries into a versioned threat model and a read-only monitor fed by public Soroban configuration, authorization/state-change events and indexer coverage/health. Alert on unexpected code/key/policy/admin changes, failed ingestion, incompatible deployments and repeated settlement failures. No new payment circuit is inherently needed; event/API changes may be needed if the required observables are not exposed.
+**What we'll build:** we'll turn section 7's boundaries into a versioned threat model and a read-only monitor fed by public Soroban configuration, authorization/state-change events and indexer coverage/health. Alert on unexpected code/key/policy/admin changes, failed ingestion, incompatible deployments and repeated settlement failures. No new payment circuit is inherently needed; event/API changes may be needed if the required observables are not exposed.
 
 **Security:** monitors cannot prevent an authorized malicious key update, decrypt every user's activity or repair missing witnesses. Protect monitoring credentials/configuration, authenticate alert destinations and redact user/business secrets. Define alert thresholds, stale-data indicators and incident ownership; do not publish private infrastructure details.
 
@@ -275,7 +277,7 @@ The current wallet can rederive the outgoing transfer ephemeral scalar for trans
 
 #### Proposed components, interactions and data flow
 
-Define a versioned receipt envelope with network/token identity, event coordinates, circuit/artifact identity, disclosure role and recipient/request context. A receiving application issues and retains its own nonce, key and expiry; the holder returns the proof envelope. The verifier resolves authoritative inputs through RPC or verified historical infrastructure, enforces the artifact allowlist and request binding, and records nonce consumption where one-time acceptance is required.
+We'll define a versioned receipt envelope with network/token identity, event coordinates, circuit/artifact identity, disclosure role and recipient/request context. A receiving application issues and retains its own nonce, key and expiry; the holder returns the proof envelope. The verifier resolves authoritative inputs through RPC or verified historical infrastructure, enforces the artifact allowlist and request binding, and records nonce consumption where one-time acceptance is required.
 
 Envelope metadata alone is not cryptographic binding: explicit network, expiry, application audience or additional business claims require new circuit public inputs/domain separation if those claims are to be proved. Reuse existing amount-disclosure circuits only for the statements they actually constrain. Neither SDK JSON packaging nor a successful ZK check proves an invoice was paid in a legal/business sense without an agreed application policy.
 
@@ -291,7 +293,7 @@ Sources: [disclosure types](https://github.com/ToluLabs/Lucent/blob/00c2270/pack
 
 ### 6.10 Threshold proofs and scoped disclosure authorization
 
-**Meaning and reuse:** this workstream proposes confidential **predicate proofs**, such as proving an event amount is at least a stated threshold without revealing the amount. It is distinct from m-of-n organization transaction approvals. The first supported predicate (payment amount or a fresh balance statement) and its freshness policy remain to be selected; aggregates are not assumed in scope.
+**What we'll build:** we plan to support confidential **predicate proofs**, such as proving an event amount is at least a stated threshold without revealing the amount. It is distinct from m-of-n organization transaction approvals. The first supported predicate (payment amount or a fresh balance statement) and its freshness policy remain to be selected; aggregates are not assumed in scope.
 
 **Components/data flow:** a verifier issues its own key/nonce, threshold, audience, scope and expiry under an authenticated request policy. The holder resolves the referenced event/current commitment and generates a new Noir proof binding that evidence, predicate and allowed audience/request. Range/comparison constraints must prevent field wraparound and invalid negative/out-of-range values. The verifier independently resolves the evidence, uses a pinned predicate-specific VK and enforces scope, expiry and nonce consumption before accepting the result.
 
@@ -301,13 +303,13 @@ Sources: [disclosure types](https://github.com/ToluLabs/Lucent/blob/00c2270/pack
 
 ### 6.11 Developer SDK and reference integration
 
-Section 9 specifies the SDK/interface work. Completion includes a separate reference integration that consumes versioned deployment/artifact manifests, verified state and payment/invoice/predicate proofs against Testnet; compilation alone is not external interoperability evidence.
+We'll build on the SDK we already use in Lucent; section 9 sets out the interface work. Completion includes a separate reference integration that consumes versioned deployment/artifact manifests, verified state and payment/invoice/predicate proofs against Testnet; compilation alone is not external interoperability evidence.
 
 ### 6.12 Security validation, operational hardening and Testnet pilots
 
-**Reuse and components:** build on the contract, circuit, SDK and browser suites, deployment-version checks, monitoring and recovery services. Add threat-driven authorization/cryptographic tests, reviewed release artifacts, incident/rollback and backup/restore drills, and consent-based Testnet pilot records. Any code/circuit changes resulting from findings must be revalidated with the corresponding VK/deployment versions.
+**What we'll build:** we'll build on the contract, circuit, SDK and browser suites, deployment-version checks, monitoring and recovery services. Add threat-driven authorization/cryptographic tests, reviewed release artifacts, incident/rollback and backup/restore drills, and consent-based Testnet pilot records. Any code/circuit changes resulting from findings must be revalidated with the corresponding VK/deployment versions.
 
-**Acceptance:** documented security review and remediation evidence, no unresolved critical issues under the agreed review process, monitored compatible Testnet deployment, reproducible pilot transactions and user-reported failure handling. Record tester methodology without equating page visits with verified customers. No audit already completed or pilot traction is claimed. Funded deployment ends on **Stellar Testnet**, with a documented Mainnet-readiness assessment only; Mainnet deployment receives no SCF allocation.
+**What we'll deliver:** documented security review and remediation evidence, no unresolved critical issues under the agreed review process, monitored compatible Testnet deployment, reproducible pilot transactions and user-reported failure handling. Record tester methodology without equating page visits with verified customers. No audit already completed or pilot traction is claimed. Funded deployment ends on **Stellar Testnet**, with a documented Mainnet-readiness assessment only; Mainnet deployment receives no SCF allocation.
 
 ## 7. Security Model and Privacy Guarantees
 
@@ -349,7 +351,7 @@ Sources: [hybrid event source](https://github.com/ToluLabs/Lucent/blob/00c2270/p
 
 ### Secret recovery is a separate dependency
 
-Historical events recover **data needed to reconstruct openings**, not an arbitrary lost spending/viewing secret. The current app can rederive keys from the same supported wallet's signature over the unchanged network/token-bound message; that does not recover older randomly generated keys, a lost Stellar wallet, or historical balance data. An encrypted backup must distinguish wallet/secret recovery from cached openings/cursors and must be authenticated and deployment-bound. An auditor key is not a replacement for user spend authorization.
+Historical events recover **data needed to reconstruct openings**, not an arbitrary lost spending/viewing secret. Our current app can rederive keys from the same supported wallet's signature over the unchanged network/token-bound message; that does not recover older randomly generated keys, a lost Stellar wallet, or historical balance data. An encrypted backup must distinguish wallet/secret recovery from cached openings/cursors and must be authenticated and deployment-bound. An auditor key is not a replacement for user spend authorization.
 
 Ordinary `sync()` persists its replay result; the wallet then checks commitments before displaying it as spendable. Only the explicit `rebuild()` uses the isolated candidate-and-verify-before-save path. Therefore the document does not claim that every sync provides the same atomic cache-preservation guarantee as recovery. Corrupt/absent history must remain a visible failure, not a fabricated zero balance.
 
@@ -371,9 +373,9 @@ flowchart LR
 
 ## 9. Developer SDK and Integrations
 
-**Existing foundation:** `@lucent/sdk` supplies crypto, witnesses, proof generation, XDR payloads, RPC submission, state stores, payroll/escrow reads and actions, auditor decryption and disclosure verification. The app adapts Varial through `@stellar/freighter-api`; the package name remains unchanged by the wallet rebrand. The SDK is currently a private workspace package, not a claim of a supported public registry release.
+**What we have:** our `@lucent/sdk` supplies crypto, witnesses, proof generation, XDR payloads, RPC submission, state stores, payroll/escrow reads and actions, auditor decryption and disclosure verification. The app adapts Varial through `@stellar/freighter-api`; the package name remains unchanged by the wallet rebrand. We currently use the SDK as a private workspace package. We haven't released a supported public package yet.
 
-**Proposed components and data flow:** publish versioned integration interfaces for deployment discovery, signer adapters, verified balances/recovery, payroll manifests, organization proposals, scoped audit access and receipt verification. A developer loads a versioned deployment manifest, attaches a user signer, obtains verified state, prepares an operation/proof and submits the exact authorized invocation. Read-only reporting services use indexed ciphertext/events without receiving users' spending secrets. Keep proving/local storage APIs usable without an application backend.
+**Integration plan:** we'll publish versioned integration interfaces for deployment discovery, signer adapters, verified balances/recovery, payroll manifests, organization proposals, scoped audit access and receipt verification. A developer loads a versioned deployment manifest, attaches a user signer, obtains verified state, prepares an operation/proof and submits the exact authorized invocation. Read-only reporting services use indexed ciphertext/events without receiving users' spending secrets. Keep proving/local storage APIs usable without an application backend.
 
 **Required changes:** SDK types, typed recovery/coverage errors, cancellation/progress APIs, deployment/circuit compatibility checks and minimal examples. Each new contract/circuit version must have an explicit SDK compatibility mapping. An SDK-only wrapper cannot implement missing on-chain authorization. Key handling and envelope protocols need documented security contracts before public release.
 
@@ -381,14 +383,15 @@ flowchart LR
 
 Sources: [SDK exports](https://github.com/ToluLabs/Lucent/blob/00c2270/packages/sdk/src/index.ts), [package manifest](https://github.com/ToluLabs/Lucent/blob/00c2270/packages/sdk/package.json), [Varial adapter](https://github.com/ToluLabs/Lucent/blob/00c2270/packages/app/lib/freighter.ts).
 
-Stable release acceptance also requires documenting unsupported inherited-token operations, recovery/key-loss limits, chain-data trust and nonce-consumption behavior. The **reference integration** must be outside the main UI flow, use the same pinned schemas/artifacts and demonstrate both successful and adversarial payment/invoice verification on Testnet. A private workspace package plus app imports is not evidence of a published, supported developer product.
+Stable release acceptance also requires documenting unsupported inherited-token operations, recovery/key-loss limits, chain-data trust and nonce-consumption behavior. The **reference integration** must be outside the main UI flow, use the same pinned schemas/artifacts and demonstrate both successful and adversarial payment/invoice verification on Testnet. We still need to turn the SDK we use internally into a supported developer product; the current app integration alone does not complete that work.
 
 ## 10. Tranche-to-Architecture Mapping
 
-Amounts below reproduce the breakdown supplied with the submitted application. Every row is a **proposed funded deliverable**, not completed functionality. Proposed API/circuit decisions must be finalized before their corresponding implementation acceptance.
+Our payment schedule starts with Tranche 0, the initial payment upon award acceptance; Tranches 1–3 fund the proposed technical deliverables. These are the deliverables we plan to build, not features we are presenting as complete. We'll finalize the API and circuit decisions before accepting the corresponding implementation.
 
 | Tranche | Submitted deliverable | Amount | Architecture and measurable gate |
 | --- | --- | ---: | --- |
+| **0** | **Initial payment upon award acceptance** | **$7,000** | Initial payment upon accepting the award; technical deliverables follow in Tranches 1–3. |
 | 1 | Durable historical indexing and account recovery | $5,000 | Sections 6.1/8: correct-deployment backfill, explicit coverage/gap checks and verified fresh-browser restore including secret prerequisites. |
 | 1 | Secure confidential escrow v2 | $4,000 | Section 6.2: reviewed auth/custody design, compatible Testnet versions, bypass rejection and real-proof settlement cases. |
 | 1 | Scalable confidential payroll | $5,000 | Section 6.3: bounded resumable chunks, no duplicate leaves, resource measurements and Testnet evidence. |
@@ -404,14 +407,14 @@ Amounts below reproduce the breakdown supplied with the submitted application. E
 | 3 | Developer SDK and reference integration | $7,000 | Sections 6.11/9: compatibility manifest, tested examples and independent reference integration. |
 | 3 | Security validation, operational hardening and Testnet pilots | $6,000 | Section 6.12: review/remediation, monitoring/recovery drills, documented Testnet pilot outcomes and readiness assessment. |
 | **3 total** | **Programmable Verification and Testnet Readiness** | **$28,000** | **Funded deployment endpoint: Stellar Testnet. Mainnet deployment excluded.** |
-| **Listed tranches** | | **$63,000** | Arithmetic of the supplied breakdown. |
-| **Stated application request** | | **$70,000** | Remaining $7,000 requires applicant reconciliation; no allocation is assumed here. |
+| **Technical tranches 1–3** | | **$63,000** | $14,000 + $21,000 + $28,000. |
+| **Total request, tranches 0–3** | | **$70,000** | $7,000 initial acceptance payment + $63,000 technical milestones. |
 
 ## 11. Testing and Verification Strategy
 
-The audit ran `pnpm --filter @lucent/sdk test:fast` successfully (including witness/circuit execution parity, event pagination, recovery-cache preservation and deployment namespaces). The live indexer-parity case was **skipped** because no indexer endpoint was configured. `cargo test --manifest-path contracts/Cargo.toml --locked --offline` passed **44 tests**: policy 3, token 6, payroll 10, factory 1, instance 24. Verifier/auditor wrappers have no dedicated Rust unit tests in this run. Some contract tests mock token/proof verification and/or authorization; these are not real-proof or full-auth settlement evidence.
+We ran `pnpm --filter @lucent/sdk test:fast` successfully (including witness/circuit execution parity, event pagination, recovery-cache preservation and deployment namespaces). The live indexer-parity case was **skipped** because no indexer endpoint was configured. `cargo test --manifest-path contracts/Cargo.toml --locked --offline` passed **44 tests**: policy 3, token 6, payroll 10, factory 1, instance 24. Verifier/auditor wrappers have no dedicated Rust unit tests in this run. Some contract tests mock token/proof verification and/or authorization; these are not real-proof or full-auth settlement evidence.
 
-The read-only deployment inspection retrieved WASM/interfaces and hashes, not successful E2E payments. **No new live settlement, recurring payroll, invoice/predicate proof, deployed indexer parity or pilot is claimed.** Browser/real-proof suites listed below remain reproducible commands, not tests rerun in this documentation-only audit unless separately recorded.
+The read-only deployment inspection retrieved WASM/interfaces and hashes, not successful E2E payments. We have not validated new live settlement, recurring payroll, invoice/predicate proofs, deployed indexer parity or pilots in this review. We list the browser and real-proof commands below so others can reproduce them; we did not rerun those suites as part of this documentation review unless a result is separately recorded.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -465,15 +468,14 @@ flowchart LR
 
 ## 12. Known Limitations and Open Design Decisions
 
-1. **Budget:** reconcile $63,000 of listed milestones with the $70,000 request; do not invent overhead, contingency or another tranche.
-2. **Deployment:** the configured token lacks the newer escrow preflight endpoint, and the manifest-recorded instance is legacy. Freeze a compatible artifact set and record live validation before reporting that source flow as deployed.
-3. **Escrow:** determine whether existing Soroban authorization plus smaller changes suffices or an explicit account mode/new settlement circuit is justified. Test all spending/delegation paths and witness-availability/rotation failures; secret possession alone is not a demonstrated authorization bypass.
-4. **Recovery/indexing:** obtain the correct historical range; deploy/backfill and independently validate decoding/coverage. Lost wallet secrets or missing pre-backup events cannot be fixed merely by an indexer.
-5. **Recurring payroll:** finalize how unattended current-state proofs obtain witnesses without assigning a master spending key to a keeper, and specify bounded catch-up/liveness behavior.
-6. **Invoices/predicates:** finalize invoice registry/partial-payment rules, first threshold statement, circuit context binding, freshness and request-consumption policy. Current amount disclosure does not prove those extra claims.
-7. **Audit keys:** freeze organization/purpose/epoch semantics, historical key handling, multi-scope costs and compatibility with pre-generated escrow proofs. Rotation is not retroactive erasure.
-8. **Release/security:** no formal independent audit is evidenced; reproducible source builds and circuit-to-VK derivation, external circuit checkout, browser key storage, complete delegation recovery, incident response and main review findings remain readiness gates.
-9. **Funding boundary:** final funded deployment and pilots are on Testnet under the applicant-reported SCF arrangement; Mainnet deployment must remain outside funded work. Maintain the written agreement and reconciled budget as application records.
+1. **Deployment:** the configured token lacks the newer escrow preflight endpoint, and the manifest-recorded instance is legacy. Freeze a compatible artifact set and record live validation before reporting that source flow as deployed.
+2. **Escrow:** determine whether existing Soroban authorization plus smaller changes suffices or an explicit account mode/new settlement circuit is justified. Test all spending/delegation paths and witness-availability/rotation failures; secret possession alone is not a demonstrated authorization bypass.
+3. **Recovery/indexing:** obtain the correct historical range; deploy/backfill and independently validate decoding/coverage. Lost wallet secrets or missing pre-backup events cannot be fixed merely by an indexer.
+4. **Recurring payroll:** finalize how unattended current-state proofs obtain witnesses without assigning a master spending key to a keeper, and specify bounded catch-up/liveness behavior.
+5. **Invoices/predicates:** finalize invoice registry/partial-payment rules, first threshold statement, circuit context binding, freshness and request-consumption policy. Current amount disclosure does not prove those extra claims.
+6. **Audit keys:** freeze organization/purpose/epoch semantics, historical key handling, multi-scope costs and compatibility with pre-generated escrow proofs. Rotation is not retroactive erasure.
+7. **Release/security:** we have not completed an independent security audit; reproducible source builds and circuit-to-VK derivation, external circuit checkout, browser key storage, complete delegation recovery, incident response and main review findings remain readiness gates.
+8. **Funding boundary:** final funded deployment and pilots are on Testnet under our agreement with SCF; Mainnet deployment must remain outside funded work. Maintain the written agreement and tranche schedule as application records.
 
 ## 13. References and Evidence
 
@@ -484,6 +486,6 @@ flowchart LR
 - [Disclosure source/artifacts](https://github.com/ToluLabs/Lucent/tree/00c2270/packages/disclosure), [real-proof test entry point](https://github.com/ToluLabs/Lucent/blob/00c2270/packages/sdk/test/prove.mjs), [disclosure test entry point](https://github.com/ToluLabs/Lucent/blob/00c2270/packages/sdk/test/disclosure.mjs), [Testnet payment script](https://github.com/ToluLabs/Lucent/blob/00c2270/scripts/e2e.ts), [Testnet disclosure script](https://github.com/ToluLabs/Lucent/blob/00c2270/scripts/e2e-disclosure.ts) and [CI workflow](https://github.com/ToluLabs/Lucent/blob/00c2270/.github/workflows/ci.yml).
 - [Launch demo](https://youtu.be/l7yIpmE0OqE) is a product walkthrough, not independent proof that every current deployment/version passed. [Security policy](https://github.com/ToluLabs/Lucent/blob/00c2270/SECURITY.md) states the unaudited Testnet-only status.
 
-The submitted budget/track and application-specific funding restriction above were supplied by the applicant for this audit; repository code cannot independently establish their contractual accuracy. No private agreement, confidential business record, secret key or infrastructure credential is published here.
+We will use this page and the linked evidence to track the engineering work against our SCF milestones. Our funded deployment and testing endpoint remains Stellar Testnet.
 
 [Back to the existing documentation homepage](README.md).
