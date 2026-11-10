@@ -8,7 +8,6 @@ import {
   ScanLine,
   Send,
   Settings,
-  ShieldCheck,
 } from "lucide-react";
 export const primaryNavigation = [
   { href: "/home", label: "Overview", icon: LayoutDashboard },
@@ -24,5 +23,4 @@ export const supportingNavigation = [
 ];
 export const resourceNavigation = [
   { href: "/docs", label: "Documentation", icon: BookOpen },
-  { href: "/privacy", label: "Privacy controls", icon: ShieldCheck },
 ];
