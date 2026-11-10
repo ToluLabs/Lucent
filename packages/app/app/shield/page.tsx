@@ -138,7 +138,7 @@ export default function ShieldPage() {
                     {tab === "deposit"
                       ? "The funds enter your receiving balance and need a merge before spending."
                       : "The funds leave your available confidential balance and return to your connected wallet."}{" "}
-                    Check the simulated fee in Freighter.
+                    Check the simulated fee in Varial.
                   </div>
                 )}
                 {review ? (

@@ -9,14 +9,14 @@ export function transactionError(message: string): {
       uncertain: false,
       title: "Switch to Stellar Testnet",
       advice:
-        "Select Stellar Testnet in Freighter, then reconnect. This workspace does not support Mainnet.",
+        "Select Stellar Testnet in Varial, then reconnect. This workspace does not support Mainnet.",
     };
-  if (/Freighter not detected/i.test(message))
+  if (/(?:Varial|Freighter) not detected/i.test(message))
     return {
       uncertain: false,
-      title: "Freighter is unavailable",
+      title: "Varial is unavailable",
       advice:
-        "Install and unlock the Freighter browser extension, then connect again.",
+        "Install and unlock the Varial browser extension, then connect again.",
     };
   const hash = message.match(/(?:tx\s+)([a-f0-9]{64})/i)?.[1];
   const uncertain =

@@ -1,5 +1,5 @@
 /**
- * Adapts the Freighter browser wallet to the SDK's {@link Signer} interface.
+ * Adapts the Varial (formerly Freighter) browser wallet to the SDK's {@link Signer} interface.
  */
 import type { Signer } from "@lucent/sdk";
 import {
@@ -40,18 +40,18 @@ export async function requireTestnet(): Promise<void> {
   const network = await getNetworkDetails();
   if (network.error || !network.networkPassphrase)
     throw new Error(
-      "Could not read Freighter network. Unlock your wallet and retry.",
+      "Could not read Varial network. Unlock your wallet and retry.",
     );
   if (network.networkPassphrase !== DEPLOYMENT.networkPassphrase)
     throw new Error(
-      "Wrong network. Switch Freighter to Stellar Testnet and reconnect before continuing.",
+      "Wrong network. Switch Varial to Stellar Testnet and reconnect before continuing.",
     );
 }
 
 export async function connectFreighter(): Promise<MessageSigner> {
   const conn = await isConnected();
   if (!conn.isConnected) {
-    throw new Error("Freighter not detected. Install the Freighter extension.");
+    throw new Error("Varial not detected. Install the Varial extension.");
   }
   const access = await requestAccess();
   if (access.error) throw new Error(errMsg(access.error));
@@ -78,7 +78,7 @@ export async function connectFreighter(): Promise<MessageSigner> {
       if (res.error) throw new Error(errMsg(res.error));
       if (res.signerAddress !== address) {
         throw new Error(
-          `Freighter signed with ${res.signerAddress}, expected ${address}`,
+          `Varial signed with ${res.signerAddress}, expected ${address}`,
         );
       }
       return normalizeSignature(res.signedMessage);
@@ -86,7 +86,7 @@ export async function connectFreighter(): Promise<MessageSigner> {
   };
 }
 
-/** Freighter API v4 returns a base64 string; v3 a Buffer (structured-cloned). */
+/** @stellar/freighter-api v4 returns a base64 string; v3 a Buffer (structured-cloned). */
 function normalizeSignature(signed: unknown): Uint8Array {
   if (typeof signed === "string") {
     return Uint8Array.from(atob(signed), (c) => c.charCodeAt(0));
@@ -99,5 +99,5 @@ function normalizeSignature(signed: unknown): Uint8Array {
   ) {
     return Uint8Array.from((signed as { data: number[] }).data);
   }
-  throw new Error("Freighter returned no usable message signature");
+  throw new Error("Varial returned no usable message signature");
 }

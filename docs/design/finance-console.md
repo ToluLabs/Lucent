@@ -44,7 +44,7 @@ The application-wide submission guard prevents concurrent clicks in this tab. An
 
 The current wallet API exposes proof generation and a combined signing/submission/confirmation phase. The interface labels that combined phase honestly rather than inventing a finer-grained network progress signal. A receipt is shown only after the existing wallet method resolves. Existing confirmation-only analytics remain in place; uncertain actions are not reported as confirmed or definitively failed.
 
-Freighter's selected network is checked at connection and again before signatures. Failed account refreshes invalidate the displayed account view, preventing a stale successful balance from remaining actionable. Contracts, cryptographic implementations, payment payloads, authorization rules and custody behavior were not changed.
+Varial's selected network is checked at connection and again before signatures. Failed account refreshes invalidate the displayed account view, preventing a stale successful balance from remaining actionable. Contracts, cryptographic implementations, payment payloads, authorization rules and custody behavior were not changed.
 
 ## Reproduce the checks
 

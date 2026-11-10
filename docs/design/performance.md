@@ -11,7 +11,7 @@ Measured on 9 November 2026 after reports of localhost lag. This is a local diag
 
 ## Changes
 
-- Load the existing wallet engine dynamically on connection. Check prior Freighter access only on wallet routes. Explicit disconnection, manual retry and the existing signing/refresh logic remain intact.
+- Load the existing wallet engine dynamically on connection. Check prior Varial access only on wallet routes. Explicit disconnection, manual retry and the existing signing/refresh logic remain intact.
 - Defer dashboard history dependencies until a connected wallet needs them.
 - Disable background wallet-route prefetch on public pages, and prefetch workspace navigation only when a wallet is connected. The first visit to a wallet screen may fetch its code on demand; connected navigation can still prefetch it.
 - Serve the same Manrope and IBM Plex Mono families from versioned local WOFF2 assets. Preload the main Latin UI font, preserve all upstream Unicode subsets and include the original license notices/provenance under `packages/app/public/fonts/`. Only needed subsets are requested.

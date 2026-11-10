@@ -342,7 +342,7 @@ export default function LandingPage() {
             </p>
             <h2 className="landing-heading">Make your move.</h2>
             <p className="mt-5 max-w-xl text-sm leading-7 text-text-secondary">
-              Connect Freighter on Testnet. Register once. Deposit matching test
+              Connect Varial on Testnet. Register once. Deposit matching test
               USDC and merge it into available funds. Then review, approve, and
               send.
             </p>

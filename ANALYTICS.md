@@ -94,7 +94,7 @@ Use these as aggregate campaign tags, not per-person links. The tags are recorde
 3. Navigate `/` → `/home` → `/shield` without reloads. Confirm exactly one pageview per navigation. Reload once and verify one additional view. Duplicate snippets must be removed.
 4. With disposable Testnet accounts, connect, register if new, obtain the correct test USDC/trustline, deposit, merge, send and withdraw a tiny amount. Verify the relevant events appear **after** on-chain success. Cancel one wallet request and check the failure stage without a confirmed event. No need to exercise unsafe escrow for the initial pilot.
 5. Toggle opt-out on `/privacy`, navigate and attempt an action. No subsequent collector events should be sent; the app must still work. Check DNT/GPC and internal exclusion similarly. A preview deployment should never collect into the production property.
-6. Repeat one flow from another device/browser with Freighter support. Document failures rather than treating a successful build as browser acceptance. Confirm the deployed `/privacy` notice and control links are available.
+6. Repeat one flow from another device/browser with Varial support. Document failures rather than treating a successful build as browser acceptance. Confirm the deployed `/privacy` notice and control links are available.
 
 The public site already responds successfully and exposes the proving isolation headers. That is a read-only deployment observation, not a fresh payment acceptance test. Analytics cannot start before the real Website ID is configured and this smoke check passes.
 

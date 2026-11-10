@@ -148,7 +148,7 @@ try {
   }
   await visit("/home?state=disconnected");
   assert.equal(
-    await page.getByRole("button", { name: "Connect Freighter" }).count(),
+    await page.getByRole("button", { name: "Connect Varial" }).count(),
     1,
   );
   await visit("/home?state=unknown");

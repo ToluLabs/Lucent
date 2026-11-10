@@ -22,7 +22,7 @@ contracts/    Rust/Soroban contracts — a separate Cargo workspace
 packages/
   sdk/        @lucent/sdk        crypto · witness · proving · chain · state · auditor · disclosure
   disclosure/ @lucent/disclosure shared disclosure circuits + pinned verification keys
-  app/        @lucent/app        Next.js front-end (Freighter wallet)
+  app/        @lucent/app        Next.js front-end (Varial wallet)
   indexer/    @lucent/indexer    optional Goldsky indexer
 scripts/      build/deploy/e2e scripts shared across packages
 ```

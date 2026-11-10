@@ -1,10 +1,10 @@
 /**
  * ConfidentialWallet — UI-facing orchestration over @lucent/sdk.
  *
- * Holds the RPC client, the Freighter signer, the user's confidential key set,
+ * Holds the RPC client, the Varial signer, the user's confidential key set,
  * a local state engine, and lazily-created provers. All proving happens in the
  * browser (bb.js); the confidential `sk` never leaves the device. It is
- * derived deterministically from a Freighter `signMessage` signature over a
+ * derived deterministically from a Varial `signMessage` signature over a
  * deployment-bound message (see derive-key.ts) and cached in localStorage so
  * the signature prompt only appears once per account + deployment.
  */
@@ -165,7 +165,7 @@ export class ConfidentialWallet {
     if (stored) {
       sk = fromHex(stored);
     } else {
-      log("sign the key-derivation message in Freighter…");
+      log("sign the key-derivation message in Varial…");
       const signature = await signer.signMessage(
         keyDerivationMessage(DEPLOYMENT.networkPassphrase, DEPLOYMENT.contracts.token),
       );

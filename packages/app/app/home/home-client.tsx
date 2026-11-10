@@ -425,7 +425,7 @@ export function HomeClient() {
               </h2>
               <p className="my-5 max-w-lg text-sm leading-7 text-text-secondary">
                 Register your confidential keys with Lucent using a one-time
-                proof generated in this browser. Freighter will ask you to
+                proof generated in this browser. Varial will ask you to
                 approve the transaction.
               </p>
               <AddressDisplay address={wallet.address} chars={8} />

@@ -45,7 +45,7 @@ export default function ProfilePage() {
                 <AddressDisplay address={wallet.address} chars={8} />
               </div>
               <p className="text-sm leading-6 text-text-secondary">
-                Freighter authorizes transactions. Disconnecting ends this app
+                Varial authorizes transactions. Disconnecting ends this app
                 session without deleting confidential keys or payment state from
                 this browser.
               </p>

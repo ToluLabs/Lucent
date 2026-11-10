@@ -290,7 +290,7 @@ export default function SendPage() {
                   </div>
                 </dl>
                 <p className="rounded-lg border border-border p-4 text-sm leading-6 text-text-secondary">
-                  Freighter will request approval after the proof is generated.
+                  Varial will request approval after the proof is generated.
                   Check the network and simulated fee in your wallet.
                   Confirmation can take time; keep this page open.
                 </p>
@@ -339,7 +339,7 @@ export default function SendPage() {
               <ol className="mt-4 space-y-4 text-sm text-text-secondary">
                 <li>1. Validate and review</li>
                 <li>2. Generate a proof locally</li>
-                <li>3. Approve in Freighter</li>
+                <li>3. Approve in Varial</li>
                 <li>4. Submit and wait for network confirmation</li>
               </ol>
               <p className="mt-5 text-xs leading-6 text-text-muted">

@@ -7,7 +7,7 @@
  * once) serves the whole product.
  *
  * The connection itself persists across reloads: on wallet routes, a disconnected
- * provider silently checks Freighter for prior authorization and reconnects
+ * provider silently checks Varial for prior authorization and reconnects
  * without a popup if found (see the auto-connect effect below), so a refresh
  * doesn't drop the session. Explicitly disconnecting sticks across reloads
  * too — see {@link MANUALLY_DISCONNECTED_KEY}.
@@ -46,7 +46,7 @@ interface WalletCtx {
    */
   resync: () => Promise<void>;
   /**
-   * Forget the local session. Freighter itself stays connected — the browser
+   * Forget the local session. Varial itself stays connected — the browser
    * extension owns that grant — but a flag is set so a later reload won't
    * silently auto-reconnect; only an explicit {@link connect} clears it.
    */
@@ -59,7 +59,7 @@ const Ctx = createContext<WalletCtx | null>(null);
 
 /**
  * Set when the user explicitly disconnects, so a later reload doesn't
- * silently reconnect them again just because Freighter still has this site
+ * silently reconnect them again just because Varial still has this site
  * authorized — disconnect should stick until they reconnect themselves.
  * Cleared on the next successful connect (explicit or auto).
  */
@@ -128,9 +128,9 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Reconnect silently on wallet-route entry if this site was
   // already authorized in a prior session — otherwise every reload drops back
   // to a disconnected state even though nothing the user did asked for that.
-  // No popup: `isAllowed()` is a read of Freighter's own memory, and
+  // No popup: `isAllowed()` is a read of Varial's own memory, and
   // `requestAccess()` inside `connect()` won't prompt either once it's true.
-  // Silent by design — a failure here (Freighter locked, permission revoked,
+  // Silent by design — a failure here (Varial locked, permission revoked,
   // extension missing) just leaves the user disconnected as before, not an
   // error message for something they didn't initiate.
   const autoConnectAttempted = useRef(false);

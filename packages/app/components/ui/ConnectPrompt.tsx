@@ -23,18 +23,18 @@ export function ConnectPrompt({ message }: { message: string }) {
           </p>
           <ErrorBanner error={error} onDismiss={() => setError(null)} />
           <Button size="lg" isLoading={connecting} onClick={connect}>
-            Connect Freighter <ArrowRight className="h-4 w-4" />
+            Connect Varial <ArrowRight className="h-4 w-4" />
           </Button>
           <p className="mt-4 text-xs text-text-muted">
-            Use the Freighter browser extension with Stellar Testnet selected.
+            Use the Varial browser extension with Stellar Testnet selected.
           </p>
           <a
-            href="https://www.freighter.app/"
+            href="https://varialwallet.com/"
             target="_blank"
             rel="noreferrer"
             className="mt-3 inline-block text-sm text-accent underline"
           >
-            Get Freighter
+            Get Varial
           </a>
         </section>
         <aside className="space-y-6 p-2 md:p-6">

@@ -349,7 +349,7 @@ export default function DocsPage() {
               {[
                 {
                   title: "Connect",
-                  text: "Install and unlock Freighter, select Stellar Testnet, then connect from Overview. Fund Testnet XLM for transaction fees.",
+                  text: "Install and unlock Varial, select Stellar Testnet, then connect from Overview. Fund Testnet XLM for transaction fees.",
                 },
                 {
                   title: "Register",
@@ -361,7 +361,7 @@ export default function DocsPage() {
                 },
                 {
                   title: "Review & send",
-                  text: "Use Payments to check a registered recipient, enter an amount, review, generate the proof and approve in Freighter. Wait for confirmation.",
+                  text: "Use Payments to check a registered recipient, enter an amount, review, generate the proof and approve in Varial. Wait for confirmation.",
                 },
               ].map((step, i) => (
                 <li key={step.title}>
@@ -403,7 +403,7 @@ export default function DocsPage() {
                   text: "Proves the required operation constraints.",
                 },
                 {
-                  title: "Freighter",
+                  title: "Varial",
                   text: "Authorizes the transaction on Testnet.",
                 },
                 {
@@ -448,7 +448,7 @@ transfer    proof  Spendable -> another account's receiving balance`}</Pre>
                 <H3>Register (one-time)</H3>
                 <P>
                   Before any of this, <strong>Overview</strong> derives a
-                  Grumpkin key set deterministically from a Freighter message
+                  Grumpkin key set deterministically from a Varial message
                   signature — the same keys every session, while local
                   confidential state still needs to be preserved — and proves
                   ownership of it with a zero-knowledge proof that binds the key
@@ -1157,7 +1157,7 @@ pnpm --filter @lucent/app test:browser`}</Pre>
                 <H3>What happens if I lose my wallet?</H3>
                 <P>
                   Confidential keys are derived deterministically from a
-                  Freighter signature, so they can be re-derived from the same
+                  Varial signature, so they can be re-derived from the same
                   wallet. Local balance state and proof openings still matter.
                   Replay can reconstruct only what the available events and keys
                   permit. With older history outside the RPC retention window,

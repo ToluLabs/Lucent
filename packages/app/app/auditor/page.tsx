@@ -646,7 +646,7 @@ export default function AuditorPage() {
  * Freeze/unfreeze + allowlist management. Separate from the key-paste
  * decryption flow above: those are Grumpkin viewing keys, but compliance
  * actions are real on-chain transactions the token's `#[only_admin]` check
- * gates — they need a connected, signing Freighter wallet, not the auditor
+ * gates — they need a connected, signing Varial wallet, not the auditor
  * secret. The app doesn't duplicate that authorization check; a connected
  * wallet that isn't the admin will just have its transaction rejected
  * on-chain, surfaced here as an error like anywhere else in the app.
@@ -708,7 +708,7 @@ function CompliancePanel() {
 
       {!wallet ? (
         <Button fullWidth isLoading={connecting} onClick={connect}>
-          Connect Freighter to manage compliance
+          Connect Varial to manage compliance
         </Button>
       ) : (
         <div className="flex flex-col gap-3">

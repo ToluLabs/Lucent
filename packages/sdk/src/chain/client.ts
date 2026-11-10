@@ -32,7 +32,7 @@ const MAX_POLL_ATTEMPTS = 60;
 
 /**
  * Minimal transaction signer. A Node script wraps a {@link Keypair} via
- * {@link keypairSigner}; the web app wraps Freighter's `signTransaction`.
+ * {@link keypairSigner}; the web app wraps Varial's `signTransaction`.
  */
 export interface Signer {
   /** G-address of the signer (transaction source / auth principal). */
