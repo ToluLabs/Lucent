@@ -70,9 +70,11 @@ The fix is already in place:
 2. The webpack client config aliases the bare `@aztec/bb.js` specifier to `false`.
 3. `lib/bb-loader.ts` overrides the SDK's `setUltraHonkBackendLoader` to import `/vendor/bb/index.js` as **native ESM** from that stable path at runtime. The loader's `new Function` must stay lazy — Cloudflare Workers forbid eval at the top level.
 
-## Tester analytics
+## Analytics integration
 
-See [the analytics setup and recruitment guide](../../ANALYTICS.md). Collection is off by default, enabled only for the configured HTTPS production hostname. Public settings and the notice live at `/privacy`. Never add a second automatic tracker snippet or send wallet/payment data to analytics.
+Collection is off by default and enabled only for the configured HTTPS production hostname.
+Implementation lives in `lib/analytics.ts` and `components/analytics/Analytics.tsx`.
+Visitor settings and the notice live at `/privacy`. Never send wallet/payment data to analytics.
 
 ## Wallet branding
 
