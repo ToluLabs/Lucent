@@ -15,6 +15,8 @@ Sender and receiver stay public and verifiable on-chain. Only the amount moves i
 
 </div>
 
+> **SCF #46 reviewers:** [Read the SCF #46 Technical Architecture](SCF-46-TECHNICAL-ARCHITECTURE.md) — implemented Stellar Testnet components, proposed funded architecture, security assumptions and validation plans.
+
 <div align="center">
 
 <h2>Watch the launch demo</h2>
