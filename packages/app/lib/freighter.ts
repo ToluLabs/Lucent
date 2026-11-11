@@ -53,6 +53,7 @@ export async function connectFreighter(): Promise<MessageSigner> {
   if (!conn.isConnected) {
     throw new Error("Varial not detected. Install the Varial extension.");
   }
+  await requireTestnet();
   const access = await requestAccess();
   if (access.error) throw new Error(errMsg(access.error));
   const address = access.address;

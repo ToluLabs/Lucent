@@ -103,7 +103,7 @@ import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_reci
 import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
 
 import { DEPLOYMENT } from "./deployment";
-import { connectFreighter } from "./freighter";
+import { connectFreighter, requireTestnet } from "./freighter";
 import { keyDerivationMessage, skFromSignature } from "./derive-key";
 import { ensureBrowserBackend } from "./bb-loader";
 import { Address, scValToNative } from "@stellar/stellar-sdk";
@@ -239,6 +239,7 @@ export class ConfidentialWallet {
   }
 
   async register(onPhase?: (p: TxPhase) => void): Promise<void> {
+    await requireTestnet();
     const existing = await this.account();
     if (existing) {
       if (!existing.spendingKey.equals(this.keys.Y) || !existing.viewingPublicKey.equals(this.keys.PVK)) {
@@ -246,6 +247,18 @@ export class ConfidentialWallet {
       }
       this.log("already registered on-chain; refreshing account state");
       return;
+    }
+    // A wallet address can exist locally without a funded Stellar account.
+    // Check the transaction source before doing expensive browser proving.
+    try {
+      await this.client.server.getAccount(this.address);
+    } catch (error) {
+      if (error instanceof Error && error.message === `Account not found: ${this.address}`) {
+        throw new Error(
+          "Your wallet is not funded on Stellar Testnet. In Varial, select Testnet and fund this address with Friendbot, then retry registration.",
+        );
+      }
+      throw error;
     }
     const w = buildRegisterWitness(this.keys);
     onPhase?.("proving");
