@@ -27,7 +27,7 @@ const result = await build({
     },
   }],
 });
-const { connectFreighter } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString("base64")}`);
+const { connectFreighter, withWalletProgress } = await import(`data:text/javascript;base64,${Buffer.from(result.outputFiles[0].text).toString("base64")}`);
 await assert.rejects(connectFreighter(), /Switch Varial to Stellar Testnet/);
 assert.equal(state.access, 0, "Mainnet is rejected before requesting access");
 state.error = "Wallet locked";
@@ -43,5 +43,19 @@ state.networkPassphrase = "Public Global Stellar Network ; September 2015";
 await assert.rejects(signer.sign("transaction"), /Switch Varial to Stellar Testnet/);
 await assert.rejects(signer.signMessage("derive keys"), /Switch Varial to Stellar Testnet/);
 assert.equal(state.signatures, 2, "Switching to Mainnet blocks both signature methods");
+const phases = [];
+const wrapped = withWalletProgress({ publicKey: "test-address", async sign(xdr) {
+  assert.equal(xdr, "unsigned");
+  assert.deepEqual(phases, ["awaiting_wallet"]);
+  return "signed";
+} }, (phase) => phases.push(phase));
+assert.equal(await wrapped.sign("unsigned"), "signed");
+assert.deepEqual(phases, ["awaiting_wallet", "submitting"]);
+const declinedPhases = [];
+const declined = withWalletProgress({ publicKey: "test-address", async sign() {
+  throw new Error("User declined");
+} }, (phase) => declinedPhases.push(phase));
+await assert.rejects(declined.sign("unsigned"), /User declined/);
+assert.deepEqual(declinedPhases, ["awaiting_wallet"], "A declined request never advances to submission");
 delete globalThis.__lucentWalletTest;
 console.log("Wallet network checks passed: Mainnet and unreadable networks blocked; Testnet allowed; network switches block signing.");

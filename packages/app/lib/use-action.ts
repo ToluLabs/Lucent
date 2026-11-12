@@ -11,7 +11,7 @@ export function useAction() {
   const { state, setState, lock } = useActionContext();
   const [phase, setPhase] = useState<TxPhase | null>(null);
   const busy =
-    state && ["working", "proving", "submitting"].includes(state.stage)
+    state && ["working", "proving", "preparing_transaction", "awaiting_wallet", "submitting", "refreshing"].includes(state.stage)
       ? state.key
       : null;
   const run = useCallback(
@@ -32,8 +32,11 @@ export function useAction() {
           setPhase(p);
           setState({ key, stage: p });
         });
+        if (opts?.refresh !== false) {
+          setState({ key, stage: "refreshing" });
+          await refresh();
+        }
         setState({ key, stage: "confirmed" });
-        if (opts?.refresh !== false) await refresh();
         return true;
       } catch (e) {
         const message = errMsg(e);

@@ -1,0 +1,17 @@
+[package]
+name = "escrow-payout-validator-contract"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+publish = false
+[lib]
+crate-type = ["cdylib"]
+doctest = false
+[dependencies]
+soroban-sdk = { workspace = true }
+stellar-tokens = { workspace = true }
+stellar-contract-utils = { workspace = true }
+soroban-poseidon = "26.0.0"
+[dev-dependencies]
+soroban-sdk = { workspace = true, features = ["testutils"] }
+confidential-token-contract = { path = "../token" }

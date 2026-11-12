@@ -12,7 +12,10 @@ export function ActionFeedback() {
     working:
       "Preparing action · wallet approval and network confirmation may follow",
     proving: "Generating proof in this browser",
+    preparing_transaction: "Checking the transaction with Stellar Testnet",
+    awaiting_wallet: "Waiting for approval in Varial · check the wallet window",
     submitting: "Wallet approval, submission and network confirmation",
+    refreshing: "Transaction confirmed · refreshing balances",
     confirmed: "Action confirmed on Stellar Testnet",
     uncertain: "Confirmation uncertain · check before retrying",
   };
@@ -34,6 +37,13 @@ export function ActionFeedback() {
           </button>
         )}
       </div>
+      {state.stage === "awaiting_wallet" && (
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
+          Varial may have opened behind this browser. Bring its transaction
+          window to the front and approve or cancel the request. Lucent is
+          waiting for your response; no transaction has been submitted yet.
+        </p>
+      )}
       {state.stage === "uncertain" && (
         <div className="mt-3 space-y-3">
           <p className="text-sm leading-6 text-text-secondary">

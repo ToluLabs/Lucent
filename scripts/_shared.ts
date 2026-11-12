@@ -23,6 +23,7 @@ export const WASM = {
   payroll: join(REPO_ROOT, "packages/sdk/contracts/payroll_vault.wasm"),
   escrowInstance: join(REPO_ROOT, "packages/sdk/contracts/private_escrow_instance.wasm"),
   escrowFactory: join(REPO_ROOT, "packages/sdk/contracts/private_escrow_factory.wasm"),
+  escrowValidator: join(REPO_ROOT, "packages/sdk/contracts/escrow_payout_validator.wasm"),
   // Compliance allowlist policy — wired onto the token via set_compliance_config.
   policy: join(REPO_ROOT, "packages/sdk/contracts/confidential_policy.wasm"),
 };
@@ -45,6 +46,8 @@ export interface Deployment {
     /** Lucent — present once deploy:contracts has run. */
     payroll?: string;
     escrowFactory?: string;
+    escrowValidator?: string;
+    legacyEscrowFactories?: string[];
     escrowInstanceWasm?: string;
     /** Compliance allowlist policy, wired onto the token's ComplianceConfig. */
     policy?: string;

@@ -55,6 +55,8 @@ export interface ContractIds {
 
 export interface ChainConfig {
   rpcUrl: string;
+  /** Per HTTP request; transaction confirmation has its own bounded poll loop. */
+  rpcTimeoutMs?: number;
   networkPassphrase: string;
   contracts: ContractIds;
 }
@@ -94,6 +96,11 @@ export class ChainClient {
     this.server = new rpc.Server(cfg.rpcUrl, {
       allowHttp: cfg.rpcUrl.startsWith("http://"),
     });
+    const timeout = cfg.rpcTimeoutMs ?? 30_000;
+    if (!Number.isFinite(timeout) || timeout <= 0) throw new Error("rpcTimeoutMs must be positive");
+    // SDK 14.6.1 declares Server.Options.timeout but does not forward it.
+    // Configure the actual HTTP client so stalled RPC calls still terminate.
+    this.server.httpClient.defaults.timeout = timeout;
   }
 
   // ----- reads -------------------------------------------------------------

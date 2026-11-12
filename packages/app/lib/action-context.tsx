@@ -13,7 +13,10 @@ export type ActionState = {
   stage:
     | "working"
     | "proving"
+    | "preparing_transaction"
+    | "awaiting_wallet"
     | "submitting"
+    | "refreshing"
     | "confirmed"
     | "failed"
     | "uncertain";
@@ -40,7 +43,7 @@ export function ActionProvider({ children }: { children: ReactNode }) {
     try {
       if (
         next &&
-        ["working", "proving", "submitting", "uncertain"].includes(next.stage)
+        ["working", "proving", "preparing_transaction", "awaiting_wallet", "submitting", "uncertain"].includes(next.stage)
       )
         sessionStorage.setItem(PENDING_KEY, "1");
       else sessionStorage.removeItem(PENDING_KEY);

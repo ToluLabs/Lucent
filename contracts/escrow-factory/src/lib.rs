@@ -17,6 +17,7 @@ use soroban_sdk::{contract, contractevent, contractimpl, contracttype, Address, 
 enum DataKey {
     /// Confidential token every escrow settles in.
     Token,
+    PayoutValidator,
     /// Wasm hash of the escrow-instance contract to deploy.
     InstanceWasm,
     Count,
@@ -41,9 +42,19 @@ pub struct PrivateEscrowFactory;
 impl PrivateEscrowFactory {
     /// `instance_wasm` is the hash of the already-installed escrow-instance
     /// wasm (upload it once, then pass the hash here).
-    pub fn __constructor(e: &Env, token: Address, instance_wasm: BytesN<32>) {
+    pub fn __constructor(
+        e: &Env,
+        token: Address,
+        instance_wasm: BytesN<32>,
+        payout_validator: Address,
+    ) {
         e.storage().instance().set(&DataKey::Token, &token);
-        e.storage().instance().set(&DataKey::InstanceWasm, &instance_wasm);
+        e.storage()
+            .instance()
+            .set(&DataKey::InstanceWasm, &instance_wasm);
+        e.storage()
+            .instance()
+            .set(&DataKey::PayoutValidator, &payout_validator);
         e.storage().instance().set(&DataKey::Count, &0u64);
     }
 
@@ -62,6 +73,11 @@ impl PrivateEscrowFactory {
 
         let token: Address = e.storage().instance().get(&DataKey::Token).unwrap();
         let wasm: BytesN<32> = e.storage().instance().get(&DataKey::InstanceWasm).unwrap();
+        let payout_validator: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::PayoutValidator)
+            .unwrap();
 
         let mut salt = [0u8; 32];
         salt[..8].copy_from_slice(&id.to_be_bytes());
@@ -69,11 +85,24 @@ impl PrivateEscrowFactory {
 
         let address = e.deployer().with_current_contract(salt).deploy_v2(
             wasm,
-            (token, depositor.clone(), recipient.clone(), arbiter, timeout_seconds),
+            (
+                token,
+                payout_validator,
+                depositor.clone(),
+                recipient.clone(),
+                arbiter,
+                timeout_seconds,
+            ),
         );
 
         e.storage().persistent().set(&DataKey::Escrow(id), &address);
-        EscrowCreated { id, address: address.clone(), depositor, recipient }.publish(e);
+        EscrowCreated {
+            id,
+            address: address.clone(),
+            depositor,
+            recipient,
+        }
+        .publish(e);
         (id, address)
     }
 

@@ -4,6 +4,12 @@ export function transactionError(message: string): {
   advice: string;
   hash?: string;
 } {
+  if (/wallet is not funded on Stellar Testnet|Account not found: G/i.test(message))
+    return {
+      uncertain: false,
+      title: "Fund your Testnet wallet first",
+      advice: "Select Testnet in Varial and fund this address with Friendbot for XLM, then retry registration. Creating a wallet alone does not create its Stellar Testnet account.",
+    };
   if (/wrong network/i.test(message))
     return {
       uncertain: false,

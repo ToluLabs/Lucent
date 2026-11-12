@@ -25,6 +25,7 @@ export const DEPLOYMENT = {
   deployedAtLedger: deployment.deployedAtLedger,
   /** All accounts in this deployment register under this auditor id. */
   auditorId: deployment.auditor.id,
+  legacyEscrowFactories: (deployment.contracts as typeof deployment.contracts & { legacyEscrowFactories?: string[] }).legacyEscrowFactories ?? [],
   contracts: {
     token: deployment.contracts.token,
     verifier: deployment.contracts.verifier,

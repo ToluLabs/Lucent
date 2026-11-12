@@ -19,10 +19,10 @@
 //!
 //! # Trust caveat
 //!
-//! The depositor derives the instance's Grumpkin secret to build those payout
-//! proofs and must discard it afterwards; a depositor who retains it could
-//! re-spend the escrowed balance and invalidate both stored proofs. Acceptable
-//! for a testnet demo, not for production.
+//! The funding browser derives the instance's Grumpkin witness to prepare the
+//! proofs. This witness alone does not authorize spending from a contract
+//! address: the token also enforces Soroban authorization. Custody, delegated
+//! spending and invocation paths still require independent security review.
 //!
 //! # ⚠️ Not Production Ready
 //!
@@ -35,12 +35,9 @@ mod instance;
 
 pub use instance::{PrivateEscrowInstance, PrivateEscrowInstanceClient};
 
-/// Minimal cross-contract view of the confidential token used by an instance.
-#[contractclient(name = "TokenClient")]
-pub trait ConfidentialTokenInterface {
-    fn register(env: Env, account: Address, auditor_id: u32, data: Bytes);
-    fn confidential_transfer(env: Env, from: Address, to: Address, data: Bytes);
-    fn merge(env: Env, account: Address);
+#[contractclient(name = "PayoutValidatorClient")]
+pub trait PayoutValidatorInterface {
+    fn token(env: Env) -> Address;
     fn verify_escrow_payout(
         env: Env,
         register_data: Bytes,
@@ -50,6 +47,14 @@ pub trait ConfidentialTokenInterface {
         data: Bytes,
         remaining_blinding: soroban_sdk::BytesN<32>,
     ) -> bool;
+}
+
+/// Minimal cross-contract view of the confidential token used by an instance.
+#[contractclient(name = "TokenClient")]
+pub trait ConfidentialTokenInterface {
+    fn register(env: Env, account: Address, auditor_id: u32, data: Bytes);
+    fn confidential_transfer(env: Env, from: Address, to: Address, data: Bytes);
+    fn merge(env: Env, account: Address);
 }
 
 #[contracterror]

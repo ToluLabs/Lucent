@@ -6,11 +6,12 @@ use soroban_sdk::{
     contract, contractevent, contractimpl, contracttype, Address, Bytes, Env, String,
 };
 
-use crate::{Error, Escrow, EscrowState, TokenClient, RELEASE_WINDOW};
+use crate::{Error, Escrow, EscrowState, PayoutValidatorClient, TokenClient, RELEASE_WINDOW};
 
 #[contracttype]
 enum DataKey {
     Token,
+    PayoutValidator,
     Escrow,
     /// Pre-generated payout proof: instance -> recipient.
     ReleaseProof,
@@ -61,12 +62,20 @@ impl PrivateEscrowInstance {
     pub fn __constructor(
         e: &Env,
         token: Address,
+        payout_validator: Address,
         depositor: Address,
         recipient: Address,
         arbiter: Option<Address>,
         timeout_seconds: u64,
     ) {
         let now = e.ledger().timestamp();
+        assert_eq!(
+            PayoutValidatorClient::new(e, &payout_validator).token(),
+            token
+        );
+        e.storage()
+            .instance()
+            .set(&DataKey::PayoutValidator, &payout_validator);
         e.storage().instance().set(&DataKey::Token, &token);
         e.storage().instance().set(
             &DataKey::Escrow,
@@ -133,7 +142,12 @@ impl PrivateEscrowInstance {
         } else {
             &esc.depositor
         };
-        if !token(e).verify_escrow_payout(
+        let validator: Address = e
+            .storage()
+            .instance()
+            .get(&DataKey::PayoutValidator)
+            .unwrap();
+        if !PayoutValidatorClient::new(e, &validator).verify_escrow_payout(
             &register_data,
             &auditor_id,
             &transfer_in,
@@ -329,6 +343,10 @@ impl PrivateEscrowInstance {
 
     pub fn get_escrow(e: &Env) -> Escrow {
         get(e)
+    }
+
+    pub fn funding_protocol_version(_e: &Env) -> u32 {
+        2
     }
 
     pub fn token(e: &Env) -> Address {

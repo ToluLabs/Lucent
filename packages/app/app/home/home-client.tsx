@@ -16,6 +16,7 @@ import { displayAmount } from "@/lib/amount";
 import { cn } from "@/lib/cn";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
+import { escrowTransferDescription } from "@/lib/escrow-activity";
 import { shortAddress, timeAgo } from "@/lib/format";
 import { useAction } from "@/lib/use-action";
 import type { ConfidentialWallet } from "@/lib/wallet";
@@ -92,27 +93,12 @@ function describeEvent(
 
       const escrow = escrowByAddress.get(counterparty);
       if (escrow) {
-        if (received && escrow.depositor === me) {
-          return {
-            icon: Lock,
-            iconColor: "text-warning",
-            label: "Escrow refunded to you",
-          };
-        }
-        if (received && escrow.recipient === me) {
-          return {
-            icon: Lock,
-            iconColor: "text-success",
-            label: "Escrow released to you",
-          };
-        }
-        if (!received) {
-          return {
-            icon: Lock,
-            iconColor: "text-warning",
-            label: "Escrow funded",
-          };
-        }
+        const description = escrowTransferDescription(escrow, me, received);
+        return {
+          icon: Lock,
+          iconColor: description.tone === "warning" ? "text-warning" : "text-success",
+          label: description.label,
+        };
       }
 
       return received
@@ -378,7 +364,7 @@ export function HomeClient() {
   }
 
   async function handleMerge() {
-    await run("merge", () => wallet!.merge());
+    await run("merge", (sp) => wallet!.merge(sp));
   }
   async function handleRegister() {
     await run("register", (sp) => wallet!.register(sp));
@@ -429,6 +415,13 @@ export function HomeClient() {
                 approve the transaction.
               </p>
               <AddressDisplay address={wallet.address} chars={8} />
+              <p className="mt-4 text-sm leading-6 text-text-secondary">
+                Your Testnet wallet needs XLM for transaction fees.{" "}
+                <a href={`https://friendbot.stellar.org/?addr=${wallet.address}`}
+                  target="_blank" rel="noreferrer" className="text-accent underline">
+                  Fund with Friendbot ↗
+                </a>
+              </p>
               <Button
                 className="mt-6"
                 disabled={!!busy || uncertain}

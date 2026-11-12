@@ -36,6 +36,22 @@ export interface MessageSigner extends Signer {
   signMessage(message: string): Promise<Uint8Array>;
 }
 
+/** Report the wallet approval boundary without changing what gets signed. */
+export function withWalletProgress(
+  signer: Signer,
+  onPhase?: (phase: "awaiting_wallet" | "submitting") => void,
+): Signer {
+  return {
+    publicKey: signer.publicKey,
+    async sign(xdr: string): Promise<string> {
+      onPhase?.("awaiting_wallet");
+      const signed = await signer.sign(xdr);
+      onPhase?.("submitting");
+      return signed;
+    },
+  };
+}
+
 export async function requireTestnet(): Promise<void> {
   const network = await getNetworkDetails();
   if (network.error || !network.networkPassphrase)

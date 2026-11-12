@@ -1,0 +1,169 @@
+{
+  "title": "Lucent platform verification, 11\u201312 November 2026",
+  "network": "Stellar Testnet",
+  "scope": "Local application and current Testnet contracts; this is testing evidence, not a security audit or production readiness certification.",
+  "wallet": "GDI2JS5JDVKY43WW3PKZAEWLJ7KGRUBXHIQFOJYOGLOOGT3Z6NNMPZSV",
+  "live_checks": [
+    {
+      "flow": "Registration",
+      "status": "passed",
+      "transaction": "fac7e1c95fab5e1b056fb3226a2e3624bf880047b8a9a04fb4cd4bfae38d9047"
+    },
+    {
+      "flow": "Deposit 2 test USDC",
+      "status": "passed",
+      "transaction": "6a7d7cd09a4e66a760b4769ca0f9fab447d825050c8f808ae39ef416af4631c2"
+    },
+    {
+      "flow": "Merge incoming deposit",
+      "status": "passed",
+      "transaction": "5a075fa09c8e52b4f8fb264791a42958c37f4a1955628abffc093cc618d93715"
+    },
+    {
+      "flow": "Confidential self-payment, 0.5 test USDC",
+      "status": "passed",
+      "transaction": "047ad66a27742b05c2a8b64ae460a85f7f9dcd521f5020cf5c653c6f27fe5a85"
+    },
+    {
+      "flow": "Merge self-payment",
+      "status": "passed",
+      "transaction": "f6dbb00d5157b902e89af9c92cee8b759b39ee5352f40c2aca40637c51ca6ab8"
+    },
+    {
+      "flow": "Withdraw 2 test USDC",
+      "status": "passed",
+      "transaction": "16469214c534e2ca3d8ad1eb0b3583c6def4a79bddd1171fb1fdb077f3e63321"
+    },
+    {
+      "flow": "Payroll template 5 / run 6, 0.1 test USDC to self",
+      "status": "passed",
+      "transaction": "902f608b16a1ef5931e4bc2ba373eeb84fe954ea6d740d1290bd8b36ceffae66"
+    },
+    {
+      "flow": "Claim payroll",
+      "status": "passed",
+      "transaction": "fd9738fb7d9e73a15338ec6289b4a0ef7aa8a1a5748eb1d07778dfaea3c770d6"
+    },
+    {
+      "flow": "Recipient selective disclosure of live payroll event",
+      "status": "passed",
+      "checks": [
+        "Valid bundle verified 0.1 USDC",
+        "Changing request nonce rejected old bundle"
+      ]
+    },
+    {
+      "flow": "Auditor console",
+      "status": "passed",
+      "checks": [
+        "Public Testnet demo viewing key matched auditor 0",
+        "Three transfers decrypted, totaling 100.6 USDC",
+        "Reconstructed wallet balance 100 spendable, 0 incoming",
+        "Lock returned to locked console"
+      ]
+    },
+    {
+      "flow": "Payment and payroll input checks",
+      "status": "passed",
+      "checks": [
+        "Unregistered recipient blocked before review/signing",
+        "Payroll exceeding available balance blocked"
+      ]
+    },
+    {
+      "flow": "Corrected escrow funding and settlement",
+      "status": "funding_early_release_and_merge_passed",
+      "details": "User submitted creation, all four funding approvals, early release, and merge. Browser displayed Released; independent RPC read confirmed state 3 and funded/released events. Activity decrypted the released amount as +0.1 USDC. After merge the overview displayed confirmed status, Account ready, 100.0 USDC spendable and 0.0 incoming. This live test used one wallet as depositor and recipient; it does not establish distinct-party claim, arbitration, or timeout behavior.",
+      "address": "CATTFRYB4CG5Z5IO6U5WSJKLWITHC264JPEFERMFE5W7RIZUQSTVJ6H2",
+      "ledger": 5690296,
+      "funding_transaction": "90f45ff6f5147079f7290f3d3b46f08bb856332d83b7349b5a6b8a39bc08b807",
+      "release_transaction": "9865572880be579aaf1244a72ec39fec8052b3622146b931171de512680ece6e",
+      "release_ledger": 5690313,
+      "final_balance": {
+        "spendable_usdc": "100.0",
+        "incoming_usdc": "0.0",
+        "public_usdc": "20.0"
+      },
+      "merge_transaction": "967b77488bc71ae2c25f398536b35cadb9058ec9a4f06c01e1ce98a012066cb5",
+      "merge_ledger": 5690368
+    }
+  ],
+  "local_checks": [
+    {
+      "command": "cd contracts && cargo test --workspace",
+      "status": "passed",
+      "tests": 51,
+      "limits": "Native contract tests include mocks; these do not establish live proof verification or complete live authorization coverage."
+    },
+    {
+      "command": "pnpm --filter @lucent/sdk test:fast",
+      "status": "passed",
+      "skipped": "Live indexer parity: CTD_INDEXER_URL and CTD_TOKEN not configured."
+    },
+    {
+      "command": "pnpm --filter @lucent/app test:forms",
+      "status": "passed",
+      "coverage": [
+        "Testnet network guard and sign-time network switches",
+        "Wallet progress and rejection",
+        "Refresh locking and duplicate prevention",
+        "Amount precision and error classification"
+      ]
+    },
+    {
+      "command": "pnpm --filter @lucent/sdk exec tsx test/prove.mjs",
+      "status": "passed_previous_session",
+      "coverage": "Three real UltraHonk+Keccak proofs: registration, withdrawal, transfer."
+    },
+    {
+      "command": "pnpm --filter @lucent/sdk exec tsx test/disclosure.mjs",
+      "status": "passed_previous_session",
+      "tests": 19
+    },
+    {
+      "command": "pnpm test:analytics",
+      "status": "passed_previous_session"
+    },
+    {
+      "command": "pnpm --filter @lucent/app typecheck; pnpm --filter @lucent/sdk typecheck",
+      "status": "passed"
+    },
+    {
+      "check": "New deployment / escrow regression script static typecheck",
+      "status": "passed",
+      "details": "ESNext/Bundler configuration with SDK dependency resolution; no transactions submitted by this check."
+    },
+    {
+      "command": "pnpm --filter @lucent/app build",
+      "status": "passed",
+      "details": "Re-run after settlement refresh, activity label and modal progress fixes; production webpack build, TypeScript validation and static page generation completed."
+    }
+  ],
+  "escrow_fix": {
+    "reason": "Old deployed instance lacked prepare_funding, and existing token lacked verify_escrow_payout.",
+    "token_preserved": "CACKEFUKVPBGDJM6Z4NOTY3H44MUMJDYIRNBLH6MDFN3QUSFWENXAABF",
+    "validator": "CCHJSZEXQBRHW4U7OS3JMLCSYFKNCPCMOZH4B3A7ICY6OYXQK3W236J4",
+    "factory": "CAANC23URNBKYDIODLVR5GZHAPHHOMAZK22IRW2PNM6J2SCR2OOHDS55",
+    "instance_wasm": "e8737ef0ed1cc5e56b85e19b2fec8cc7e35b82cfe920b019d96600cb52ad09a4",
+    "details": [
+      "Separate read-only validator reconstructs transfer public inputs for the existing token domain.",
+      "Both full-balance payout branches must pass before atomic register/transfer/merge funding.",
+      "Legacy factories retained for viewing and existing lifecycle actions.",
+      "No existing token account or balance migration."
+    ]
+  },
+  "not_verified": [
+    "Live corrected escrow timeout refund, recipient claim after window and dispute arbitration",
+    "Live arbiter dispute settlement",
+    "Live sender disclosure browser flow",
+    "Live administrative compliance mutations",
+    "Full-history production indexer parity",
+    "Recovery from history already beyond RPC retention without an indexer"
+  ],
+  "regression_script": "scripts/e2e-escrow.ts is prepared but not successfully completed. First attempt stopped after creating a fresh Testnet XLM account/trustline due an import error, before test USDC transfer. Import corrected; rerun deferred to avoid bypassing the browser transaction handoff.",
+  "issues_found_and_corrected": [
+    "Escrow lifecycle actions skipped account refresh; restored refresh before reporting confirmation.",
+    "Self-escrow release was labelled refund because depositor was checked first; label now depends on terminal settlement state.",
+    "Funding progress was hidden behind its modal; added wallet/confirmation progress within the funding dialog."
+  ]
+}

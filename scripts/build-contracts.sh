@@ -29,6 +29,7 @@ WASMS=(
   "payroll_vault_contract:payroll_vault"
   "private_escrow_instance_contract:private_escrow_instance"
   "private_escrow_factory_contract:private_escrow_factory"
+  "escrow_payout_validator_contract:escrow_payout_validator"
   "confidential_policy_contract:confidential_policy"
 )
 

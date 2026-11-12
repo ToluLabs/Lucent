@@ -151,10 +151,14 @@ async function main(): Promise<void> {
   const payroll = deploy(WASM.payroll, DEPLOYER, ["--token", token]);
   console.log(`payroll = ${payroll}`);
   const escrowInstanceWasm = uploadWasm(WASM.escrowInstance, DEPLOYER);
+  const escrowValidator = deploy(WASM.escrowValidator, DEPLOYER, [
+    "--token", token, "--verifier", verifier, "--auditor", auditor,
+  ]);
   console.log(`escrow instance wasm = ${escrowInstanceWasm}`);
   const escrowFactory = deploy(WASM.escrowFactory, DEPLOYER, [
     "--token", token,
     "--instance_wasm", escrowInstanceWasm,
+    "--payout_validator", escrowValidator,
   ]);
   console.log(`escrow factory = ${escrowFactory}`);
 
@@ -163,7 +167,7 @@ async function main(): Promise<void> {
     rpcUrl: RPC_URL,
     passphrase: PASSPHRASE,
     deployedAtLedger: ledgerBeforeToken,
-    contracts: { token, verifier, auditor, underlying, payroll, escrowFactory, escrowInstanceWasm, policy },
+    contracts: { token, verifier, auditor, underlying, payroll, escrowFactory, escrowValidator, escrowInstanceWasm, policy },
     complianceAdmin: deployerPub,
     auditor: {
       id: 0,

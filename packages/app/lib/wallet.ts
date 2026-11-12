@@ -103,7 +103,7 @@ import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_reci
 import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
 
 import { DEPLOYMENT } from "./deployment";
-import { connectFreighter, requireTestnet } from "./freighter";
+import { connectFreighter, requireTestnet, withWalletProgress } from "./freighter";
 import { keyDerivationMessage, skFromSignature } from "./derive-key";
 import { ensureBrowserBackend } from "./bb-loader";
 import { Address, scValToNative } from "@stellar/stellar-sdk";
@@ -120,7 +120,7 @@ const CIRCUITS: Record<CircuitName, { bytecode: string } & Record<string, unknow
 };
 
 /** Coarse progress of a proof-carrying operation, for UI button labels. */
-export type TxPhase = "proving" | "submitting";
+export type TxPhase = "proving" | "preparing_transaction" | "awaiting_wallet" | "submitting";
 
 export interface WalletView {
   address: string;
@@ -264,19 +264,20 @@ export class ConfidentialWallet {
     onPhase?.("proving");
     this.log("proving register…");
     const { proof } = await this.prover("register").prove(w.inputs);
-    onPhase?.("submitting");
+    onPhase?.("preparing_transaction");
     this.log("submitting register…");
-    const r = await trackConfirmed("registration_confirmed", () => submitRegister(this.client, this.signer, this.address, DEPLOYMENT.auditorId, w, proof));
+    const r = await trackConfirmed("registration_confirmed", () => submitRegister(this.client, withWalletProgress(this.signer, onPhase), this.address, DEPLOYMENT.auditorId, w, proof));
     this.log(`registered (tx ${r.hash.slice(0, 10)}…)`);
   }
 
-  async deposit(amount: bigint): Promise<void> {
+  async deposit(amount: bigint, onPhase?: (p: TxPhase) => void): Promise<void> {
+    onPhase?.("preparing_transaction");
     this.log(`depositing ${amount}…`);
-    const r = await trackConfirmed("deposit_confirmed", () => submitDeposit(this.client, this.signer, this.address, this.address, amount));
+    const r = await trackConfirmed("deposit_confirmed", () => submitDeposit(this.client, withWalletProgress(this.signer, onPhase), this.address, this.address, amount));
     this.log(`deposited (tx ${r.hash.slice(0, 10)}…) → receiving balance`);
   }
 
-  async merge(): Promise<void> {
+  async merge(onPhase?: (p: TxPhase) => void): Promise<void> {
     // Sync first: applyMerge() optimistically folds whatever `receiving` is
     // cached locally right now. If a transfer credited receiving on-chain
     // since the last sync, an unsynced local cache would fold a stale
@@ -285,8 +286,9 @@ export class ConfidentialWallet {
     // chain, caught only later by verifyAgainstChain as an unspendable
     // mismatch. Same reason transfer()/withdraw() sync before proving.
     await this.engine.sync();
+    onPhase?.("preparing_transaction");
     this.log("merging receiving → spendable…");
-    const r = await trackConfirmed("merge_confirmed", () => submitMerge(this.client, this.signer, this.address));
+    const r = await trackConfirmed("merge_confirmed", () => submitMerge(this.client, withWalletProgress(this.signer, onPhase), this.address));
     await this.engine.applyMerge();
     this.log(`merged (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -376,9 +378,9 @@ export class ConfidentialWallet {
     onPhase?.("proving");
     this.log("proving transfer…");
     const { proof } = await this.prover("transfer").prove(w.inputs);
-    onPhase?.("submitting");
+    onPhase?.("preparing_transaction");
     this.log("submitting transfer…");
-    const r = await trackConfirmed("transfer_confirmed", () => submitTransfer(this.client, this.signer, this.address, to, w, proof));
+    const r = await trackConfirmed("transfer_confirmed", () => submitTransfer(this.client, withWalletProgress(this.signer, onPhase), this.address, to, w, proof));
     await this.engine.setSpendable(w.next);
     // No r_e bookkeeping (§15.2): the witness derives it from (vk, sigma), so
     // discloseSent() re-derives it from the emitted event whenever needed.
@@ -395,9 +397,9 @@ export class ConfidentialWallet {
     onPhase?.("proving");
     this.log("proving withdraw…");
     const { proof } = await this.prover("withdraw").prove(w.inputs);
-    onPhase?.("submitting");
+    onPhase?.("preparing_transaction");
     this.log("submitting withdraw…");
-    const r = await trackConfirmed("withdrawal_confirmed", () => submitWithdraw(this.client, this.signer, this.address, this.address, amount, w, proof));
+    const r = await trackConfirmed("withdrawal_confirmed", () => submitWithdraw(this.client, withWalletProgress(this.signer, onPhase), this.address, this.address, amount, w, proof));
     await this.engine.setSpendable(w.next);
     this.log(`withdrew ${amount} → public (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -534,6 +536,17 @@ export class ConfidentialWallet {
     amount: bigint,
     onPhase?: (p: TxPhase) => void,
   ): Promise<void> {
+    // Old instances cannot be upgraded. Fail before spending time on proofs;
+    // their existing settlement/cancellation methods remain available.
+    try {
+      const version = scValToNative(await this.client.simulate(instance, "funding_protocol_version", []));
+      if (version !== 2) throw new Error("Unsupported escrow funding protocol");
+    } catch (error) {
+      if (error instanceof Error && /non-existent contract function|Unsupported escrow funding protocol/.test(error.message)) {
+        throw new Error("This escrow uses the previous funding contract. Cancel this unfunded escrow and create a new one with the current factory. No funds have moved.");
+      }
+      throw error;
+    }
     const recipientAcct = await this.client.confidentialBalance(recipient);
     if (!recipientAcct) throw new Error("recipient is not registered");
     const kAud = await this.client.auditorKey(DEPLOYMENT.auditorId);
@@ -593,21 +606,22 @@ export class ConfidentialWallet {
     const { proof: refProof } = await this.prover("transfer").prove(ref.inputs);
     const refundProof = new Uint8Array(encodeTransferData(ref, refProof).bytes());
 
-    onPhase?.("submitting");
+    onPhase?.("preparing_transaction");
     // Validate both branches before moving funds. Separate proof transactions
     // stay below Soroban's transaction size limit.
+    const signer = withWalletProgress(this.signer, onPhase);
     this.log("preparing escrow funding…");
-    await submitPrepareFunding(this.client, this.signer, instance, {
+    await submitPrepareFunding(this.client, signer, instance, {
       registerData,
       auditorId: DEPLOYMENT.auditorId,
       transferIn,
     });
     this.log("validating recipient payout…");
-    await submitStorePayoutProof(this.client, this.signer, instance, true, releaseProof, rel.next.r);
+    await submitStorePayoutProof(this.client, signer, instance, true, releaseProof, rel.next.r);
     this.log("validating refund payout…");
-    await submitStorePayoutProof(this.client, this.signer, instance, false, refundProof, ref.next.r);
+    await submitStorePayoutProof(this.client, signer, instance, false, refundProof, ref.next.r);
     this.log("submitting fund…");
-    const r = await submitFund(this.client, this.signer, instance);
+    const r = await submitFund(this.client, signer, instance);
     await this.engine.setSpendable(tin.next);
     this.log(`escrow funded (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -659,22 +673,35 @@ export class ConfidentialWallet {
 
   /** List all deployed escrows that involve this account (depositor/recipient/arbiter). */
   async listEscrows(): Promise<{ id: bigint; address: string; info: EscrowInfo }[]> {
-    const count = await readEscrowCount(this.client);
     const out: { id: bigint; address: string; info: EscrowInfo }[] = [];
-    for (let i = 1n; i <= count; i++) {
-      const address = await readEscrowAddress(this.client, i);
-      if (!address) continue;
-      try {
-        const info = await readEscrow(this.client, address);
-        if (
-          info.depositor === this.address ||
-          info.recipient === this.address ||
-          info.arbiter === this.address
-        ) {
-          out.push({ id: i, address, info });
+    const factories = new Set([
+      this.client.cfg.contracts.escrowFactory,
+      ...DEPLOYMENT.legacyEscrowFactories,
+    ]);
+    for (const factory of factories) {
+      if (!factory) continue;
+      const client = factory === this.client.cfg.contracts.escrowFactory
+        ? this.client
+        : new ChainClient({
+            ...this.client.cfg,
+            contracts: { ...this.client.cfg.contracts, escrowFactory: factory },
+          });
+      const count = await readEscrowCount(client);
+      for (let i = 1n; i <= count; i++) {
+        const address = await readEscrowAddress(client, i);
+        if (!address) continue;
+        try {
+          const info = await readEscrow(this.client, address);
+          if (
+            info.depositor === this.address ||
+            info.recipient === this.address ||
+            info.arbiter === this.address
+          ) {
+            out.push({ id: i, address, info });
+          }
+        } catch {
+          /* skip unreadable */
         }
-      } catch {
-        /* skip unreadable */
       }
     }
     return out;

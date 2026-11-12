@@ -15,7 +15,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:ui": "node test/wallet-loading.mjs && node test/ui.mjs",
-    "test:forms": "node test/wallet-network.mjs && pnpm --filter @lucent/sdk exec tsx ../../packages/app/test/forms.mjs",
+    "test:forms": "node test/wallet-network.mjs && node test/action-progress.mjs && pnpm --filter @lucent/sdk exec tsx ../../packages/app/test/forms.mjs",
     "test:browser": "node test/browser-qa.mjs",
     "profile:startup": "node test/performance.mjs"
   },

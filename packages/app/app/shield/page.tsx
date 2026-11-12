@@ -19,12 +19,13 @@ import { useWallet } from "@/lib/wallet-context";
 import Link from "next/link";
 import { useState } from "react";
 export default function ShieldPage() {
-  const { wallet, view, error, setError } = useWallet();
+  const { wallet, view, error, setError, refresh } = useWallet();
   const { run, busy, phase, uncertain } = useAction();
   const [tab, setTab] = useState<"deposit" | "withdraw">("deposit");
   const [amount, setAmount] = useState("");
   const [review, setReview] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   if (!wallet)
     return (
       <AppShell>
@@ -39,7 +40,7 @@ export default function ShieldPage() {
   async function submit() {
     if (!ready || !valid) return;
     const ok = await run(tab, async (sp) => {
-      if (tab === "deposit") await wallet!.deposit(toBaseUnits(amount));
+      if (tab === "deposit") await wallet!.deposit(toBaseUnits(amount), sp);
       else await wallet!.withdraw(toBaseUnits(amount), sp);
     });
     if (ok) {
@@ -49,7 +50,15 @@ export default function ShieldPage() {
   }
   return (
     <AppShell>
-      <PageHeader title="Funding" />
+      <PageHeader title="Funding" right={
+        <Button variant="secondary" disabled={!!busy || refreshing} isLoading={refreshing}
+          onClick={async () => {
+            setRefreshing(true);
+            try { await refresh(); } finally { setRefreshing(false); }
+          }}>
+          Refresh balances
+        </Button>
+      } />
       <div className="workspace-page space-y-6">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
         {!ready && (
@@ -206,7 +215,7 @@ export default function ShieldPage() {
                   variant="secondary"
                   disabled={!ready || !!busy || uncertain}
                   isLoading={busy === "merge"}
-                  onClick={() => run("merge", () => wallet.merge())}
+                  onClick={() => run("merge", (sp) => wallet.merge(sp))}
                 >
                   Merge incoming funds
                 </Button>

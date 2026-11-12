@@ -18,6 +18,9 @@ pub struct MockToken;
 
 #[contractimpl]
 impl MockToken {
+    pub fn token(e: &Env) -> Address {
+        e.current_contract_address()
+    }
     pub fn register(_e: &Env, account: Address, _auditor_id: u32, _data: Bytes) {
         account.require_auth();
     }
@@ -58,7 +61,7 @@ fn create_escrow_deploys_a_working_instance() {
 
     let token = e.register(MockToken, ());
     let wasm = install_instance(&e);
-    let factory_id = e.register(PrivateEscrowFactory, (token.clone(), wasm));
+    let factory_id = e.register(PrivateEscrowFactory, (token.clone(), wasm, token.clone()));
     let factory = PrivateEscrowFactoryClient::new(&e, &factory_id);
 
     let depositor = Address::generate(&e);

@@ -224,11 +224,11 @@ export default function EscrowPage() {
       <div className="flex flex-col gap-5 px-4 pb-6  md:px-8">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
         <Callout>
-          <strong>Experimental custody.</strong> The depositor retains the
-          escrow account key and can invalidate prepared payouts by spending
-          outside this workflow. This is not trustless custody. Use test funds
-          only. Amounts are encrypted; participants, lifecycle and metadata are
-          public.
+          <strong>Experimental custody.</strong> The funding browser prepares
+          the escrow witness. Spending also requires the contract's Soroban
+          authorization; knowing the witness alone does not authorize a payout.
+          These contracts are unaudited. Use test funds only. Amounts are
+          encrypted; participants, lifecycle and metadata are public.
         </Callout>
         {loadError && (
           <div>
@@ -414,6 +414,17 @@ export default function EscrowPage() {
           browser. Four wallet confirmations prepare funding, verify both
           payouts, and finally move the funds.
         </p>
+        {busy === "fund" && (
+          <p role="status" aria-live="polite" className="text-sm text-text-secondary">
+            {phase === "awaiting_wallet"
+              ? "Waiting for Varial approval. Check the wallet window; another request follows each confirmed preparation step."
+              : phase === "submitting"
+                ? "Waiting for Stellar Testnet confirmation. Keep this tab open."
+                : phase === "proving"
+                  ? "Generating four proofs in this browser. Wallet approvals follow."
+                  : "Checking funding and refreshing the account. Keep this tab open."}
+          </p>
+        )}
         <Button
           fullWidth
           size="lg"
@@ -449,7 +460,7 @@ export default function EscrowPage() {
           onClick={async () => {
             if (
               confirmation &&
-              (await run(confirmation.key, confirmation.fn, { refresh: false }))
+              (await run(confirmation.key, confirmation.fn))
             ) {
               setConfirmation(null);
               reload();

@@ -16,6 +16,9 @@ pub struct MockToken;
 
 #[contractimpl]
 impl MockToken {
+    pub fn token(e: &Env) -> Address {
+        e.current_contract_address()
+    }
     pub fn register(e: &Env, account: Address, _auditor_id: u32, _data: Bytes) {
         account.require_auth();
         e.storage()
@@ -85,6 +88,25 @@ impl MockToken {
 
 const TIMEOUT: u64 = 3600;
 
+#[test]
+#[should_panic]
+fn validator_cannot_target_a_different_token() {
+    let e = Env::default();
+    let token = e.register(MockToken, ());
+    let other = e.register(MockToken, ());
+    e.register(
+        PrivateEscrowInstance,
+        (
+            token,
+            other,
+            Address::generate(&e),
+            Address::generate(&e),
+            None::<Address>,
+            TIMEOUT,
+        ),
+    );
+}
+
 struct Fixture {
     e: Env,
     token: Address,
@@ -108,6 +130,7 @@ fn setup(with_arbiter: bool) -> Fixture {
     let id = e.register(
         PrivateEscrowInstance,
         (
+            token.clone(),
             token.clone(),
             depositor.clone(),
             recipient.clone(),

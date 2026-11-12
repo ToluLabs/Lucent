@@ -512,6 +512,18 @@
                       "key": {
                         "vec": [
                           {
+                            "symbol": "PayoutValidator"
+                          }
+                        ]
+                      },
+                      "val": {
+                        "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
+                      }
+                    },
+                    {
+                      "key": {
+                        "vec": [
+                          {
                             "symbol": "RefundProof"
                           }
                         ]

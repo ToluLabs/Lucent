@@ -53,6 +53,13 @@ const GROUPS = [
   },
 ];
 const SECTIONS = GROUPS.flatMap((group) => group.items);
+// Deliberately public Testnet demo credential, previously published in these
+// docs (a8f7ddb). Never replace this with an operator's private viewing key.
+const PUBLIC_DEMO_AUDITOR_KEY = "0x002db306c1ef9309a478294fc1f14b2e9b112052d3d5b8ce7e5c0f1c69bb2804";
+const isPublicDemoDeployment =
+  DEPLOYMENT.networkPassphrase === "Test SDF Network ; September 2015" &&
+  DEPLOYMENT.contracts.auditor === "CB6FOYTSTRCCBYZGOZJVNY5RGCT5LXEEPV5D2BZK7O3LMKSLLLQ7QRUQ" &&
+  DEPLOYMENT.auditorId === 0;
 const SDK_ACCOUNT_EXAMPLE = `import { ChainClient } from "@lucent/sdk";
 import { DEPLOYMENT } from "@/lib/deployment";
 
@@ -664,9 +671,9 @@ fund()                                   // atomically registers, transfers and 
                   verification against the exact prepared funding commitment.
                   Replacing the funding inputs clears both approvals. Funds move
                   only in the last call; a rejected proof leaves the escrow
-                  unfunded. The depositor is expected to discard the
-                  instance&apos;s one-time secret; the interface cannot enforce
-                  that — see the trust caveat below.
+                  unfunded. A separate payout validator is bound to the existing
+                  token and its verifier/auditor registries. This supports the
+                  deployed token without replacing existing payment accounts.
                 </P>
               </div>
               <div className="docs-topic">
@@ -693,10 +700,12 @@ fund()                                   // atomically registers, transfers and 
                 <Callout>
                   To pre-generate the two payout proofs, the depositor must
                   derive the instance&apos;s Grumpkin secret at fund time.
-                  They&apos;re expected to discard it immediately afterward — a
-                  depositor who keeps it could re-spend the escrowed balance and
-                  invalidate both stored proofs. Acceptable for a testnet demo;
-                  not a production-grade custody model.
+                  That witness alone does not authorize spending from the
+                  contract address: the token also enforces Soroban
+                  authorization. Custody, delegated spending and invocation
+                  paths still need independent security review. Registry key
+                  changes can invalidate prepared proofs. Testnet only;
+                  unaudited and not a production-grade custody model.
                 </Callout>
               </div>
             </div>
@@ -797,9 +806,22 @@ fund()                                   // atomically registers, transfers and 
             <P>
               The Testnet demo viewing key has been publicly distributed. It
               offers no exclusive auditor access. Use only test data and test
-              funds. This page does not embed private keys; obtain a test
-              viewing key through your deployment operator.
+              funds. Anyone with this demo key can decrypt amounts covered by
+              it; do not use this deployment for private business records.
             </P>
+            {isPublicDemoDeployment ? (
+              <>
+                <P>
+                  For auditor ID <Code>0</Code> on this Testnet demo, paste the
+                  public viewing key below into <Link href="/auditor" className="underline">Auditor access</Link>
+                  {" "}and click Unlock. It is a viewing key, not a Stellar
+                  wallet signing key.
+                </P>
+                <Pre>{PUBLIC_DEMO_AUDITOR_KEY}</Pre>
+              </>
+            ) : (
+              <P>Obtain a test viewing key from your deployment operator.</P>
+            )}
           </section>
           <section className="docs-section" aria-labelledby="compliance">
             <H2 id="compliance">Compliance Policy</H2>
