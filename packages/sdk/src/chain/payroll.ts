@@ -144,12 +144,8 @@ export async function buildPayrollTransfers(params: {
 
 // ---- reads -----------------------------------------------------------------
 
-export enum RunStatus {
-  Scheduled = 0,
-  Funded = 1,
-  Executed = 2,
-  Cancelled = 3,
-}
+import { RunStatus } from "./status.js";
+export { RunStatus } from "./status.js";
 
 export interface TemplateInfo {
   employer: string;

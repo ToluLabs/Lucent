@@ -141,15 +141,8 @@ export function submitCancelEscrow(client: ChainClient, signer: Signer, instance
 }
 
 /** Escrow lifecycle state, mirroring the contract's `EscrowState`. */
-export enum EscrowState {
-  Created = 0,
-  Funded = 1,
-  Completed = 2,
-  Released = 3,
-  Disputed = 4,
-  Refunded = 5,
-  Cancelled = 6,
-}
+import { EscrowState } from "./status.js";
+export { EscrowState } from "./status.js";
 
 export interface EscrowInfo {
   depositor: string;

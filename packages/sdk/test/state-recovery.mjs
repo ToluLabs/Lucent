@@ -118,3 +118,15 @@ assert.equal(recovered.receiving.v, 5n);
 assert.deepEqual(recovered.spendable, { v: 0n, r: 0n });
 assert.deepEqual(await recoveryStore.load("owner"), recovered);
 console.log("state-rebuild: both commitments required, failed history/verification preserves cache, successful recovery saved");
+
+// Concurrent receiving/spendable writes must not overwrite each other's state.
+const concurrentStore = new MemoryStore();
+const concurrentInitial = freshState("owner");
+concurrentInitial.receiving = { v: 7n, r: 0n };
+await concurrentStore.save(concurrentInitial);
+const concurrentEngine = new StateEngine({ client, store: concurrentStore, keys, address: "owner", fromLedger: 1 });
+await Promise.all([concurrentEngine.setSpendable({v:5n,r:0n}),concurrentEngine.applyMerge()]);
+const concurrentState = await concurrentStore.load("owner");
+assert.equal(concurrentState.spendable.v,12n);
+assert.equal(concurrentState.receiving.v,0n);
+console.log("state-concurrency: receiving/spendable mutations preserve both updates");

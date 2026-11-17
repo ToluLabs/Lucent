@@ -57,6 +57,8 @@ export interface ChainConfig {
   rpcUrl: string;
   /** Per HTTP request; transaction confirmation has its own bounded poll loop. */
   rpcTimeoutMs?: number;
+  /** Public hash notification after submission; never a success signal. */
+  onSubmitted?: (hash: string) => void;
   networkPassphrase: string;
   contracts: ContractIds;
 }
@@ -77,7 +79,10 @@ export interface OnChainAccount {
   auditorId: number;
 }
 
-export function keypairSigner(secret: string, networkPassphrase: string): Signer {
+export function keypairSigner(
+  secret: string,
+  networkPassphrase: string,
+): Signer {
   const kp = Keypair.fromSecret(secret);
   return {
     publicKey: kp.publicKey(),
@@ -89,7 +94,10 @@ export function keypairSigner(secret: string, networkPassphrase: string): Signer
   };
 }
 
+import { timed } from "../performance/trace.js";
+
 export class ChainClient {
+  private readonly reads = new Map<string, Promise<xdr.ScVal>>();
   readonly server: rpc.Server;
 
   constructor(readonly cfg: ChainConfig) {
@@ -97,7 +105,8 @@ export class ChainClient {
       allowHttp: cfg.rpcUrl.startsWith("http://"),
     });
     const timeout = cfg.rpcTimeoutMs ?? 30_000;
-    if (!Number.isFinite(timeout) || timeout <= 0) throw new Error("rpcTimeoutMs must be positive");
+    if (!Number.isFinite(timeout) || timeout <= 0)
+      throw new Error("rpcTimeoutMs must be positive");
     // SDK 14.6.1 declares Server.Options.timeout but does not forward it.
     // Configure the actual HTTP client so stalled RPC calls still terminate.
     this.server.httpClient.defaults.timeout = timeout;
@@ -106,10 +115,36 @@ export class ChainClient {
   // ----- reads -------------------------------------------------------------
 
   /** Simulate a read-only call and return its raw `ScVal` result. */
-  async simulate(contractId: string, method: string, args: xdr.ScVal[]): Promise<xdr.ScVal> {
-    const account = await this.server
-      .getAccount(NULL_ACCOUNT)
-      .catch(() => new Account(NULL_ACCOUNT, "0"));
+  async simulate(
+    contractId: string,
+    method: string,
+    args: xdr.ScVal[],
+  ): Promise<xdr.ScVal> {
+    // Read simulation does not require a funded transaction source or a signature.
+    const key = JSON.stringify([
+      contractId,
+      method,
+      args.map((arg) => arg.toXDR("base64")),
+    ]);
+    const pending = this.reads.get(key);
+    if (pending) return pending;
+    const request = timed("rpc.read", () =>
+      this.simulateRead(contractId, method, args),
+    );
+    this.reads.set(key, request);
+    try {
+      return await request;
+    } finally {
+      if (this.reads.get(key) === request) this.reads.delete(key);
+    }
+  }
+
+  private async simulateRead(
+    contractId: string,
+    method: string,
+    args: xdr.ScVal[],
+  ): Promise<xdr.ScVal> {
+    const account = new Account(NULL_ACCOUNT, "0");
     const tx = new TransactionBuilder(account, {
       fee: BASE_FEE,
       networkPassphrase: this.cfg.networkPassphrase,
@@ -118,7 +153,9 @@ export class ChainClient {
       .setTimeout(30)
       .build();
 
-    const sim = await this.server.simulateTransaction(tx);
+    const sim = await timed("tx.simulate", () =>
+      this.server.simulateTransaction(tx),
+    );
     if (rpc.Api.isSimulationError(sim)) {
       throw new Error(`simulate ${method} failed: ${sim.error}`);
     }
@@ -130,15 +167,21 @@ export class ChainClient {
   /** Read a confidential account, or `null` if `address` is not registered. */
   async confidentialBalance(address: string): Promise<OnChainAccount | null> {
     try {
-      const retval = await this.simulate(this.cfg.contracts.token, "confidential_balance", [
-        new Address(address).toScVal(),
-      ]);
+      const retval = await this.simulate(
+        this.cfg.contracts.token,
+        "confidential_balance",
+        [new Address(address).toScVal()],
+      );
       return parseAccount(retval);
     } catch (error) {
       // Only the token's explicit AccountNotRegistered error means absence.
       // RPC outages, archived entries and malformed responses must stay errors.
-      if (error instanceof Error &&
-          /^simulate confidential_balance failed: HostError: Error\(Contract, #3501\)/.test(error.message)) {
+      if (
+        error instanceof Error &&
+        /^simulate confidential_balance failed: HostError: Error\(Contract, #3501\)/.test(
+          error.message,
+        )
+      ) {
         return null;
       }
       throw error;
@@ -184,70 +227,136 @@ export class ChainClient {
       .setTimeout(180)
       .build();
 
-    const sim = await this.server.simulateTransaction(tx);
+    const sim = await timed("tx.simulate", () =>
+      this.server.simulateTransaction(tx),
+    );
     if (rpc.Api.isSimulationError(sim)) {
       throw new Error(`simulate ${method} failed: ${sim.error}`);
     }
     const data = sim.transactionData.build();
-    const archived = data.ext().switch() === 1
-      ? data.ext().resourceExt().archivedSorobanEntries()
-      : [];
+    const archived =
+      data.ext().switch() === 1
+        ? data.ext().resourceExt().archivedSorobanEntries()
+        : [];
     if (archived.length) {
-      if (restored) throw new Error(`${method}: ledger entries are still archived after restoration; retry the account operation`);
+      if (restored)
+        throw new Error(
+          `${method}: ledger entries are still archived after restoration; retry the account operation`,
+        );
       // Auto-restoration plus the invocation can exceed the network write
       // limit even when each operation fits separately. Restore first, then
       // rebuild from a fresh sequence number and fresh simulation.
       const footprint = data.resources().footprint().readWrite();
-      const restoreTx = new TransactionBuilder(await this.server.getAccount(signer.publicKey), {
-        fee: BASE_FEE,
-        networkPassphrase: this.cfg.networkPassphrase,
-      })
-        .setSorobanData(new SorobanDataBuilder().setReadWrite(archived.map(index => {
-          const key = footprint[index];
-          if (!key) throw new Error("Simulation returned an invalid archived entry index");
-          return key;
-        })).build())
+      const restoreTx = new TransactionBuilder(
+        await this.server.getAccount(signer.publicKey),
+        {
+          fee: BASE_FEE,
+          networkPassphrase: this.cfg.networkPassphrase,
+        },
+      )
+        .setSorobanData(
+          new SorobanDataBuilder()
+            .setReadWrite(
+              archived.map((index) => {
+                const key = footprint[index];
+                if (!key)
+                  throw new Error(
+                    "Simulation returned an invalid archived entry index",
+                  );
+                return key;
+              }),
+            )
+            .build(),
+        )
         .addOperation(Operation.restoreFootprint({}))
         .setTimeout(180)
         .build();
       const restoreSim = await this.server.simulateTransaction(restoreTx);
       if (rpc.Api.isSimulationError(restoreSim)) {
-        throw new Error(`simulate restore for ${method} failed: ${restoreSim.error}`);
+        throw new Error(
+          `simulate restore for ${method} failed: ${restoreSim.error}`,
+        );
       }
-      await this.submit(rpc.assembleTransaction(restoreTx, restoreSim).build(), signer, `restore for ${method}`);
+      await this.submit(
+        rpc.assembleTransaction(restoreTx, restoreSim).build(),
+        signer,
+        `restore for ${method}`,
+      );
       return this.invoke(contractId, method, args, signer, true);
     }
     const assembled = rpc.assembleTransaction(tx, sim).build();
     return this.submit(assembled, signer, method);
   }
 
-  private async submit(assembled: Transaction, signer: Signer, method: string): Promise<InvokeResult> {
-    const signedXdr = await signer.sign(assembled.toXDR());
-    const signedTx = TransactionBuilder.fromXDR(signedXdr, this.cfg.networkPassphrase);
+  private async submit(
+    assembled: Transaction,
+    signer: Signer,
+    method: string,
+  ): Promise<InvokeResult> {
+    const signedXdr = await timed("tx.wallet_wait", () =>
+      signer.sign(assembled.toXDR()),
+    );
+    const signedTx = TransactionBuilder.fromXDR(
+      signedXdr,
+      this.cfg.networkPassphrase,
+    );
 
-    const send = await this.server.sendTransaction(signedTx);
+    let send;
+    try {
+      send = await timed("tx.submit", () =>
+        this.server.sendTransaction(signedTx),
+      );
+    } catch {
+      throw new Error(
+        `${method} submission confirmation unknown after network error (tx ${signedTx.hash().toString("hex")}); check before retrying`,
+      );
+    }
     if (send.status === "ERROR") {
       const diagnostics = (send.diagnosticEvents ?? []).map((diagnostic) => {
         const event = diagnostic.event().body().v0();
-        return JSON.stringify({
-          topics: event.topics().map((topic) => scValToNative(topic)),
-          data: scValToNative(event.data()),
-        }, (_, value) => typeof value === "bigint" ? value.toString() : value);
+        return JSON.stringify(
+          {
+            topics: event.topics().map((topic) => scValToNative(topic)),
+            data: scValToNative(event.data()),
+          },
+          (_, value) => (typeof value === "bigint" ? value.toString() : value),
+        );
       });
       throw new Error(
         `send ${method} rejected (${send.errorResult?.result().switch().name ?? "unknown"}, tx ${send.hash})` +
-        (diagnostics.length ? `: ${diagnostics.join("; ")}` : `: ${JSON.stringify(send.errorResult)}`),
+          (diagnostics.length
+            ? `: ${diagnostics.join("; ")}`
+            : `: ${JSON.stringify(send.errorResult)}`),
       );
     }
 
+    try {
+      this.cfg.onSubmitted?.(send.hash);
+    } catch {
+      /* Observers cannot interrupt confirmation. */
+    }
     for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
-      await sleep(POLL_INTERVAL_MS);
-      const res = await this.server.getTransaction(send.hash);
+      if (i > 0) await sleep(POLL_INTERVAL_MS);
+      let res;
+      try {
+        res = await timed("tx.confirm", () =>
+          this.server.getTransaction(send.hash),
+        );
+      } catch {
+        throw new Error(
+          `${method} confirmation unknown after network error (tx ${send.hash}); check before retrying`,
+        );
+      }
       if (res.status === rpc.Api.GetTransactionStatus.NOT_FOUND) continue;
       if (res.status === rpc.Api.GetTransactionStatus.FAILED) {
         throw new Error(`${method} failed on-chain (tx ${send.hash})`);
       }
-      return { hash: send.hash, status: res.status, returnValue: res.returnValue };
+      if (res.status !== rpc.Api.GetTransactionStatus.SUCCESS) continue;
+      return {
+        hash: send.hash,
+        status: res.status,
+        returnValue: res.returnValue,
+      };
     }
     throw new Error(`${method} confirmation timed out (tx ${send.hash})`);
   }
