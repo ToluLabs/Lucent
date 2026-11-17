@@ -19,13 +19,13 @@ Sender and receiver stay public and verifiable on-chain. Only the amount moves i
 
 <div align="center">
 
-<h2>Watch the launch demo</h2>
+<h2>Watch the technical walkthrough</h2>
 
-<a href="https://youtu.be/l7yIpmE0OqE">
-  <img src="https://img.youtube.com/vi/l7yIpmE0OqE/hqdefault.jpg" alt="Watch the Lucent launch demo on YouTube" />
+<a href="https://youtu.be/dpMq-2BTxTc">
+  <img src="https://img.youtube.com/vi/dpMq-2BTxTc/hqdefault.jpg" alt="Watch the Lucent technical walkthrough on YouTube" />
 </a>
 
-<p><a href="https://youtu.be/l7yIpmE0OqE">Watch on YouTube</a> — a short animated walkthrough of shielding USDC, confidential transfers, payroll, escrow, and selective disclosure.</p>
+<p><a href="https://youtu.be/dpMq-2BTxTc">Watch the technical walkthrough on YouTube</a></p>
 
 </div>
 
