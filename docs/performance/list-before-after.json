@@ -1,0 +1,21 @@
+{
+  "conditions": "Controlled independent-read fixture, identical 24 records, sequential baseline versus four-worker bounded fan-out. Not live RPC or browser.",
+  "samples": [
+    {
+      "latencyMs": 5,
+      "items": 24,
+      "requestsBefore": 24,
+      "requestsAfter": 24,
+      "serialMs": 328.926958,
+      "boundedMs": 35.02324999999996
+    },
+    {
+      "latencyMs": 50,
+      "items": 24,
+      "requestsBefore": 24,
+      "requestsAfter": 24,
+      "serialMs": 1224.008917,
+      "boundedMs": 306.1047500000002
+    }
+  ]
+}

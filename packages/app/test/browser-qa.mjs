@@ -232,8 +232,8 @@ try {
   console.log(
     JSON.stringify(
       {
-        viewports: 5,
-        routes: 13,
+        viewports: new Set(report.map(r => r.width)).size,
+        routes: new Set(report.map(r => r.route)).size,
         checks: report.length,
         issues,
         runtimeErrors,

@@ -33,7 +33,7 @@ import {buildDiscloseSenderWitness} from ${JSON.stringify(resolve(sdk,'src/witne
 import {G} from ${JSON.stringify(resolve(sdk,'src/crypto/grumpkin.ts'))};
 window.runProof=async()=>{
  ${setupBackend}
- const startedMs=performance.now();const samples=[];
+ const startedMs=performance.now();const samples=[];window.__publicProofs=[];
  const keys=deriveKeys(1n,2n),holder=deriveKeys(3n,2n);
  const transfer=buildTransferWitness({keys,v:1000n,r:0n,amount:250n,pvkB:holder.PVK,kAudR:G,kAudS:G});
  const event={rE:transfer.payload.rE,sigma:transfer.payload.sigma,vTilde:transfer.payload.vTilde};
@@ -52,6 +52,7 @@ window.runProof=async()=>{
    const vk=await prover.verificationKey();
    const vkMatches=btoa(String.fromCharCode(...vk))===${JSON.stringify(expectedKeys)}[test.name];
    samples.push({circuit:test.name,cache,proveMs,verifyMs,verified,vkMatches,proofBytes:result.proof.length});
+   if(${process.env.PERF_VERIFY_TESTNET==='1'} && cache==='cold-backend' && ['register','withdraw','transfer'].includes(test.name))window.__publicProofs.push({circuit:test.name,proof:Array.from(result.proof),publicInputs:result.publicInputs});
   }}finally{await prover.destroy();}
  }
  return {samples,startedMs,endedMs:performance.now()};
@@ -77,10 +78,30 @@ try{
  const {samples,startedMs,endedMs}=await page.evaluate(()=>window.runProof());
  await page.waitForTimeout(50);
  const tasks=await page.evaluate(()=>window.__tasks);
+ let testnetVerification;
+ if(process.env.PERF_VERIFY_TESTNET==='1'){
+  const deployment=JSON.parse(await readFile(resolve(app,'lib/deployment.json'),'utf8'));
+  if(deployment.passphrase!=='Test SDF Network ; September 2015')throw Error('Testnet verification only');
+  const sdkRequire=createRequire(resolve(sdk,'package.json'));
+  const {xdr,scValToNative}=sdkRequire('@stellar/stellar-sdk');
+  const {ChainClient}=await import(new URL('../sdk/dist/chain/client.js',new URL('file://'+app+'/')).href);
+  const client=new ChainClient({rpcUrl:deployment.rpcUrl,networkPassphrase:deployment.passphrase,contracts:deployment.contracts});
+  const proofs=await page.evaluate(()=>window.__publicProofs);
+  testnetVerification=[];
+  for(const item of proofs){
+   const types={register:0,withdraw:1,transfer:2};
+   const inputs=Buffer.concat(item.publicInputs.map(value=>Buffer.from(BigInt(value).toString(16).padStart(64,'0'),'hex')));
+   const args=[xdr.ScVal.scvU32(types[item.circuit]),xdr.ScVal.scvBytes(inputs),xdr.ScVal.scvBytes(Buffer.from(item.proof))];
+   const start=performance.now();const verified=scValToNative(await client.simulate(deployment.contracts.verifier,'verify_proof',args));
+   if(verified!==true)throw Error('Deployed verifier rejected browser proof: '+item.circuit);
+   testnetVerification.push({circuit:item.circuit,verified,simulationMs:performance.now()-start,verifier:deployment.contracts.verifier});
+  }
+ }
+
  for(let i=0;i<50&&page.workers().length;i++)await page.waitForTimeout(20);
  const remainingWorkers=page.workers().length;
  if(remainingWorkers!==0)throw Error(`Proof worker cleanup left ${remainingWorkers} workers`);
- const result={mode,remainingWorkers,conditions:'Real Chrome, same native bb.js assets, cross-origin isolation, registration circuit and Keccak transcript; synthetic inputs; no wallet or transaction. Cold backend may use browser/native network caches. One cold/warm pair.',samples,tasks,proofInterval:{startedMs,endedMs},longTasks:tasks.length,maxLongTaskMs:Math.max(0,...tasks.map(t=>t.durationMs)),blockingMs:tasks.reduce((s,t)=>s+Math.max(0,t.durationMs-50),0)};
+ const result={mode,remainingWorkers,testnetVerification,conditions:'Real Chrome, same native bb.js assets, cross-origin isolation, pinned Noir circuits and Keccak transcript; synthetic inputs; no wallet or transaction. Cold backend may use browser/native network caches. One cold/warm pair.',samples,tasks,proofInterval:{startedMs,endedMs},longTasks:tasks.length,maxLongTaskMs:Math.max(0,...tasks.map(t=>t.durationMs)),blockingMs:tasks.reduce((s,t)=>s+Math.max(0,t.durationMs-50),0)};
  if(samples.some(s=>!s.verified||!s.vkMatches))throw Error('Proof verification failed');
  await writeFile(process.env.PERF_REPORT??'/tmp/lucent-browser-proving.json',JSON.stringify(result,null,2)+'\n');console.log(JSON.stringify(result));
 }finally{await browser?.close();await new Promise(r=>server.close(r));}

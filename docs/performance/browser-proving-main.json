@@ -1,0 +1,38 @@
+{
+  "mode": "main",
+  "remainingWorkers": 0,
+  "conditions": "Real Chrome, same native bb.js assets, cross-origin isolation, registration circuit and Keccak transcript; synthetic inputs; no wallet or transaction. Cold backend may use browser/native network caches. One cold/warm pair.",
+  "samples": [
+    {
+      "circuit": "register",
+      "cache": "cold-backend",
+      "proveMs": 4584.074999999255,
+      "verifyMs": 931.4749999996275,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "register",
+      "cache": "warm-backend",
+      "proveMs": 2211.4050000002608,
+      "verifyMs": 921.5200000004843,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    }
+  ],
+  "tasks": [
+    {
+      "startMs": 227.1049999995157,
+      "durationMs": 150
+    }
+  ],
+  "proofInterval": {
+    "startedMs": 61.0699999993667,
+    "endedMs": 10546.620000000112
+  },
+  "longTasks": 1,
+  "maxLongTaskMs": 150,
+  "blockingMs": 100
+}

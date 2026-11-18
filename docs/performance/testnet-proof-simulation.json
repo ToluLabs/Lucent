@@ -1,0 +1,98 @@
+{
+  "mode": "worker",
+  "remainingWorkers": 0,
+  "testnetVerification": [
+    {
+      "circuit": "register",
+      "verified": true,
+      "simulationMs": 1497.943167000005,
+      "verifier": "CAL32C7RZ5AB4IIYJBAH6XHPFZPFMUGMJ4ZDYQPOA3X7LX6EOJCZSTYN"
+    },
+    {
+      "circuit": "withdraw",
+      "verified": true,
+      "simulationMs": 391.61849999999686,
+      "verifier": "CAL32C7RZ5AB4IIYJBAH6XHPFZPFMUGMJ4ZDYQPOA3X7LX6EOJCZSTYN"
+    },
+    {
+      "circuit": "transfer",
+      "verified": true,
+      "simulationMs": 484.5290840000016,
+      "verifier": "CAL32C7RZ5AB4IIYJBAH6XHPFZPFMUGMJ4ZDYQPOA3X7LX6EOJCZSTYN"
+    }
+  ],
+  "conditions": "Real Chrome, same native bb.js assets, cross-origin isolation, registration circuit and Keccak transcript; synthetic inputs; no wallet or transaction. Cold backend may use browser/native network caches. One cold/warm pair.",
+  "samples": [
+    {
+      "circuit": "register",
+      "cache": "cold-backend",
+      "proveMs": 4104.665000000037,
+      "verifyMs": 934.7949999999255,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "register",
+      "cache": "warm-backend",
+      "proveMs": 2217.1299999998882,
+      "verifyMs": 932.5099999997765,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "withdraw",
+      "cache": "cold-backend",
+      "proveMs": 4915.984999999404,
+      "verifyMs": 1733.3600000003353,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "transfer",
+      "cache": "cold-backend",
+      "proveMs": 4726.924999999814,
+      "verifyMs": 1757.6100000003353,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "transfer",
+      "cache": "warm-backend",
+      "proveMs": 4250.4000000003725,
+      "verifyMs": 1732.0249999994412,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "disclose_recipient",
+      "cache": "cold-backend",
+      "proveMs": 2874.56500000041,
+      "verifyMs": 990.0800000000745,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "disclose_sender",
+      "cache": "cold-backend",
+      "proveMs": 2866.510000000708,
+      "verifyMs": 994.714999999851,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    }
+  ],
+  "tasks": [],
+  "proofInterval": {
+    "startedMs": 83.17499999981374,
+    "endedMs": 44056.39999999944
+  },
+  "longTasks": 0,
+  "maxLongTaskMs": 0,
+  "blockingMs": 0
+}
