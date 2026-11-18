@@ -23,6 +23,15 @@ const nextConfig = {
     return [
       { source: "/(.*)", headers: crossOriginIsolation },
       {
+        source: "/vendor/prover/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
         source: "/fonts/:path*",
         headers: [
           {

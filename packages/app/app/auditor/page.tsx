@@ -48,6 +48,9 @@ import {
   toHex32,
   type ConfidentialEvent,
 } from "@lucent/sdk";
+import { useQueryClient } from "@tanstack/react-query";
+import { publicScope } from "@/lib/public-query";
+import { loadPublicAuditEvents } from "@/lib/public-audit-source";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -208,6 +211,7 @@ function saveSavedSecrets(secrets: string[]): void {
 }
 
 export default function AuditorPage() {
+  const publicQueries = useQueryClient();
   const requestId = useRef(0);
   const [rememberKey, setRememberKey] = useState(false);
   const [limit, setLimit] = useState(25);
@@ -282,35 +286,29 @@ export default function AuditorPage() {
     setError(null);
   }
 
-  const load = useCallback(async (sk: bigint) => {
-    const ticket = ++requestId.current;
-    setBusy(true);
-    setError(null);
-    try {
-      const client = new ChainClient({
-        rpcUrl: DEPLOYMENT.rpcUrl,
-        networkPassphrase: DEPLOYMENT.networkPassphrase,
-        contracts: DEPLOYMENT.contracts,
-      });
-      // Hybrid source: the indexer (when configured) backfills the full history
-      // below the RPC's ~7-day window — exactly what an auditor needs. The RPC
-      // leg is clamped to the retention boundary internally.
-      const indexer = DEPLOYMENT.indexerUrl
-        ? new IndexerClient({ baseUrl: DEPLOYMENT.indexerUrl })
-        : undefined;
-      const { events } = await hybridFetchEvents(client, indexer, {
-        fromLedger: DEPLOYMENT.deployedAtLedger,
-      });
-      if (ticket !== requestId.current) return;
-      const result = replay(events, sk);
-      setRows(result.rows);
-      setAccounts(result.accounts);
-    } catch (e) {
-      if (ticket === requestId.current) setError(errMsg(e));
-    } finally {
-      if (ticket === requestId.current) setBusy(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (sk: bigint, force = false) => {
+      const ticket = ++requestId.current;
+      setBusy(true);
+      setError(null);
+      try {
+        const events = await publicQueries.fetchQuery({
+          queryKey: [...publicScope("auditor-public"), "audit-events"],
+          queryFn: loadPublicAuditEvents,
+          staleTime: force ? 0 : 30_000,
+        });
+        if (ticket !== requestId.current) return;
+        const result = replay(events, sk);
+        setRows(result.rows);
+        setAccounts(result.accounts);
+      } catch (e) {
+        if (ticket === requestId.current) setError(errMsg(e));
+      } finally {
+        if (ticket === requestId.current) setBusy(false);
+      }
+    },
+    [publicQueries],
+  );
 
   useEffect(() => {
     if (auditorSk !== null) void load(auditorSk);
@@ -501,7 +499,7 @@ export default function AuditorPage() {
                       size="sm"
                       variant="secondary"
                       isLoading={busy}
-                      onClick={() => load(auditorSk)}
+                      onClick={() => load(auditorSk, true)}
                     >
                       Reload
                     </Button>

@@ -2,7 +2,7 @@
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
 import { createServer } from "node:http";
-import { mkdtemp, readFile, readdir, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, mkdir, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -49,7 +49,7 @@ try {
           b.onLoad({ filter: /.*/, namespace: "next-mock" }, (args) => ({
             contents:
               args.path === "next/link"
-                ? `import React from ${JSON.stringify(react)};export default function Link({prefetch,...p}){return React.createElement('a',p);}`
+                ? `import React from ${JSON.stringify(react)};export default function Link({prefetch,onClick,...p}){return React.createElement('a',{...p,onClick:e=>{onClick?.(e);if(window.__spa&&!e.defaultPrevented&&typeof p.href==='string'&&p.href.startsWith('/')){e.preventDefault();window.__navigationStart=performance.now();history.pushState({},'',p.href);window.dispatchEvent(new PopStateEvent('popstate'));}}});}`
                 : `export const usePathname=()=>location.pathname;export const useRouter=()=>({push:p=>location.href=p,back:()=>history.back()});`,
             loader: "js",
             resolveDir: app,
@@ -192,6 +192,18 @@ try {
     1,
     "One activity request after account loading",
   );
+  await page.evaluate(() => { window.__spa = true; });
+  await page.getByRole('link', {name:'Payments',exact:true}).first().click();
+  await page.getByRole('heading',{name:'Payments',exact:true}).waitFor();
+  await page.getByRole('link',{name:'Overview',exact:true}).first().click();
+  await page.getByRole('heading',{name:'Overview',exact:true}).waitFor();
+  await page.getByText('No events in the available history',{exact:true}).waitFor();
+  assert.equal(await page.evaluate(()=>window.__historyCalls),1,'Warm route return must reuse the existing activity query');
+  const navigation = await page.evaluate(()=>window.__navigationMeasurements);
+  assert.equal(navigation.length,2);
+  await writeFile(resolve(output,'connected-navigation.json'),JSON.stringify({conditions:'Real React page components and QueryClient, mocked wallet, fixture SPA router; not Next router or live balances',navigation,activityRequestsOnWarmReturn:0},null,2));
+  await page.getByRole('button',{name:'Refresh account',exact:true}).click();
+  await page.waitForFunction(()=>window.__historyCalls===2);
   await visit("/home?historyError=1");
   await page
     .getByText("RPC history unavailable")
@@ -232,6 +244,7 @@ try {
     b.click();
     b.click();
   });
+  await page.getByRole("link", {name:"View submitted transaction", exact:false}).waitFor();
   await page.getByText("Payment sent.", { exact: true }).waitFor();
   assert.equal(
     await page.evaluate(() => window.__calls),
@@ -247,6 +260,8 @@ try {
     await page.getByRole("button", { name: "Confirm and send" }).isDisabled(),
   );
   await page.reload();
+  await page.getByRole("link", {name:"View submitted transaction",exact:false}).waitFor();
+  assert.match(await page.getByRole("link",{name:"View submitted transaction",exact:false}).getAttribute("href"), new RegExp("a".repeat(64)));
   await page
     .getByText("Confirmation uncertain · check before retrying")
     .waitFor();

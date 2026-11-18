@@ -1,3 +1,6 @@
+import { sessionSigner } from "./session-signer";
+import { EventHistory } from "./event-history";
+import { mapConcurrent, contractIds } from "./concurrent";
 /**
  * ConfidentialWallet — UI-facing orchestration over @lucent/sdk.
  *
@@ -23,8 +26,7 @@ import {
   StateEngine,
   LocalStorageStore,
   type AccountState,
-  type CircuitProver,
-  proverFromArtifact,
+  type ProofEngine,
   buildRegisterWitness,
   buildWithdrawWitness,
   buildTransferWitness,
@@ -71,6 +73,7 @@ import {
   type EscrowInfo,
   IndexerClient,
   hybridFetchEvents,
+  timed,
   proveRecipientDisclosure,
   proveSenderDisclosure,
   deriveEphemeralRE,
@@ -96,31 +99,41 @@ import {
   submitSetComplianceConfig,
   type ComplianceConfig,
 } from "@lucent/sdk";
-import registerCircuit from "@lucent/sdk/circuits/register.json";
-import withdrawCircuit from "@lucent/sdk/circuits/withdraw.json";
-import transferCircuit from "@lucent/sdk/circuits/transfer.json";
-import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_recipient.json";
-import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
-
 import { DEPLOYMENT } from "./deployment";
-import { connectFreighter, requireTestnet, withWalletProgress } from "./freighter";
+import {
+  connectFreighter,
+  requireTestnet,
+  withWalletProgress,
+} from "./freighter";
 import { keyDerivationMessage, skFromSignature } from "./derive-key";
 import { ensureBrowserBackend } from "./bb-loader";
 import { Address, scValToNative } from "@stellar/stellar-sdk";
 
 type Log = (msg: string) => void;
-type CircuitName = "register" | "withdraw" | "transfer" | "disclose_recipient" | "disclose_sender";
+type CircuitName =
+  | "register"
+  | "withdraw"
+  | "transfer"
+  | "disclose_recipient"
+  | "disclose_sender";
 
-const CIRCUITS: Record<CircuitName, { bytecode: string } & Record<string, unknown>> = {
-  register: registerCircuit as never,
-  withdraw: withdrawCircuit as never,
-  transfer: transferCircuit as never,
-  disclose_recipient: discloseRecipientCircuit as never,
-  disclose_sender: discloseSenderCircuit as never,
+// Load only the selected circuit. Wallet reconnect and balance reads need no circuit JSON.
+const CIRCUITS = {
+  register: () => import("@lucent/sdk/circuits/register.json"),
+  withdraw: () => import("@lucent/sdk/circuits/withdraw.json"),
+  transfer: () => import("@lucent/sdk/circuits/transfer.json"),
+  disclose_recipient: () =>
+    import("@lucent/disclosure/artifacts/disclose_recipient.json"),
+  disclose_sender: () =>
+    import("@lucent/disclosure/artifacts/disclose_sender.json"),
 };
 
 /** Coarse progress of a proof-carrying operation, for UI button labels. */
-export type TxPhase = "proving" | "preparing_transaction" | "awaiting_wallet" | "submitting";
+export type TxPhase =
+  | "proving"
+  | "preparing_transaction"
+  | "awaiting_wallet"
+  | "submitting";
 
 export interface WalletView {
   address: string;
@@ -129,13 +142,21 @@ export interface WalletView {
   receiving: bigint;
   syncedLedger: number;
   matchesChain: boolean | null;
-  publicUSDC: bigint;
+  publicUSDC: bigint | null;
 }
 
 export class ConfidentialWallet {
-  private provers = new Map<CircuitName, CircuitProver>();
+  private endSession = () => {};
+  private disposed = false;
+  private provers = new Map<CircuitName, Promise<ProofEngine>>();
+  private liveProvers = new Map<CircuitName, ProofEngine>();
   /** In-flight full-history fetch shared by concurrent callers (see fetchAllEvents). */
-  private inFlightEvents: Promise<ConfidentialEvent[]> | null = null;
+  private eventHistory = new EventHistory((cursor) =>
+    hybridFetchEvents(this.client, this.indexer, {
+      fromLedger: DEPLOYMENT.deployedAtLedger,
+      startCursor: cursor,
+    }),
+  );
 
   private constructor(
     readonly address: string,
@@ -145,7 +166,11 @@ export class ConfidentialWallet {
     private engine: StateEngine,
     private indexer: IndexerClient | undefined,
     private log: Log,
-  ) {}
+  ) {
+    const session = sessionSigner(signer);
+    this.signer = session.signer;
+    this.endSession = session.close;
+  }
 
   static async connect(log: Log): Promise<ConfidentialWallet> {
     ensureBrowserBackend();
@@ -156,6 +181,16 @@ export class ConfidentialWallet {
       rpcUrl: DEPLOYMENT.rpcUrl,
       networkPassphrase: DEPLOYMENT.networkPassphrase,
       contracts: DEPLOYMENT.contracts,
+      onSubmitted: (hash) =>
+        window.dispatchEvent(
+          new CustomEvent("lucent:submitted", {
+            detail: {
+              hash,
+              address: signer.publicKey,
+              network: DEPLOYMENT.networkPassphrase,
+            },
+          }),
+        ),
     });
 
     const addrF = addressToField(DEPLOYMENT.contracts.token);
@@ -167,11 +202,16 @@ export class ConfidentialWallet {
     } else {
       log("sign the key-derivation message in Varial…");
       const signature = await signer.signMessage(
-        keyDerivationMessage(DEPLOYMENT.networkPassphrase, DEPLOYMENT.contracts.token),
+        keyDerivationMessage(
+          DEPLOYMENT.networkPassphrase,
+          DEPLOYMENT.contracts.token,
+        ),
       );
       sk = await skFromSignature(signature);
       localStorage.setItem(skKey, toHex32(sk));
-      log("derived confidential key from wallet signature (cached in localStorage)");
+      log(
+        "derived confidential key from wallet signature (cached in localStorage)",
+      );
     }
     const keys = deriveKeys(sk, addrF);
 
@@ -188,7 +228,9 @@ export class ConfidentialWallet {
     // indexer (if present), so a stale deployment no longer makes sync throw.
     const fromLedger: number = DEPLOYMENT.deployedAtLedger;
 
-    const store = new LocalStorageStore(`lucent:state:${DEPLOYMENT.networkPassphrase}:${DEPLOYMENT.contracts.token}:`);
+    const store = new LocalStorageStore(
+      `lucent:state:${DEPLOYMENT.networkPassphrase}:${DEPLOYMENT.contracts.token}:`,
+    );
     const engine = new StateEngine({
       client,
       store,
@@ -203,29 +245,94 @@ export class ConfidentialWallet {
     // capture a fresh chain cursor, then recheck before committing the migration.
     if (!(await store.load(signer.publicKey))) {
       const legacy = await new LocalStorageStore().load(signer.publicKey);
-      const acct = legacy ? await client.confidentialBalance(signer.publicKey) : null;
-      if (legacy && acct && acct.spendingKey.equals(keys.Y) && acct.viewingPublicKey.equals(keys.PVK)) {
-        const candidate = new StateEngine({ client, store: new LocalStorageStore(), keys,
-          address: signer.publicKey, fromLedger, indexer });
+      const acct = legacy
+        ? await client.confidentialBalance(signer.publicKey)
+        : null;
+      if (
+        legacy &&
+        acct &&
+        acct.spendingKey.equals(keys.Y) &&
+        acct.viewingPublicKey.equals(keys.PVK)
+      ) {
+        const candidate = new StateEngine({
+          client,
+          store: new LocalStorageStore(),
+          keys,
+          address: signer.publicKey,
+          fromLedger,
+          indexer,
+        });
         if ((await candidate.verifyAgainstChain()).ok) {
-          const tip = await hybridFetchEvents(client, undefined, { fromLedger: (await client.server.getHealth()).latestLedger });
+          const tip = await hybridFetchEvents(client, undefined, {
+            fromLedger: (await client.server.getHealth()).latestLedger,
+          });
           if ((await candidate.verifyAgainstChain()).ok && tip.cursor) {
-            await store.save({ ...legacy, cursor: tip.cursor, syncedLedger: tip.latestLedger });
+            await store.save({
+              ...legacy,
+              cursor: tip.cursor,
+              syncedLedger: tip.latestLedger,
+            });
           }
         }
       }
     }
 
-    return new ConfidentialWallet(signer.publicKey, signer, keys, client, engine, indexer, log);
+    return new ConfidentialWallet(
+      signer.publicKey,
+      signer,
+      keys,
+      client,
+      engine,
+      indexer,
+      log,
+    );
   }
 
-  private prover(name: CircuitName): CircuitProver {
-    let p = this.provers.get(name);
-    if (!p) {
-      p = proverFromArtifact(CIRCUITS[name]);
-      this.provers.set(name, p);
+  private prover(name: CircuitName): Promise<ProofEngine> {
+    if (this.disposed) return Promise.reject(new Error("Wallet session ended"));
+    let pending = this.provers.get(name);
+    if (!pending) {
+      pending = CIRCUITS[name]()
+        .then(async (m) =>
+          (await import("./worker-prover")).workerProverFromArtifact(
+            m.default,
+            (prover) => {
+              if (this.disposed) void prover.destroy();
+              else this.liveProvers.set(name, prover);
+            },
+            () => {
+              this.provers.delete(name);
+              this.liveProvers.delete(name);
+            },
+          ),
+        )
+        .catch((error) => {
+          this.provers.delete(name);
+          throw error;
+        });
+      this.provers.set(name, pending);
     }
-    return p;
+    return pending;
+  }
+
+  /** Release initialized backend workers when this wallet session ends. */
+  async destroy(): Promise<void> {
+    this.disposed = true;
+    this.endSession();
+    const provers = [...this.liveProvers.values()];
+    this.liveProvers.clear();
+    this.provers.clear();
+
+    await Promise.allSettled(provers.map((p) => p.destroy()));
+  }
+
+  private async spendingState(): Promise<AccountState> {
+    const state = await this.engine.sync();
+    if (!(await this.engine.verifyAgainstChain()).ok)
+      throw new Error(
+        "Local commitments do not match the chain. Use verified recovery before spending.",
+      );
+    return state;
   }
 
   /** Read on-chain account (null if not registered). */
@@ -242,8 +349,13 @@ export class ConfidentialWallet {
     await requireTestnet();
     const existing = await this.account();
     if (existing) {
-      if (!existing.spendingKey.equals(this.keys.Y) || !existing.viewingPublicKey.equals(this.keys.PVK)) {
-        throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
+      if (
+        !existing.spendingKey.equals(this.keys.Y) ||
+        !existing.viewingPublicKey.equals(this.keys.PVK)
+      ) {
+        throw new Error(
+          "This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.",
+        );
       }
       this.log("already registered on-chain; refreshing account state");
       return;
@@ -253,7 +365,10 @@ export class ConfidentialWallet {
     try {
       await this.client.server.getAccount(this.address);
     } catch (error) {
-      if (error instanceof Error && error.message === `Account not found: ${this.address}`) {
+      if (
+        error instanceof Error &&
+        error.message === `Account not found: ${this.address}`
+      ) {
         throw new Error(
           "Your wallet is not funded on Stellar Testnet. In Varial, select Testnet and fund this address with Friendbot, then retry registration.",
         );
@@ -263,17 +378,34 @@ export class ConfidentialWallet {
     const w = buildRegisterWitness(this.keys);
     onPhase?.("proving");
     this.log("proving register…");
-    const { proof } = await this.prover("register").prove(w.inputs);
+    const { proof } = await (await this.prover("register")).prove(w.inputs);
     onPhase?.("preparing_transaction");
     this.log("submitting register…");
-    const r = await trackConfirmed("registration_confirmed", () => submitRegister(this.client, withWalletProgress(this.signer, onPhase), this.address, DEPLOYMENT.auditorId, w, proof));
+    const r = await trackConfirmed("registration_confirmed", () =>
+      submitRegister(
+        this.client,
+        withWalletProgress(this.signer, onPhase),
+        this.address,
+        DEPLOYMENT.auditorId,
+        w,
+        proof,
+      ),
+    );
     this.log(`registered (tx ${r.hash.slice(0, 10)}…)`);
   }
 
   async deposit(amount: bigint, onPhase?: (p: TxPhase) => void): Promise<void> {
     onPhase?.("preparing_transaction");
-    this.log(`depositing ${amount}…`);
-    const r = await trackConfirmed("deposit_confirmed", () => submitDeposit(this.client, withWalletProgress(this.signer, onPhase), this.address, this.address, amount));
+    this.log("preparing deposit…");
+    const r = await trackConfirmed("deposit_confirmed", () =>
+      submitDeposit(
+        this.client,
+        withWalletProgress(this.signer, onPhase),
+        this.address,
+        this.address,
+        amount,
+      ),
+    );
     this.log(`deposited (tx ${r.hash.slice(0, 10)}…) → receiving balance`);
   }
 
@@ -288,7 +420,13 @@ export class ConfidentialWallet {
     await this.engine.sync();
     onPhase?.("preparing_transaction");
     this.log("merging receiving → spendable…");
-    const r = await trackConfirmed("merge_confirmed", () => submitMerge(this.client, withWalletProgress(this.signer, onPhase), this.address));
+    const r = await trackConfirmed("merge_confirmed", () =>
+      submitMerge(
+        this.client,
+        withWalletProgress(this.signer, onPhase),
+        this.address,
+      ),
+    );
     await this.engine.applyMerge();
     this.log(`merged (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -298,14 +436,24 @@ export class ConfidentialWallet {
   /** Freeze `account` — it can no longer deposit, transfer, receive, or withdraw. */
   async freeze(account: string): Promise<void> {
     this.log(`freezing ${account}…`);
-    const r = await submitFreeze(this.client, this.signer, account, this.address);
+    const r = await submitFreeze(
+      this.client,
+      this.signer,
+      account,
+      this.address,
+    );
     this.log(`frozen (tx ${r.hash.slice(0, 10)}…)`);
   }
 
   /** Unfreeze `account`. */
   async unfreeze(account: string): Promise<void> {
     this.log(`unfreezing ${account}…`);
-    const r = await submitUnfreeze(this.client, this.signer, account, this.address);
+    const r = await submitUnfreeze(
+      this.client,
+      this.signer,
+      account,
+      this.address,
+    );
     this.log(`unfrozen (tx ${r.hash.slice(0, 10)}…)`);
   }
 
@@ -345,8 +493,13 @@ export class ConfidentialWallet {
    * can register/transact freely. Freeze is unaffected by this either way —
    * see the SDK's `submitSetComplianceConfig` doc comment.
    */
-  async setCompliancePolicy(enabled: boolean, policyAddress: string): Promise<void> {
-    this.log(enabled ? "enabling allowlist gate…" : "disabling allowlist gate…");
+  async setCompliancePolicy(
+    enabled: boolean,
+    policyAddress: string,
+  ): Promise<void> {
+    this.log(
+      enabled ? "enabling allowlist gate…" : "disabling allowlist gate…",
+    );
     const r = await submitSetComplianceConfig(
       this.client,
       this.signer,
@@ -357,14 +510,19 @@ export class ConfidentialWallet {
     this.log(`compliance config updated (tx ${r.hash.slice(0, 10)}…)`);
   }
 
-  async transfer(to: string, amount: bigint, onPhase?: (p: TxPhase) => void): Promise<{ hash: string }> {
+  async transfer(
+    to: string,
+    amount: bigint,
+    onPhase?: (p: TxPhase) => void,
+  ): Promise<{ hash: string }> {
     const recipient = await this.client.confidentialBalance(to);
     if (!recipient) throw new Error("recipient is not registered");
     const kAudR = await this.client.auditorKey(recipient.auditorId);
     const kAudS = await this.client.auditorKey(DEPLOYMENT.auditorId);
 
-    const s = await this.engine.sync();
-    if (s.spendable.v < amount) throw new Error(`insufficient spendable balance (${s.spendable.v})`);
+    const s = await this.spendingState();
+    if (s.spendable.v < amount)
+      throw new Error("Insufficient available confidential balance");
 
     const w = buildTransferWitness({
       keys: this.keys,
@@ -377,31 +535,62 @@ export class ConfidentialWallet {
     });
     onPhase?.("proving");
     this.log("proving transfer…");
-    const { proof } = await this.prover("transfer").prove(w.inputs);
+    const { proof } = await (await this.prover("transfer")).prove(w.inputs);
     onPhase?.("preparing_transaction");
     this.log("submitting transfer…");
-    const r = await trackConfirmed("transfer_confirmed", () => submitTransfer(this.client, withWalletProgress(this.signer, onPhase), this.address, to, w, proof));
+    const r = await trackConfirmed("transfer_confirmed", () =>
+      submitTransfer(
+        this.client,
+        withWalletProgress(this.signer, onPhase),
+        this.address,
+        to,
+        w,
+        proof,
+      ),
+    );
     await this.engine.setSpendable(w.next);
     // No r_e bookkeeping (§15.2): the witness derives it from (vk, sigma), so
     // discloseSent() re-derives it from the emitted event whenever needed.
-    this.log(`transferred ${amount} → ${to.slice(0, 6)}… (tx ${r.hash.slice(0, 10)}…)`);
+    this.log(
+      `transfer confirmed → ${to.slice(0, 6)}… (tx ${r.hash.slice(0, 10)}…)`,
+    );
     return { hash: r.hash };
   }
 
-  async withdraw(amount: bigint, onPhase?: (p: TxPhase) => void): Promise<void> {
+  async withdraw(
+    amount: bigint,
+    onPhase?: (p: TxPhase) => void,
+  ): Promise<void> {
     const kAudS = await this.client.auditorKey(DEPLOYMENT.auditorId);
-    const s = await this.engine.sync();
-    if (s.spendable.v < amount) throw new Error(`insufficient spendable balance (${s.spendable.v})`);
+    const s = await this.spendingState();
+    if (s.spendable.v < amount)
+      throw new Error("Insufficient available confidential balance");
 
-    const w = buildWithdrawWitness({ keys: this.keys, v: s.spendable.v, r: s.spendable.r, amount, kAudS });
+    const w = buildWithdrawWitness({
+      keys: this.keys,
+      v: s.spendable.v,
+      r: s.spendable.r,
+      amount,
+      kAudS,
+    });
     onPhase?.("proving");
     this.log("proving withdraw…");
-    const { proof } = await this.prover("withdraw").prove(w.inputs);
+    const { proof } = await (await this.prover("withdraw")).prove(w.inputs);
     onPhase?.("preparing_transaction");
     this.log("submitting withdraw…");
-    const r = await trackConfirmed("withdrawal_confirmed", () => submitWithdraw(this.client, withWalletProgress(this.signer, onPhase), this.address, this.address, amount, w, proof));
+    const r = await trackConfirmed("withdrawal_confirmed", () =>
+      submitWithdraw(
+        this.client,
+        withWalletProgress(this.signer, onPhase),
+        this.address,
+        this.address,
+        amount,
+        w,
+        proof,
+      ),
+    );
     await this.engine.setSpendable(w.next);
-    this.log(`withdrew ${amount} → public (tx ${r.hash.slice(0, 10)}…)`);
+    this.log(`withdrawal confirmed (tx ${r.hash.slice(0, 10)}…)`);
   }
 
   // ---- payroll (PayrollVault orchestrator) --------------------------------
@@ -409,7 +598,12 @@ export class ConfidentialWallet {
   /** Employer: create a template with a fixed employee set. Returns template id. */
   async createTemplate(employees: string[]): Promise<bigint> {
     this.log(`creating payroll template (${employees.length} employees)…`);
-    const r = await submitCreateTemplate(this.client, this.signer, this.address, employees);
+    const r = await submitCreateTemplate(
+      this.client,
+      this.signer,
+      this.address,
+      employees,
+    );
     const id = parseCreatedId(r);
     this.log(`template #${id} created (tx ${r.hash.slice(0, 10)}…)`);
     return id;
@@ -419,7 +613,9 @@ export class ConfidentialWallet {
   async createRun(templateId: bigint): Promise<bigint> {
     const r = await submitCreateRun(this.client, this.signer, templateId);
     const id = parseCreatedId(r);
-    this.log(`run #${id} opened on template #${templateId} (tx ${r.hash.slice(0, 10)}…)`);
+    this.log(
+      `run #${id} opened on template #${templateId} (tx ${r.hash.slice(0, 10)}…)`,
+    );
     return id;
   }
 
@@ -440,17 +636,21 @@ export class ConfidentialWallet {
     onPhase?: (p: TxPhase) => void,
   ): Promise<void> {
     const kAud = await this.client.auditorKey(DEPLOYMENT.auditorId);
-    const resolved: { pvk: import("@lucent/sdk").Point; amount: bigint }[] = [];
-    for (const p of payments) {
+    const resolved = await mapConcurrent(payments, async (p) => {
       const acct = await this.client.confidentialBalance(p.employee);
-      if (!acct) throw new Error(`employee ${p.employee.slice(0, 8)}… is not registered`);
-      resolved.push({ pvk: acct.viewingPublicKey, amount: p.amount });
-    }
+      if (!acct)
+        throw new Error(
+          `employee ${p.employee.slice(0, 8)}… is not registered`,
+        );
+      return { pvk: acct.viewingPublicKey, amount: p.amount };
+    });
 
-    const s = await this.engine.sync();
+    const s = await this.spendingState();
     const total = payments.reduce((a, p) => a + p.amount, 0n);
     if (s.spendable.v < total) {
-      throw new Error(`insufficient spendable balance (${s.spendable.v}) for run total ${total}`);
+      throw new Error(
+        "Payroll total exceeds the available confidential balance",
+      );
     }
 
     onPhase?.("proving");
@@ -460,13 +660,15 @@ export class ConfidentialWallet {
       v: s.spendable.v,
       r: s.spendable.r,
       kAud,
-      prover: this.prover("transfer"),
+      prover: await this.prover("transfer"),
       payments: resolved,
     });
 
     onPhase?.("submitting");
     this.log("submitting execute_run…");
-    const r = await trackConfirmed("payroll_confirmed", () => submitExecuteRun(this.client, this.signer, runId, blobs));
+    const r = await trackConfirmed("payroll_confirmed", () =>
+      submitExecuteRun(this.client, withWalletProgress(this.signer, onPhase), runId, blobs),
+    );
     await this.engine.setSpendable(next);
     this.log(`run #${runId} executed (tx ${r.hash.slice(0, 10)}…)`);
   }
@@ -479,6 +681,7 @@ export class ConfidentialWallet {
 
   /** Employee: fold received salary into spendable (token `merge`, no proof). */
   async claimSalary(): Promise<void> {
+    await this.engine.sync();
     const r = await submitClaim(this.client, this.signer, this.address);
     await this.engine.applyMerge();
     this.log(`claimed salary (tx ${r.hash.slice(0, 10)}…)`);
@@ -515,7 +718,9 @@ export class ConfidentialWallet {
       timeoutSeconds,
     );
     const created = parseCreatedEscrow(r);
-    this.log(`escrow #${created.id} deployed at ${created.address.slice(0, 8)}…`);
+    this.log(
+      `escrow #${created.id} deployed at ${created.address.slice(0, 8)}…`,
+    );
     return created;
   }
 
@@ -539,11 +744,20 @@ export class ConfidentialWallet {
     // Old instances cannot be upgraded. Fail before spending time on proofs;
     // their existing settlement/cancellation methods remain available.
     try {
-      const version = scValToNative(await this.client.simulate(instance, "funding_protocol_version", []));
+      const version = scValToNative(
+        await this.client.simulate(instance, "funding_protocol_version", []),
+      );
       if (version !== 2) throw new Error("Unsupported escrow funding protocol");
     } catch (error) {
-      if (error instanceof Error && /non-existent contract function|Unsupported escrow funding protocol/.test(error.message)) {
-        throw new Error("This escrow uses the previous funding contract. Cancel this unfunded escrow and create a new one with the current factory. No funds have moved.");
+      if (
+        error instanceof Error &&
+        /non-existent contract function|Unsupported escrow funding protocol/.test(
+          error.message,
+        )
+      ) {
+        throw new Error(
+          "This escrow uses the previous funding contract. Cancel this unfunded escrow and create a new one with the current factory. No funds have moved.",
+        );
       }
       throw error;
     }
@@ -551,9 +765,9 @@ export class ConfidentialWallet {
     if (!recipientAcct) throw new Error("recipient is not registered");
     const kAud = await this.client.auditorKey(DEPLOYMENT.auditorId);
 
-    const s = await this.engine.sync();
+    const s = await this.spendingState();
     if (s.spendable.v < amount) {
-      throw new Error(`insufficient spendable balance (${s.spendable.v})`);
+      throw new Error("Insufficient available confidential balance");
     }
 
     // Fresh, ephemeral identity for the instance's confidential account.
@@ -563,7 +777,9 @@ export class ConfidentialWallet {
     this.log("proving escrow register + transfers (4 proofs)…");
 
     const rw = buildRegisterWitness(instanceKeys);
-    const { proof: rproof } = await this.prover("register").prove(rw.inputs);
+    const { proof: rproof } = await (
+      await this.prover("register")
+    ).prove(rw.inputs);
     const registerData = new Uint8Array(encodeRegisterData(rw, rproof).bytes());
 
     const tin = buildTransferWitness({
@@ -575,8 +791,12 @@ export class ConfidentialWallet {
       kAudR: kAud,
       kAudS: kAud,
     });
-    const { proof: tinProof } = await this.prover("transfer").prove(tin.inputs);
-    const transferIn = new Uint8Array(encodeTransferData(tin, tinProof).bytes());
+    const { proof: tinProof } = await (
+      await this.prover("transfer")
+    ).prove(tin.inputs);
+    const transferIn = new Uint8Array(
+      encodeTransferData(tin, tinProof).bytes(),
+    );
 
     // Instance spendable after fund + merge = the transfer's recipient opening.
     const instV = amount;
@@ -591,8 +811,12 @@ export class ConfidentialWallet {
       kAudR: kAud,
       kAudS: kAud,
     });
-    const { proof: relProof } = await this.prover("transfer").prove(rel.inputs);
-    const releaseProof = new Uint8Array(encodeTransferData(rel, relProof).bytes());
+    const { proof: relProof } = await (
+      await this.prover("transfer")
+    ).prove(rel.inputs);
+    const releaseProof = new Uint8Array(
+      encodeTransferData(rel, relProof).bytes(),
+    );
 
     const ref = buildTransferWitness({
       keys: instanceKeys,
@@ -603,8 +827,12 @@ export class ConfidentialWallet {
       kAudR: kAud,
       kAudS: kAud,
     });
-    const { proof: refProof } = await this.prover("transfer").prove(ref.inputs);
-    const refundProof = new Uint8Array(encodeTransferData(ref, refProof).bytes());
+    const { proof: refProof } = await (
+      await this.prover("transfer")
+    ).prove(ref.inputs);
+    const refundProof = new Uint8Array(
+      encodeTransferData(ref, refProof).bytes(),
+    );
 
     onPhase?.("preparing_transaction");
     // Validate both branches before moving funds. Separate proof transactions
@@ -617,9 +845,23 @@ export class ConfidentialWallet {
       transferIn,
     });
     this.log("validating recipient payout…");
-    await submitStorePayoutProof(this.client, signer, instance, true, releaseProof, rel.next.r);
+    await submitStorePayoutProof(
+      this.client,
+      signer,
+      instance,
+      true,
+      releaseProof,
+      rel.next.r,
+    );
     this.log("validating refund payout…");
-    await submitStorePayoutProof(this.client, signer, instance, false, refundProof, ref.next.r);
+    await submitStorePayoutProof(
+      this.client,
+      signer,
+      instance,
+      false,
+      refundProof,
+      ref.next.r,
+    );
     this.log("submitting fund…");
     const r = await submitFund(this.client, signer, instance);
     await this.engine.setSpendable(tin.next);
@@ -627,9 +869,12 @@ export class ConfidentialWallet {
   }
 
   markCompleted(instance: string, proofUri: string) {
-    return submitMarkCompleted(this.client, this.signer, instance, proofUri).then((r) =>
-      this.log(`marked completed (tx ${r.hash.slice(0, 10)}…)`),
-    );
+    return submitMarkCompleted(
+      this.client,
+      this.signer,
+      instance,
+      proofUri,
+    ).then((r) => this.log(`marked completed (tx ${r.hash.slice(0, 10)}…)`));
   }
   releaseEscrow(instance: string) {
     return submitRelease(this.client, this.signer, instance).then((r) =>
@@ -637,23 +882,23 @@ export class ConfidentialWallet {
     );
   }
   disputeEscrow(instance: string, proofUri: string) {
-    return submitDispute(this.client, this.signer, instance, proofUri).then((r) =>
-      this.log(`disputed (tx ${r.hash.slice(0, 10)}…)`),
+    return submitDispute(this.client, this.signer, instance, proofUri).then(
+      (r) => this.log(`disputed (tx ${r.hash.slice(0, 10)}…)`),
     );
   }
   claimAfterWindow(instance: string) {
-    return submitClaimAfterWindow(this.client, this.signer, instance).then((r) =>
-      this.log(`claimed after window (tx ${r.hash.slice(0, 10)}…)`),
+    return submitClaimAfterWindow(this.client, this.signer, instance).then(
+      (r) => this.log(`claimed after window (tx ${r.hash.slice(0, 10)}…)`),
     );
   }
   resolveToRecipient(instance: string) {
-    return submitResolveToRecipient(this.client, this.signer, instance).then((r) =>
-      this.log(`resolved to recipient (tx ${r.hash.slice(0, 10)}…)`),
+    return submitResolveToRecipient(this.client, this.signer, instance).then(
+      (r) => this.log(`resolved to recipient (tx ${r.hash.slice(0, 10)}…)`),
     );
   }
   resolveToDepositor(instance: string) {
-    return submitResolveToDepositor(this.client, this.signer, instance).then((r) =>
-      this.log(`resolved to depositor (tx ${r.hash.slice(0, 10)}…)`),
+    return submitResolveToDepositor(this.client, this.signer, instance).then(
+      (r) => this.log(`resolved to depositor (tx ${r.hash.slice(0, 10)}…)`),
     );
   }
   timeoutEscrow(instance: string) {
@@ -672,7 +917,9 @@ export class ConfidentialWallet {
   }
 
   /** List all deployed escrows that involve this account (depositor/recipient/arbiter). */
-  async listEscrows(): Promise<{ id: bigint; address: string; info: EscrowInfo }[]> {
+  async listEscrows(): Promise<
+    { id: bigint; address: string; info: EscrowInfo }[]
+  > {
     const out: { id: bigint; address: string; info: EscrowInfo }[] = [];
     const factories = new Set([
       this.client.cfg.contracts.escrowFactory,
@@ -680,29 +927,31 @@ export class ConfidentialWallet {
     ]);
     for (const factory of factories) {
       if (!factory) continue;
-      const client = factory === this.client.cfg.contracts.escrowFactory
-        ? this.client
-        : new ChainClient({
-            ...this.client.cfg,
-            contracts: { ...this.client.cfg.contracts, escrowFactory: factory },
-          });
+      const client =
+        factory === this.client.cfg.contracts.escrowFactory
+          ? this.client
+          : new ChainClient({
+              ...this.client.cfg,
+              contracts: {
+                ...this.client.cfg.contracts,
+                escrowFactory: factory,
+              },
+            });
       const count = await readEscrowCount(client);
-      for (let i = 1n; i <= count; i++) {
-        const address = await readEscrowAddress(client, i);
-        if (!address) continue;
-        try {
-          const info = await readEscrow(this.client, address);
-          if (
+      const entries = await mapConcurrent(contractIds(count), async (id) => {
+        const address = await readEscrowAddress(client, id);
+        if (!address) throw new Error("Escrow registry entry unavailable");
+        const info = await readEscrow(this.client, address);
+        return { id, address, info };
+      });
+      out.push(
+        ...entries.filter(
+          ({ info }) =>
             info.depositor === this.address ||
             info.recipient === this.address ||
-            info.arbiter === this.address
-          ) {
-            out.push({ id: i, address, info });
-          }
-        } catch {
-          /* skip unreadable */
-        }
-      }
+            info.arbiter === this.address,
+        ),
+      );
     }
     return out;
   }
@@ -731,7 +980,11 @@ export class ConfidentialWallet {
   async registeredRecipients(): Promise<string[]> {
     const seen = new Set<string>();
     for (const ev of await this.fetchAllEvents()) {
-      if (ev.type === "register" && ev.account !== this.address && ev.account.startsWith("G")) {
+      if (
+        ev.type === "register" &&
+        ev.account !== this.address &&
+        ev.account.startsWith("G")
+      ) {
         seen.add(ev.account);
       }
     }
@@ -742,25 +995,12 @@ export class ConfidentialWallet {
    * Full token-event history (indexer + RPC), the source for both the activity
    * list and recipient discovery.
    *
-   * Single-flight: `listEvents()` and `registeredRecipients()` both run a
-   * full-history scan and fire near-simultaneously on connect. Concurrent
-   * callers share ONE in-flight fetch; the moment it settles the slot is
-   * cleared, so any LATER call (the activity panel's Reload, a post-tx refresh,
-   * the recipients refresh button) re-fetches and picks up new events —
-   * including ones from other accounts. This only de-duplicates overlapping
-   * requests; it never serves stale data, so there is no cache to invalidate.
+   * Overlapping reads share one request. Subsequent reads fetch the verified
+   * cursor tail and merge by canonical event id. A failed tail leaves the prior
+   * history/cursor intact; no missing range is silently skipped.
    */
-  private async fetchAllEvents(): Promise<ConfidentialEvent[]> {
-    if (this.inFlightEvents) return this.inFlightEvents;
-    const fetch = hybridFetchEvents(this.client, this.indexer, {
-      fromLedger: DEPLOYMENT.deployedAtLedger,
-    }).then((r) => r.events);
-    this.inFlightEvents = fetch;
-    try {
-      return await fetch;
-    } finally {
-      this.inFlightEvents = null;
-    }
+  private fetchAllEvents(): Promise<ConfidentialEvent[]> {
+    return this.eventHistory.read();
   }
 
   private concernsMe(ev: ConfidentialEvent): boolean {
@@ -802,18 +1042,25 @@ export class ConfidentialWallet {
    * answering a third party's `(P_R, ν)` request. Runs the disclosure circuit
    * in-browser; only works for events whose `to` is this wallet.
    */
-  async discloseReceived(event: TransferEvent, request: DisclosureRequest): Promise<DisclosureBundle> {
+  async discloseReceived(
+    event: TransferEvent,
+    request: DisclosureRequest,
+  ): Promise<DisclosureBundle> {
     if (event.to !== this.address) {
-      throw new Error("D-recipient disclosure only works for transfers addressed to this wallet");
+      throw new Error(
+        "D-recipient disclosure only works for transfers addressed to this wallet",
+      );
     }
     this.log("proving disclosure (D-recipient)…");
     const bundle = await proveRecipientDisclosure({
       keys: this.keys,
       event,
       request,
-      prover: this.prover("disclose_recipient"),
+      prover: await this.prover("disclose_recipient"),
     });
-    this.log(`disclosure proof ready for event in tx ${event.txHash.slice(0, 10)}…`);
+    this.log(
+      `disclosure proof ready for event in tx ${event.txHash.slice(0, 10)}…`,
+    );
     return bundle;
   }
 
@@ -822,9 +1069,14 @@ export class ConfidentialWallet {
    * ephemeral scalar is re-derived from `vk` + the event's public `sigma`
    * (deterministic r_e) — no per-transfer state (§7).
    */
-  async discloseSent(event: TransferEvent, request: DisclosureRequest): Promise<DisclosureBundle> {
+  async discloseSent(
+    event: TransferEvent,
+    request: DisclosureRequest,
+  ): Promise<DisclosureBundle> {
     if (event.from !== this.address) {
-      throw new Error("D-sender disclosure only works for transfers sent by this wallet");
+      throw new Error(
+        "D-sender disclosure only works for transfers sent by this wallet",
+      );
     }
     const rEScalar = this.recoverRE(event);
     if (rEScalar === null) {
@@ -833,7 +1085,8 @@ export class ConfidentialWallet {
       );
     }
     const recipient = await this.client.confidentialBalance(event.to);
-    if (!recipient) throw new Error("transfer recipient has no confidential account record");
+    if (!recipient)
+      throw new Error("transfer recipient has no confidential account record");
     this.log("proving disclosure (D-sender)…");
     const bundle = await proveSenderDisclosure({
       keys: this.keys,
@@ -841,9 +1094,11 @@ export class ConfidentialWallet {
       event,
       pvkB: recipient.viewingPublicKey,
       request,
-      prover: this.prover("disclose_sender"),
+      prover: await this.prover("disclose_sender"),
     });
-    this.log(`disclosure proof ready for event in tx ${event.txHash.slice(0, 10)}…`);
+    this.log(
+      `disclosure proof ready for event in tx ${event.txHash.slice(0, 10)}…`,
+    );
     return bundle;
   }
 
@@ -858,7 +1113,8 @@ export class ConfidentialWallet {
    */
   async decryptOwnTransferAmount(event: TransferEvent): Promise<bigint | null> {
     if (event.to === this.address) {
-      return this.engine.decryptIncoming(event.rE, event.vTilde, event.sigma).vTx;
+      return this.engine.decryptIncoming(event.rE, event.vTilde, event.sigma)
+        .vTx;
     }
     if (event.from === this.address) {
       const rEScalar = this.recoverRE(event);
@@ -866,7 +1122,9 @@ export class ConfidentialWallet {
       const recipient = await this.client.confidentialBalance(event.to);
       if (!recipient) return null;
       const s = ecdh(rEScalar, recipient.viewingPublicKey);
-      return frMod(event.vTilde - poseidonWithDomain(DOMAIN.TX_AMOUNT, [s, event.sigma]));
+      return frMod(
+        event.vTilde - poseidonWithDomain(DOMAIN.TX_AMOUNT, [s, event.sigma]),
+      );
     }
     return null;
   }
@@ -875,32 +1133,50 @@ export class ConfidentialWallet {
   async resync(): Promise<WalletView> {
     this.log("verifying recovery from chain history…");
     await this.engine.rebuild();
-    return this.refresh();
+    return this.refresh(true);
+  }
+
+  async publicBalance(): Promise<bigint> {
+    const value = await this.client.simulate(
+      DEPLOYMENT.contracts.underlying,
+      "balance",
+      [new Address(this.address).toScVal()],
+    );
+    return scValToNative(value) as bigint;
+  }
+
+  private refreshFlight: Promise<WalletView> | null = null;
+  refresh(force = false): Promise<WalletView> {
+    if (force && this.refreshFlight)
+      return this.refreshFlight.catch(() => {}).then(() => this.refresh());
+    if (this.refreshFlight) return this.refreshFlight;
+    this.refreshFlight = timed("wallet.refresh", () =>
+      this.refreshUncached(),
+    ).finally(() => {
+      this.refreshFlight = null;
+    });
+    return this.refreshFlight;
   }
 
   /** Sync from RPC events, verify against chain, and return a UI view. */
-  async refresh(): Promise<WalletView> {
+  private async refreshUncached(): Promise<WalletView> {
+    const publicBalance = this.publicBalance().catch(() => null);
     const onchain = await this.account();
-    if (onchain && (!onchain.spendingKey.equals(this.keys.Y) || !onchain.viewingPublicKey.equals(this.keys.PVK))) {
-      throw new Error("This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.");
+    if (
+      onchain &&
+      (!onchain.spendingKey.equals(this.keys.Y) ||
+        !onchain.viewingPublicKey.equals(this.keys.PVK))
+    ) {
+      throw new Error(
+        "This account is already registered, but its confidential keys do not match this wallet. Restore the original confidential keys before transacting.",
+      );
     }
     const state: AccountState = await this.engine.sync();
     let matchesChain: boolean | null = null;
     if (onchain) {
       matchesChain = (await this.engine.verifyAgainstChain()).ok;
     }
-    let publicUSDC = 0n;
-    const underlying = DEPLOYMENT.contracts.underlying;
-    if (underlying) {
-      try {
-        const scVal = await this.client.simulate(underlying, "balance", [
-          new Address(this.address).toScVal(),
-        ]);
-        publicUSDC = scValToNative(scVal) as bigint;
-      } catch (e) {
-        this.log(`failed to fetch public USDC balance: ${e}`);
-      }
-    }
+    const publicUSDC = await publicBalance;
     return {
       address: this.address,
       registered: onchain !== null,

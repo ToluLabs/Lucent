@@ -1,0 +1,47 @@
+{
+  "conditions": "Node, real registration UltraHonk+Keccak proofs; same circuit and inputs, backend reused; CRS may already be cached. Not a cold browser download measurement.",
+  "samples": [
+    {
+      "mode": "cold-backend",
+      "provingMs": 2804.994542,
+      "verifyMs": 994.7029169999996,
+      "proofBytes": 14592
+    },
+    {
+      "mode": "warm-backend",
+      "provingMs": 2358.886375,
+      "verifyMs": 969.175166,
+      "proofBytes": 14592
+    }
+  ],
+  "stages": [
+    {
+      "stage": "prover.witness",
+      "durationMs": 37.592917
+    },
+    {
+      "stage": "prover.init",
+      "durationMs": 63.845916999999986
+    },
+    {
+      "stage": "prover.prove",
+      "durationMs": 2691.267166
+    },
+    {
+      "stage": "prover.verify",
+      "durationMs": 994.5772079999997
+    },
+    {
+      "stage": "prover.witness",
+      "durationMs": 3.240458000000217
+    },
+    {
+      "stage": "prover.prove",
+      "durationMs": 2345.3681660000007
+    },
+    {
+      "stage": "prover.verify",
+      "durationMs": 969.1527080000005
+    }
+  ]
+}

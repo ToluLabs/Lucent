@@ -9,19 +9,15 @@
 
 import { trackEvent } from "@/lib/analytics";
 
-import discloseRecipientCircuit from "@lucent/disclosure/artifacts/disclose_recipient.json";
 import discloseRecipientVk from "@lucent/disclosure/artifacts/disclose_recipient.vk.json";
-import discloseSenderCircuit from "@lucent/disclosure/artifacts/disclose_sender.json";
 import discloseSenderVk from "@lucent/disclosure/artifacts/disclose_sender.vk.json";
 import {
   ChainClient,
-  CircuitProver,
   DisclosureVerifyError,
   fromHex,
   generateRecipientKeys,
   IndexerClient,
   newDisclosureRequest,
-  proverFromArtifact,
   recipientKeysFromSecret,
   toHex32,
   verifyDisclosure,
@@ -47,10 +43,14 @@ const REQUEST_KEY = "lucent:disclosure:request";
 
 const ARTIFACTS = {
   disclose_recipient: {
-    circuit: discloseRecipientCircuit,
+    circuit: () =>
+      import("@lucent/disclosure/artifacts/disclose_recipient.json"),
     vk: discloseRecipientVk,
   },
-  disclose_sender: { circuit: discloseSenderCircuit, vk: discloseSenderVk },
+  disclose_sender: {
+    circuit: () => import("@lucent/disclosure/artifacts/disclose_sender.json"),
+    vk: discloseSenderVk,
+  },
 } as const;
 
 function vkBytes(base64: string): Uint8Array {
@@ -118,9 +118,9 @@ export function VerifyPanel() {
         ? new IndexerClient({ baseUrl: DEPLOYMENT.indexerUrl })
         : undefined;
       const artifacts = ARTIFACTS[bundle.circuitId];
-      const prover: CircuitProver = proverFromArtifact(
-        artifacts.circuit as never,
-      );
+      const prover = await (
+        await import("@/lib/worker-prover")
+      ).workerProverFromArtifact((await artifacts.circuit()).default);
       try {
         setResult(
           await verifyDisclosure({

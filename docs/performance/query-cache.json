@@ -1,0 +1,8 @@
+{
+  "conditions": "In-memory QueryClient; 10ms read fixture; 20 concurrent same-key requests followed by same-key route return",
+  "coldMs": 13.097624999999994,
+  "warmMs": 0.041084000000068954,
+  "coldRequests": 1,
+  "warmRequests": 0,
+  "checks": "account isolation, invalidation, clear, cancellation, bounded concurrency, order and error propagation passed; incremental history single-flight, duplicate tails and failure preservation passed"
+}

@@ -23,6 +23,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePathname } from "next/navigation";
 
 import type { ConfidentialWallet, WalletView } from "./wallet";
@@ -79,18 +80,28 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [view, setView] = useState<WalletView | null>(null);
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
+  const logs = useRef<string[]>([]);
+  const queryClient = useQueryClient();
+  const generation = useRef(0);
+  const activeWallet = useRef<ConfidentialWallet | null>(null);
+  const connectionFlight = useRef<Promise<ConfidentialWallet | null> | null>(
+    null,
+  );
   const [lastSync, setLastSync] = useState<Date | null>(null);
   const pathname = usePathname();
 
   const log = useCallback((msg: string) => {
-    setLogs((prev) =>
-      [`${new Date().toLocaleTimeString()}  ${msg}`, ...prev].slice(0, 80),
-    );
+    logs.current = [
+      `${new Date().toLocaleTimeString()}  ${msg}`,
+      ...logs.current,
+    ].slice(0, 80);
   }, []);
 
   const connectWithMode = useCallback(
     async (mode: "manual" | "auto") => {
+      const epoch = ++generation.current;
+      queryClient.clear();
+      logs.current = [];
       trackEvent("wallet_connect_started", { mode });
       setError(null);
       setConnecting(true);
@@ -99,11 +110,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         // public-page startup. Load the same wallet engine only when needed.
         const { ConfidentialWallet } = await import("./wallet");
         const w = await ConfidentialWallet.connect(log);
+        if (epoch !== generation.current) {
+          void w.destroy();
+          return null;
+        }
+        if (activeWallet.current && activeWallet.current !== w)
+          void activeWallet.current.destroy();
+        activeWallet.current = w;
         setView(null);
         setLastSync(null);
         setWallet(w);
         trackEvent("wallet_connected", { mode });
         const v = await w.refresh();
+        if (epoch !== generation.current) return null;
         setView(v);
         setLastSync(new Date());
         localStorage.removeItem(MANUALLY_DISCONNECTED_KEY);
@@ -111,19 +130,21 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         return w;
       } catch (e) {
         trackEvent("wallet_connect_failed", { mode });
-        setError(errMsg(e));
+        if (epoch === generation.current) setError(errMsg(e));
         return null;
       } finally {
-        setConnecting(false);
+        if (epoch === generation.current) setConnecting(false);
       }
     },
-    [log],
+    [log, queryClient],
   );
 
-  const connect = useCallback(
-    () => connectWithMode("manual"),
-    [connectWithMode],
-  );
+  const connect = useCallback(() => {
+    connectionFlight.current ??= connectWithMode("manual").finally(() => {
+      connectionFlight.current = null;
+    });
+    return connectionFlight.current;
+  }, [connectWithMode]);
 
   // Reconnect silently on wallet-route entry if this site was
   // already authorized in a prior session — otherwise every reload drops back
@@ -138,9 +159,20 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!WALLET_ROUTES.has(pathname) || autoConnectAttempted.current) return;
     autoConnectAttempted.current = true;
     if (localStorage.getItem(MANUALLY_DISCONNECTED_KEY)) return;
+    const epoch = generation.current;
     freighterIsAllowed().then(async (allowed) => {
-      if (!allowed) return;
-      await connectWithMode("auto");
+      if (
+        !allowed ||
+        epoch !== generation.current ||
+        localStorage.getItem(MANUALLY_DISCONNECTED_KEY)
+      )
+        return;
+      if (!connectionFlight.current) {
+        connectionFlight.current = connectWithMode("auto").finally(() => {
+          connectionFlight.current = null;
+        });
+      }
+      await connectionFlight.current;
       // Preserve account-read/recovery errors so a connected wallet never
       // silently falls into the registration screen after a failed refresh.
     });
@@ -150,12 +182,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     if (!wallet) return;
     setError(null);
     try {
-      const v = await wallet.refresh();
+      const v = await wallet.refresh(true);
+      if (activeWallet.current !== wallet) return;
       setView(v);
       setLastSync(new Date());
     } catch (e) {
+      if (activeWallet.current !== wallet) return;
       setView(null);
-      setError(errMsg(e));
+      if (activeWallet.current === wallet) setError(errMsg(e));
     }
   }, [wallet]);
 
@@ -164,20 +198,27 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const v = await wallet.resync();
+      if (activeWallet.current !== wallet) return;
       setView(v);
       setLastSync(new Date());
     } catch (e) {
-      setError(errMsg(e));
+      if (activeWallet.current === wallet) setError(errMsg(e));
     }
   }, [wallet]);
 
   const disconnect = useCallback(() => {
+    generation.current++;
+    if (activeWallet.current) void activeWallet.current.destroy();
+    activeWallet.current = null;
+    queryClient.clear();
+    logs.current = [];
+    setConnecting(false);
     setWallet(null);
     setView(null);
     setLastSync(null);
     setError(null);
     localStorage.setItem(MANUALLY_DISCONNECTED_KEY, "1");
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo(
     () => ({
@@ -185,7 +226,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       view,
       connecting,
       error,
-      logs,
+      logs: logs.current,
       lastSync,
       connect,
       refresh,
@@ -199,7 +240,6 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       view,
       connecting,
       error,
-      logs,
       lastSync,
       connect,
       refresh,

@@ -16,7 +16,7 @@ import type { Point } from "../crypto/grumpkin.js";
 import { fromHex, toHex32, bytesToHex } from "../crypto/field.js";
 import type { TransferEvent } from "../chain/events.js";
 import { eventRef } from "../chain/events.js";
-import type { CircuitProver } from "../proving/prover.js";
+import type { ProofEngine } from "../proving/prover.js";
 import { buildDiscloseRecipientWitness } from "../witness/disclose-recipient.js";
 import { buildDiscloseSenderWitness } from "../witness/disclose-sender.js";
 import {
@@ -36,7 +36,7 @@ export async function proveRecipientDisclosure(params: {
   /** The recipient's request, received out-of-band. */
   request: DisclosureRequest;
   /** Prover over the shared `@lucent/disclosure` disclose_recipient artifact. */
-  prover: CircuitProver;
+  prover: ProofEngine;
 }): Promise<DisclosureBundle> {
   const { keys, event, request, prover } = params;
   const w = buildDiscloseRecipientWitness({
@@ -61,7 +61,7 @@ export async function proveSenderDisclosure(params: {
   /** The recipient's request, received out-of-band. */
   request: DisclosureRequest;
   /** Prover over the shared `@lucent/disclosure` disclose_sender artifact. */
-  prover: CircuitProver;
+  prover: ProofEngine;
 }): Promise<DisclosureBundle> {
   const { keys, rEScalar, event, pvkB, request, prover } = params;
   const w = buildDiscloseSenderWitness({

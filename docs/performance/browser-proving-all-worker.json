@@ -1,0 +1,78 @@
+{
+  "mode": "worker",
+  "remainingWorkers": 0,
+  "conditions": "Real Chrome, same native bb.js assets, cross-origin isolation, registration circuit and Keccak transcript; synthetic inputs; no wallet or transaction. Cold backend may use browser/native network caches. One cold/warm pair.",
+  "samples": [
+    {
+      "circuit": "register",
+      "cache": "cold-backend",
+      "proveMs": 3330.6100000003353,
+      "verifyMs": 934.5849999999627,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "register",
+      "cache": "warm-backend",
+      "proveMs": 2215.5200000004843,
+      "verifyMs": 920.519999999553,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "withdraw",
+      "cache": "cold-backend",
+      "proveMs": 4905.620000000112,
+      "verifyMs": 1677.875,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "transfer",
+      "cache": "cold-backend",
+      "proveMs": 4702.519999999553,
+      "verifyMs": 1734.875,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "transfer",
+      "cache": "warm-backend",
+      "proveMs": 4229.549999999814,
+      "verifyMs": 1733.464999999851,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "disclose_recipient",
+      "cache": "cold-backend",
+      "proveMs": 2855.1749999998137,
+      "verifyMs": 990.519999999553,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    },
+    {
+      "circuit": "disclose_sender",
+      "cache": "cold-backend",
+      "proveMs": 2859.6749999998137,
+      "verifyMs": 991.2250000005588,
+      "verified": true,
+      "vkMatches": true,
+      "proofBytes": 14592
+    }
+  ],
+  "tasks": [],
+  "proofInterval": {
+    "startedMs": 86.09999999962747,
+    "endedMs": 42980.05999999959
+  },
+  "longTasks": 0,
+  "maxLongTaskMs": 0,
+  "blockingMs": 0
+}

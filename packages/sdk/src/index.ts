@@ -19,3 +19,4 @@ export * from "./chain/index.js";
 export * from "./state/index.js";
 export * from "./disclosure/index.js";
 export * from "./auditor/index.js";
+export * from "./performance/trace.js";

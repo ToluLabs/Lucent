@@ -1,4 +1,5 @@
-import { EscrowState, type EscrowInfo } from "@lucent/sdk";
+import type { EscrowInfo } from "@lucent/sdk";
+import { EscrowState } from "@lucent/sdk/chain/status";
 
 /** Participants can be the same wallet; the settlement state determines the branch. */
 export function escrowTransferDescription(

@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "vendor:bb": "node ../../scripts/vendor-bb.mjs",
+    "vendor:bb": "node ../../scripts/vendor-bb.mjs && node ../../scripts/vendor-prover.mjs",
     "predev": "pnpm --filter @lucent/sdk build && pnpm vendor:bb",
     "dev": "next dev --webpack",
     "prebuild": "pnpm --filter @lucent/sdk build && pnpm vendor:bb",
@@ -15,9 +15,12 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test:ui": "node test/wallet-loading.mjs && node test/ui.mjs",
-    "test:forms": "node test/wallet-network.mjs && node test/action-progress.mjs && pnpm --filter @lucent/sdk exec tsx ../../packages/app/test/forms.mjs",
+    "test:forms": "node test/wallet-network.mjs && node test/wallet-bridge.mjs && node test/action-progress.mjs && pnpm --filter @lucent/sdk exec tsx --tsconfig ../../packages/app/tsconfig.json ../../packages/app/test/worker-prover.mjs && pnpm --filter @lucent/sdk exec tsx ../../packages/app/test/forms.mjs",
     "test:browser": "node test/browser-qa.mjs",
-    "profile:startup": "node test/performance.mjs"
+    "profile:startup": "node test/performance.mjs",
+    "test:performance": "pnpm --filter @lucent/sdk exec tsx --tsconfig ../../packages/app/tsconfig.json ../../packages/app/test/performance-cache.mjs",
+    "profile:acceptance": "node test/performance-acceptance.mjs",
+    "profile:proof": "node test/browser-proving.mjs"
   },
   "dependencies": {
     "@lucent/disclosure": "workspace:*",
@@ -25,6 +28,7 @@
     "@opennextjs/cloudflare": "^1.19.11",
     "@stellar/freighter-api": "^4.1.0",
     "@stellar/stellar-sdk": "^14.2.0",
+    "@tanstack/react-query": "5",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.23.0",
     "next": "16.2.9",

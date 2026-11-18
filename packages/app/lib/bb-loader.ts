@@ -18,9 +18,11 @@
  * and this module gets pulled into the SSR bundle even though proving is
  * browser-only.
  */
-import { setUltraHonkBackendLoader } from "@lucent/sdk";
+import { setUltraHonkBackendLoader, setPerformanceTracing, performanceSamples } from "@lucent/sdk";
 
-let nativeImport: ((url: string) => Promise<Record<string, unknown>>) | undefined;
+let nativeImport:
+  | ((url: string) => Promise<Record<string, unknown>>)
+  | undefined;
 
 function getNativeImport(): (url: string) => Promise<Record<string, unknown>> {
   nativeImport ??= new Function("url", "return import(url)") as (
@@ -37,6 +39,13 @@ let registered = false;
 export function ensureBrowserBackend(): void {
   if (registered || typeof window === "undefined") return;
   registered = true;
+  setPerformanceTracing(process.env.NODE_ENV === "development");
+  if (process.env.NODE_ENV === "development") {
+    Object.defineProperty(window, "__lucentPerformance", {
+      value: performanceSamples,
+      configurable: true,
+    });
+  }
   setUltraHonkBackendLoader(async () => {
     const mod = await getNativeImport()(BB_URL);
     return mod.UltraHonkBackend as never;

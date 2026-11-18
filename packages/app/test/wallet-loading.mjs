@@ -12,7 +12,7 @@ let browser, server;
 try {
   await build({
     stdin: {
-      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{WalletProvider,useWallet}from'./lib/wallet-context';function Probe(){const c=useWallet();return <><p id="status">{c.connecting?'connecting':c.wallet?'connected':'disconnected'}</p><p id="error">{c.error}</p><p id="view">{c.view?"available":"unavailable"}</p><button onClick={c.resync}>Recover</button><button onClick={c.connect}>Connect</button><button onClick={c.disconnect}>Disconnect</button></>;}createRoot(document.getElementById('root')).render(<WalletProvider><Probe/></WalletProvider>);`,
+      contents: `import React from 'react';import{createRoot}from'react-dom/client';import{WalletProvider,useWallet}from'./lib/wallet-context';import{PublicQueryProvider}from'./lib/public-query';function Probe(){const c=useWallet();return <><p id="status">{c.connecting?'connecting':c.wallet?'connected':'disconnected'}</p><p id="error">{c.error}</p><p id="view">{c.view?"available":"unavailable"}</p><button onClick={c.resync}>Recover</button><button onClick={c.connect}>Connect</button><button onClick={c.disconnect}>Disconnect</button></>;}createRoot(document.getElementById('root')).render(<PublicQueryProvider><WalletProvider><Probe/></WalletProvider></PublicQueryProvider>);`,
       resolveDir: app,
       loader: "tsx",
     },
@@ -23,7 +23,7 @@ try {
     format: "esm",
     platform: "browser",
     jsx: "automatic",
-    define: { "process.env.NODE_ENV": '"test"' },
+    define: { "process.env.NODE_ENV": '"test"', "process.env": "{}" },
     plugins: [
       {
         name: "wallet-boundaries",
@@ -49,10 +49,10 @@ try {
               args.path === "navigation"
                 ? `import{useState,useEffect}from'react';export function usePathname(){const[p,setP]=useState(location.pathname);useEffect(()=>{window.__go=setP;},[]);return p;}`
                 : args.path === "freighter"
-                  ? `export async function freighterIsAllowed(){window.__allowed=(window.__allowed??0)+1;return true;}`
+                  ? `export async function freighterIsAllowed(){window.__allowed=(window.__allowed??0)+1;await new Promise(r=>setTimeout(r,window.__allowDelay??0));return true;}`
                   : args.path === "analytics"
                     ? `export function trackEvent(){}`
-                    : `window.__walletLoads=(window.__walletLoads??0)+1;export class ConfidentialWallet{static async connect(){window.__connections=(window.__connections??0)+1;if(window.__reject)throw new Error('Wallet declined');return{address:'fixture',async resync(){throw new Error('Recovery unavailable; state preserved');},async refresh(){window.__refreshes=(window.__refreshes??0)+1;return{registered:true,matchesChain:true};}};}}`,
+                    : `window.__walletLoads=(window.__walletLoads??0)+1;export class ConfidentialWallet{static async connect(){window.__connections=(window.__connections??0)+1;await new Promise(r=>setTimeout(r,window.__connectDelay??0));if(window.__reject)throw new Error('Wallet declined');return{address:'fixture',async destroy(){},async resync(){throw new Error('Recovery unavailable; state preserved');},async refresh(){window.__refreshes=(window.__refreshes??0)+1;return{registered:true,matchesChain:true};}};}}`,
           }));
         },
       },
@@ -159,6 +159,20 @@ try {
   await page.evaluate(() => window.__go("/home"));
   await page.waitForTimeout(100);
   assert.equal(await page.locator("#status").textContent(), "disconnected");
+  await context.close();
+  ({context,page}=await fresh());
+  await page.evaluate(()=>{window.__allowDelay=500;window.__go('/home');});
+  await page.waitForFunction(()=>window.__allowed===1);
+  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
+  await page.waitForTimeout(700);
+  assert.equal(await page.locator('#status').textContent(),'disconnected','Late permission lookup must not reconnect after disconnect');
+  await context.close();
+  ({context,page}=await fresh(true));
+  await page.evaluate(()=>{window.__connectDelay=500;});
+  await page.getByRole('button',{name:'Connect',exact:true}).click();
+  await page.getByRole('button',{name:'Disconnect',exact:true}).click();
+  await page.waitForTimeout(700);
+  assert.equal(await page.locator('#status').textContent(),'disconnected','Late connection result must not restore a closed session');
   await context.close();
   console.log(
     "Wallet loading: public pages defer the engine; wallet routes reconnect once; manual disconnect, failed connection and retry are preserved.",

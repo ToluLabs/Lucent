@@ -21,7 +21,7 @@ const result = await build({
         export async function isAllowed(){return {isAllowed:true};}
         export async function getNetworkDetails(){return s.error?{error:s.error}:{networkPassphrase:s.networkPassphrase};}
         export async function requestAccess(){s.access++;return {address:'test-address'};}
-        export async function signTransaction(){s.signatures++;return {signedTxXdr:'signed'};}
+        export async function signTransaction(){s.signatures++;return s.signError?{error:s.signError}:{signedTxXdr:'signed'};}
         export async function signMessage(){s.signatures++;return {signerAddress:'test-address',signedMessage:'AA=='};}
       ` }));
     },
@@ -57,5 +57,11 @@ const declined = withWalletProgress({ publicKey: "test-address", async sign() {
 } }, (phase) => declinedPhases.push(phase));
 await assert.rejects(declined.sign("unsigned"), /User declined/);
 assert.deepEqual(declinedPhases, ["awaiting_wallet"], "A declined request never advances to submission");
+state.networkPassphrase = "Test SDF Network ; September 2015";
+state.signError = { code: -4, message: "The user rejected this request." };
+const beforeRejection = state.signatures;
+await assert.rejects(signer.sign("transaction"), /The user rejected this request.*code -4/);
+assert.equal(state.signatures, beforeRejection + 1, "Never retry a rejected wallet request automatically");
+delete state.signError;
 delete globalThis.__lucentWalletTest;
 console.log("Wallet network checks passed: Mainnet and unreadable networks blocked; Testnet allowed; network switches block signing.");

@@ -21,7 +21,7 @@ import type { ChainClient } from "../chain/client.js";
 import { type TransferEvent } from "../chain/events.js";
 import { hybridResolveEventRef } from "../chain/event-source.js";
 import type { IndexerClient } from "../chain/indexer.js";
-import type { CircuitProver } from "../proving/prover.js";
+import type { ProofEngine } from "../proving/prover.js";
 import {
   DISCLOSE_SENDER_CIRCUIT_ID,
   DISCLOSURE_CIRCUIT_IDS,
@@ -70,7 +70,7 @@ export async function verifyDisclosure(params: {
   /** The verifier's keypair (request.pR must be its public half). */
   keys: RecipientKeys;
   /** Prover/verifier over the shared artifact for the BUNDLE's circuit_id. */
-  prover: CircuitProver;
+  prover: ProofEngine;
   /**
    * Pinned verification key from `@lucent/disclosure` (the vk.json matching the
    * bundle's circuit_id). When given, the VK derived from the loaded circuit

@@ -1,0 +1,14 @@
+{
+  "conditions": "Real React page components and QueryClient, mocked wallet, fixture SPA router; not Next router or live balances",
+  "navigation": [
+    {
+      "route": "/send",
+      "commitMs": 10.599999999627471
+    },
+    {
+      "route": "/home",
+      "commitMs": 7.1000000005587935
+    }
+  ],
+  "activityRequestsOnWarmReturn": 0
+}

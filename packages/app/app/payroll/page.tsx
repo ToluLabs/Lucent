@@ -1,4 +1,6 @@
 "use client";
+import { usePublicQuery } from "@/lib/public-query";
+import { mapConcurrent, contractIds } from "@/lib/concurrent";
 import { AppShell } from "@/components/layout/AppShell";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { AddressDisplay } from "@/components/ui/AddressDisplay";
@@ -15,11 +17,11 @@ import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { useAction } from "@/lib/use-action";
 import { useWallet } from "@/lib/wallet-context";
-import { RunStatus } from "@lucent/sdk";
+import { RunStatus } from "@lucent/sdk/chain/status";
 import { StrKey } from "@stellar/stellar-sdk";
 import { Briefcase, Plus, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 type Template = { id: bigint; employees: string[]; active: boolean };
 type Run = { id: bigint; templateId: bigint; status: RunStatus };
 const statuses: Record<RunStatus, string> = {
@@ -31,11 +33,6 @@ const statuses: Record<RunStatus, string> = {
 export default function PayrollPage() {
   const { wallet, view, error, setError } = useWallet();
   const { run, busy, phase, uncertain } = useAction();
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
   const [selectedId, setSelectedId] = useState<bigint | null>(null);
   const [mode, setMode] = useState<"employer" | "incoming">("employer");
   const [query, setQuery] = useState("");
@@ -48,44 +45,40 @@ export default function PayrollPage() {
   const [cancel, setCancel] = useState<Run | null>(null);
   const configured = !!DEPLOYMENT.contracts.payroll;
   const ready = !!view?.registered && view.matchesChain;
-  const reload = useCallback(() => setAttempt((n) => n + 1), []);
-  useEffect(() => {
-    if (!wallet || !configured) return;
-    let cancelled = false;
-    setLoading(true);
-    setLoadError(null);
-    setTemplates([]);
-    setRuns([]);
-    (async () => {
-      try {
-        const tpls: Template[] = [];
-        const count = await wallet.payrollTemplateCount();
-        for (let i = 1n; i <= count; i++) {
-          const t = await wallet.payrollTemplate(i);
-          if (t.employer === wallet.address)
-            tpls.push({ id: i, employees: t.employees, active: t.active });
-        }
-        const results: Run[] = [];
-        const runCount = await wallet.payrollRunCount();
-        for (let i = 1n; i <= runCount; i++) {
-          const r = await wallet.payrollRun(i);
-          if (tpls.some((t) => t.id === r.templateId))
-            results.push({ id: i, templateId: r.templateId, status: r.status });
-        }
-        if (!cancelled) {
-          setTemplates(tpls);
-          setRuns(results);
-        }
-      } catch (e) {
-        if (!cancelled) setLoadError(errMsg(e));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [wallet, configured, attempt]);
+  const payroll = usePublicQuery(
+    wallet,
+    "payroll",
+    "",
+    async () => {
+      const [count, runCount] = await Promise.all([
+        wallet!.payrollTemplateCount(),
+        wallet!.payrollRunCount(),
+      ]);
+      const [allTemplates, allRuns] = await Promise.all([
+        mapConcurrent(contractIds(count), async (id) => ({
+          id,
+          ...(await wallet!.payrollTemplate(id)),
+        })),
+        mapConcurrent(contractIds(runCount), async (id) => ({
+          id,
+          ...(await wallet!.payrollRun(id)),
+        })),
+      ]);
+      const templates = allTemplates.filter(
+        (t) => t.employer === wallet!.address,
+      );
+      const ids = new Set(templates.map((t) => t.id));
+      return { templates, runs: allRuns.filter((r) => ids.has(r.templateId)) };
+    },
+    configured,
+  );
+  const templates: Template[] = payroll.data?.templates ?? [];
+  const runs: Run[] = payroll.data?.runs ?? [];
+  const loading = payroll.isLoading;
+  const loadError = payroll.error ? errMsg(payroll.error) : null;
+  const reload = () => {
+    void payroll.refetch();
+  };
   useEffect(() => {
     setSelectedId(null);
     setCreateOpen(false);
@@ -109,14 +102,14 @@ export default function PayrollPage() {
     if (!values.length) throw new Error("Add at least one recipient.");
     if (new Set(values).size !== values.length)
       throw new Error("Each recipient must appear only once.");
-    for (const address of values) {
+    await mapConcurrent(values, async (address) => {
       if (!StrKey.isValidEd25519PublicKey(address))
         throw new Error("Enter a valid Stellar G address for every recipient.");
       if (!(await wallet!.isRecipientRegistered(address)))
         throw new Error(
           `Recipient ${address.slice(0, 8)}… is not registered on Lucent Testnet.`,
         );
-    }
+    });
   }
   async function createTemplate() {
     if (!ready) return;

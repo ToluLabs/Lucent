@@ -50,15 +50,26 @@ export default function ShieldPage() {
   }
   return (
     <AppShell>
-      <PageHeader title="Funding" right={
-        <Button variant="secondary" disabled={!!busy || refreshing} isLoading={refreshing}
-          onClick={async () => {
-            setRefreshing(true);
-            try { await refresh(); } finally { setRefreshing(false); }
-          }}>
-          Refresh balances
-        </Button>
-      } />
+      <PageHeader
+        title="Funding"
+        right={
+          <Button
+            variant="secondary"
+            disabled={!!busy || refreshing}
+            isLoading={refreshing}
+            onClick={async () => {
+              setRefreshing(true);
+              try {
+                await refresh();
+              } finally {
+                setRefreshing(false);
+              }
+            }}
+          >
+            Refresh balances
+          </Button>
+        }
+      />
       <div className="workspace-page space-y-6">
         <ErrorBanner error={error} onDismiss={() => setError(null)} />
         {!ready && (
@@ -185,7 +196,9 @@ export default function ShieldPage() {
                 <div className="flex flex-wrap justify-between gap-2">
                   <dt className="text-text-secondary">Public USDC</dt>
                   <dd>
-                    {view ? displayAmount(view.publicUSDC, 7) : "Unavailable"}
+                    {view?.publicUSDC != null
+                      ? displayAmount(view.publicUSDC, 7)
+                      : "Unavailable"}
                   </dd>
                 </div>
                 <div className="flex flex-wrap justify-between gap-2">

@@ -1,5 +1,7 @@
+import { PerformanceBoundary } from "@/lib/performance-boundary";
 import { Analytics } from "@/components/analytics/Analytics";
 import { ActionProvider } from "@/lib/action-context";
+import { PublicQueryProvider } from "@/lib/public-query";
 import { WalletProvider } from "@/lib/wallet-context";
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
@@ -35,9 +37,13 @@ export default function RootLayout({
       </head>
       <body className="min-h-dvh bg-void font-sans text-text-primary antialiased">
         <Analytics />
-        <WalletProvider>
-          <ActionProvider>{children}</ActionProvider>
-        </WalletProvider>
+        <PerformanceBoundary>
+          <PublicQueryProvider>
+            <WalletProvider>
+              <ActionProvider>{children}</ActionProvider>
+            </WalletProvider>
+          </PublicQueryProvider>
+        </PerformanceBoundary>
       </body>
     </html>
   );

@@ -37,6 +37,16 @@ export function ActionFeedback() {
           </button>
         )}
       </div>
+      {state.hash && (
+        <a
+          className="mt-3 block break-all text-sm text-accent"
+          target="_blank"
+          rel="noreferrer"
+          href={`https://stellar.expert/explorer/testnet/tx/${state.hash}`}
+        >
+          View submitted transaction →
+        </a>
+      )}
       {state.stage === "awaiting_wallet" && (
         <p className="mt-3 text-sm leading-6 text-text-secondary">
           Varial may have opened behind this browser. Bring its transaction

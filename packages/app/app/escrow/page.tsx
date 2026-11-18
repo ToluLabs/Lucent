@@ -24,14 +24,16 @@ import { cn } from "@/lib/cn";
 import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { ESCROW_STATE_LABEL, formatCountdown } from "@/lib/format";
+import { usePublicQuery } from "@/lib/public-query";
 import { useAction } from "@/lib/use-action";
 import { useRequireWallet } from "@/lib/use-require-wallet";
 import { useWallet } from "@/lib/wallet-context";
-import { EscrowState, type EscrowInfo } from "@lucent/sdk";
+import type { EscrowInfo } from "@lucent/sdk";
+import { EscrowState } from "@lucent/sdk/chain/status";
 import { StrKey } from "@stellar/stellar-sdk";
 import { AlertTriangle, ChevronDown, Lock } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 type Row = { id: bigint; address: string; info: EscrowInfo };
 type Filter = "all" | "depositor" | "recipient" | "arbiter";
@@ -73,12 +75,11 @@ export default function EscrowPage() {
   const { view, error, setError } = useWallet();
   const { run, busy, phase, uncertain } = useAction();
 
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [confirmation, setConfirmation] = useState<{
     key: string;
     fn: () => Promise<void>;
   } | null>(null);
-  const [rows, setRows] = useState<Row[] | null>(null);
+
   const [filter, setFilter] = useState<Filter>("all");
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -96,19 +97,18 @@ export default function EscrowPage() {
   const configured = Boolean(DEPLOYMENT.contracts.escrowFactory);
   const me = wallet?.address;
 
-  const reload = useCallback(() => {
-    if (!wallet || !configured) return;
-    setLoadError(null);
-    wallet
-      .listEscrows()
-      .then(setRows)
-      .catch((e) => {
-        setError(errMsg(e));
-        setLoadError(errMsg(e));
-      });
-  }, [wallet, configured, setError]);
-
-  useEffect(reload, [reload]);
+  const escrows = usePublicQuery(
+    wallet,
+    "escrows",
+    "",
+    () => wallet!.listEscrows(),
+    configured,
+  );
+  const rows = escrows.data ?? null;
+  const loadError = escrows.error ? errMsg(escrows.error) : null;
+  const reload = () => {
+    void escrows.refetch();
+  };
 
   if (!wallet) {
     return (
@@ -415,7 +415,11 @@ export default function EscrowPage() {
           payouts, and finally move the funds.
         </p>
         {busy === "fund" && (
-          <p role="status" aria-live="polite" className="text-sm text-text-secondary">
+          <p
+            role="status"
+            aria-live="polite"
+            className="text-sm text-text-secondary"
+          >
             {phase === "awaiting_wallet"
               ? "Waiting for Varial approval. Check the wallet window; another request follows each confirmed preparation step."
               : phase === "submitting"

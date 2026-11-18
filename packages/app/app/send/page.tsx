@@ -23,58 +23,39 @@ import { StrKey } from "@stellar/stellar-sdk";
 import { CheckCircle, Lock } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { usePublicQuery } from "@/lib/public-query";
 
 type Step = "recipient" | "amount" | "confirm";
-type RecipientCheck = {
-  address: string;
-  wallet: object;
-  status: "checking" | "registered" | "unregistered" | "error";
-};
-
 export default function SendPage() {
   const wallet = useRequireWallet();
   const { view, error, setError } = useWallet();
   const { run, busy, phase, uncertain } = useAction();
   const [step, setStep] = useState<Step>("recipient");
   const [to, setTo] = useState("");
-  const [recipientCheck, setRecipientCheck] = useState<RecipientCheck | null>(
-    null,
-  );
-  const [checkAttempt, setCheckAttempt] = useState(0);
+  const [debouncedAddress, setDebouncedAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [txHash, setTxHash] = useState<string | null>(null);
 
-  useEffect(() => {
-    const address = to.trim();
-    if (!wallet || !StrKey.isValidEd25519PublicKey(address)) return;
-    let cancelled = false;
-    setRecipientCheck({ address, wallet, status: "checking" });
-    const timer = setTimeout(async () => {
-      try {
-        const registered = await wallet.isRecipientRegistered(address);
-        if (!cancelled)
-          setRecipientCheck({
-            address,
-            wallet,
-            status: registered ? "registered" : "unregistered",
-          });
-      } catch {
-        if (!cancelled) setRecipientCheck({ address, wallet, status: "error" });
-      }
-    }, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [wallet, to, checkAttempt]);
-
   const recipientAddress = to.trim();
   const validAddress = StrKey.isValidEd25519PublicKey(recipientAddress);
-  const recipientStatus =
-    recipientCheck?.wallet === wallet &&
-    recipientCheck.address === recipientAddress
-      ? recipientCheck.status
-      : null;
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedAddress(recipientAddress), 350);
+    return () => clearTimeout(timer);
+  }, [recipientAddress]);
+  const registration = usePublicQuery(
+    wallet,
+    "recipient",
+    recipientAddress,
+    () => wallet!.isRecipientRegistered(recipientAddress),
+    validAddress && debouncedAddress === recipientAddress,
+  );
+  const recipientStatus = registration.isError
+    ? "error"
+    : registration.data === true
+      ? "registered"
+      : registration.data === false
+        ? "unregistered"
+        : "checking";
   const recipientReady = validAddress && recipientStatus === "registered";
   const recipientError =
     recipientAddress && !validAddress
@@ -229,7 +210,7 @@ export default function SendPage() {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setCheckAttempt((n) => n + 1)}
+                      onClick={() => void registration.refetch()}
                     >
                       Retry check
                     </Button>

@@ -1,0 +1,142 @@
+{
+  "sdk": "17.4.0",
+  "context": "Disposable Chrome dedicated worker; synthetic bytes; no wallet, keys or transactions",
+  "results": [
+    {
+      "patched": false,
+      "samples": [
+        {
+          "bytes": 1,
+          "ok": true
+        },
+        {
+          "bytes": 2,
+          "ok": true
+        },
+        {
+          "bytes": 3,
+          "ok": true
+        },
+        {
+          "bytes": 16382,
+          "ok": true
+        },
+        {
+          "bytes": 16383,
+          "ok": true
+        },
+        {
+          "bytes": 16384,
+          "ok": true
+        },
+        {
+          "bytes": 32768,
+          "ok": true
+        },
+        {
+          "bytes": 49152,
+          "ok": true
+        },
+        {
+          "bytes": 60000,
+          "ok": true
+        },
+        {
+          "bytes": 65534,
+          "ok": false,
+          "error": "RangeError: Maximum call stack size exceeded"
+        },
+        {
+          "bytes": 65535,
+          "ok": false,
+          "error": "RangeError: Maximum call stack size exceeded"
+        },
+        {
+          "bytes": 65536,
+          "ok": false,
+          "error": "RangeError: Maximum call stack size exceeded"
+        },
+        {
+          "bytes": 98304,
+          "ok": false,
+          "error": "RangeError: Maximum call stack size exceeded"
+        },
+        {
+          "bytes": 131000,
+          "ok": false,
+          "error": "RangeError: Maximum call stack size exceeded"
+        },
+        {
+          "bytes": 1000000,
+          "ok": false,
+          "error": "RangeError: Maximum call stack size exceeded"
+        }
+      ]
+    },
+    {
+      "patched": true,
+      "samples": [
+        {
+          "bytes": 1,
+          "ok": true
+        },
+        {
+          "bytes": 2,
+          "ok": true
+        },
+        {
+          "bytes": 3,
+          "ok": true
+        },
+        {
+          "bytes": 16382,
+          "ok": true
+        },
+        {
+          "bytes": 16383,
+          "ok": true
+        },
+        {
+          "bytes": 16384,
+          "ok": true
+        },
+        {
+          "bytes": 32768,
+          "ok": true
+        },
+        {
+          "bytes": 49152,
+          "ok": true
+        },
+        {
+          "bytes": 60000,
+          "ok": true
+        },
+        {
+          "bytes": 65534,
+          "ok": true
+        },
+        {
+          "bytes": 65535,
+          "ok": true
+        },
+        {
+          "bytes": 65536,
+          "ok": true
+        },
+        {
+          "bytes": 98304,
+          "ok": true
+        },
+        {
+          "bytes": 131000,
+          "ok": true
+        },
+        {
+          "bytes": 1000000,
+          "ok": true
+        }
+      ]
+    }
+  ]
+}

@@ -25,10 +25,15 @@
  * history, so a fresh client can reconstruct the receiving balance from scratch.
  */
 
+import { timed } from "../performance/trace.js";
 import { commit, ecdh, type Point } from "../crypto/grumpkin.js";
 import { fpAdd, frMod } from "../crypto/field.js";
 import { DOMAIN } from "../crypto/constants.js";
-import { deriveSpendR, deriveTxBlind, poseidonWithDomain } from "../crypto/poseidon2.js";
+import {
+  deriveSpendR,
+  deriveTxBlind,
+  poseidonWithDomain,
+} from "../crypto/poseidon2.js";
 import type { KeyPair } from "../crypto/keys.js";
 import type { ChainClient } from "../chain/client.js";
 import { type ConfidentialEvent } from "../chain/events.js";
@@ -59,19 +64,35 @@ export interface StateEngineConfig {
 }
 
 export class StateEngine {
+  private mutations: Promise<unknown> = Promise.resolve();
+  private mutate<T>(fn: () => Promise<T>): Promise<T> {
+    const next = this.mutations.then(fn);
+    this.mutations = next.catch(() => {});
+    return next;
+  }
+
   constructor(private cfg: StateEngineConfig) {}
 
   /** Recover an incoming transfer's amount and blinding from its event. */
-  decryptIncoming(rE: Point, vTilde: bigint, sigma: bigint): { vTx: bigint; rTx: bigint } {
+  decryptIncoming(
+    rE: Point,
+    vTilde: bigint,
+    sigma: bigint,
+  ): { vTx: bigint; rTx: bigint } {
     const s = ecdh(this.cfg.keys.vk, rE);
-    const vTx = frMod(vTilde - poseidonWithDomain(DOMAIN.TX_AMOUNT, [s, sigma]));
+    const vTx = frMod(
+      vTilde - poseidonWithDomain(DOMAIN.TX_AMOUNT, [s, sigma]),
+    );
     const rTx = deriveTxBlind(s, sigma);
     return { vTx, rTx };
   }
 
   /** Recover the owner's post-op spendable opening from an emitted b_tilde. */
   openSpendable(bTilde: bigint, sigma: bigint): Opening {
-    const v = frMod(bTilde - poseidonWithDomain(DOMAIN.ENCRYPTED_BALANCE, [this.cfg.keys.vk, sigma]));
+    const v = frMod(
+      bTilde -
+        poseidonWithDomain(DOMAIN.ENCRYPTED_BALANCE, [this.cfg.keys.vk, sigma]),
+    );
     const r = deriveSpendR(this.cfg.keys.vk, sigma);
     return { v, r };
   }
@@ -96,12 +117,14 @@ export class StateEngine {
         }
         break;
       case "withdraw":
-        if (ev.from === me) state.spendable = this.openSpendable(ev.bTilde, ev.sigma);
+        if (ev.from === me)
+          state.spendable = this.openSpendable(ev.bTilde, ev.sigma);
         break;
       case "transfer":
         // Order matters for a self-transfer: the sender's spendable is set from
         // the event, and the recipient credit is added to receiving.
-        if (ev.from === me) state.spendable = this.openSpendable(ev.bTilde, ev.sigma);
+        if (ev.from === me)
+          state.spendable = this.openSpendable(ev.bTilde, ev.sigma);
         if (ev.to === me) {
           const { vTx, rTx } = this.decryptIncoming(ev.rE, ev.vTilde, ev.sigma);
           state.receiving = {
@@ -118,7 +141,10 @@ export class StateEngine {
    * Sync from the last cursor (or `fromLedger` on first run), applying every
    * relevant event, then persist. Returns the updated state.
    */
-  async sync(): Promise<AccountState> {
+  sync(): Promise<AccountState> {
+    return this.mutate(() => timed("state.sync", () => this.syncUnqueued()));
+  }
+  private async syncUnqueued(): Promise<AccountState> {
     const prior = await this.cfg.store.load(this.cfg.address);
     const state = prior ?? freshState(this.cfg.address);
 
@@ -137,11 +163,19 @@ export class StateEngine {
   }
 
   /** Rebuild in isolation; never replace cached openings with an unverified replay. */
-  async rebuild(): Promise<AccountState> {
-    const candidate = new StateEngine({ ...this.cfg, store: new MemoryStore() });
+  rebuild(): Promise<AccountState> {
+    return this.mutate(() => this.rebuildUnqueued());
+  }
+  private async rebuildUnqueued(): Promise<AccountState> {
+    const candidate = new StateEngine({
+      ...this.cfg,
+      store: new MemoryStore(),
+    });
     const next = await candidate.sync();
     if (!(await candidate.verifyAgainstChain()).ok) {
-      throw new Error("Available history could not reconstruct balances matching the chain. Previous local state was preserved. Missing older events may require a full-history indexer or a valid state backup.");
+      throw new Error(
+        "Available history could not reconstruct balances matching the chain. Previous local state was preserved. Missing older events may require a full-history indexer or a valid state backup.",
+      );
     }
     await this.cfg.store.save(next);
     return next;
@@ -149,7 +183,10 @@ export class StateEngine {
 
   /** Read current state without syncing (or a fresh zero-state). */
   async current(): Promise<AccountState> {
-    return (await this.cfg.store.load(this.cfg.address)) ?? freshState(this.cfg.address);
+    return (
+      (await this.cfg.store.load(this.cfg.address)) ??
+      freshState(this.cfg.address)
+    );
   }
 
   /**
@@ -157,7 +194,10 @@ export class StateEngine {
    * owner op, avoiding a round-trip wait for the event to land. A later
    * {@link sync} reconciles against the chain.
    */
-  async setSpendable(next: Opening): Promise<AccountState> {
+  setSpendable(next: Opening): Promise<AccountState> {
+    return this.mutate(() => this.setSpendableUnqueued(next));
+  }
+  private async setSpendableUnqueued(next: Opening): Promise<AccountState> {
     const state = await this.current();
     state.spendable = { ...next };
     await this.cfg.store.save(state);
@@ -172,7 +212,10 @@ export class StateEngine {
    * before the cached state — and `verifyAgainstChain`, which reads on-chain
    * storage directly and so reflects the merge instantly — agree again.
    */
-  async applyMerge(): Promise<AccountState> {
+  applyMerge(): Promise<AccountState> {
+    return this.mutate(() => this.applyMergeUnqueued());
+  }
+  private async applyMergeUnqueued(): Promise<AccountState> {
     const state = await this.current();
     state.spendable = {
       v: state.spendable.v + state.receiving.v,
@@ -191,8 +234,8 @@ export class StateEngine {
    * missed event before that point is stuck. This is the recovery path for a
    * `verifyAgainstChain` mismatch that a normal sync doesn't clear.
    */
-  async reset(): Promise<void> {
-    await this.cfg.store.save(freshState(this.cfg.address));
+  reset(): Promise<void> {
+    return this.mutate(() => this.cfg.store.save(freshState(this.cfg.address)));
   }
 
   /**
@@ -200,12 +243,20 @@ export class StateEngine {
    * points stored on-chain. Mismatch means the local state diverged (a missed
    * event, an expired credit, or a bug) and is unsafe to spend from.
    */
-  async verifyAgainstChain(): Promise<{ ok: boolean; spendableOk: boolean; receivingOk: boolean }> {
+  async verifyAgainstChain(): Promise<{
+    ok: boolean;
+    spendableOk: boolean;
+    receivingOk: boolean;
+  }> {
     const state = await this.current();
     const onchain = await this.cfg.client.confidentialBalance(this.cfg.address);
     if (!onchain) return { ok: false, spendableOk: false, receivingOk: false };
-    const spendableOk = commit(state.spendable.v, state.spendable.r).equals(onchain.spendableBalance);
-    const receivingOk = commit(state.receiving.v, state.receiving.r).equals(onchain.receivingBalance);
+    const spendableOk = commit(state.spendable.v, state.spendable.r).equals(
+      onchain.spendableBalance,
+    );
+    const receivingOk = commit(state.receiving.v, state.receiving.r).equals(
+      onchain.receivingBalance,
+    );
     return { ok: spendableOk && receivingOk, spendableOk, receivingOk };
   }
 }

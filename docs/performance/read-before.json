@@ -1,0 +1,15 @@
+{
+  "conditions": "Controlled RPC fixture: 10ms per request; 20 concurrent identical reads; no live network or browser",
+  "samples": [
+    {
+      "mode": "cold",
+      "requests": 40,
+      "durationMs": 46
+    },
+    {
+      "mode": "warm",
+      "requests": 40,
+      "durationMs": 41
+    }
+  ]
+}

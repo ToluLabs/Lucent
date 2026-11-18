@@ -26,6 +26,8 @@ import type { UltraHonkBackend } from "@aztec/bb.js";
 import type { NoirInputs } from "../witness/common.js";
 
 /** Must match the on-chain verifier's transcript. */
+import { timed } from "../performance/trace.js";
+
 const KECCAK = { keccak: true } as const;
 
 type UltraHonkBackendCtor = new (
@@ -35,14 +37,17 @@ type UltraHonkBackendCtor = new (
 
 /** Default loader: a direct dynamic import. Correct under Node ESM. */
 let loadUltraHonkBackend: () => Promise<UltraHonkBackendCtor> = async () =>
-  (await import("@aztec/bb.js")).UltraHonkBackend as unknown as UltraHonkBackendCtor;
+  (await import("@aztec/bb.js"))
+    .UltraHonkBackend as unknown as UltraHonkBackendCtor;
 
 /**
  * Override how the `UltraHonkBackend` constructor is obtained. Browser bundlers
  * that cannot serve bb.js's worker assets must call this (typically pointing at
  * a native-ESM copy of bb.js's `dest/browser/`) before any proving happens.
  */
-export function setUltraHonkBackendLoader(loader: () => Promise<UltraHonkBackendCtor>): void {
+export function setUltraHonkBackendLoader(
+  loader: () => Promise<UltraHonkBackendCtor>,
+): void {
   loadUltraHonkBackend = loader;
 }
 
@@ -53,15 +58,34 @@ export interface ProofResult {
   publicInputs: string[];
 }
 
+/** Implementations must preserve circuit artifacts and the Keccak transcript. */
+export interface ProofEngine {
+  prove(inputs: NoirInputs): Promise<ProofResult>;
+  verify(result: ProofResult): Promise<boolean>;
+  verificationKey(): Promise<Uint8Array>;
+  destroy(): Promise<void>;
+}
+
 /**
  * Wraps one circuit: a `Noir` solver and a lazily-created `UltraHonkBackend`.
  * Construct once per circuit and reuse — backend init loads WASM and the CRS,
  * which is expensive. Call `destroy()` when done.
  */
-export class CircuitProver {
+export class CircuitProver implements ProofEngine {
   readonly #noir: Noir;
   readonly #bytecode: string;
   #backend?: UltraHonkBackend;
+  #initializing?: Promise<UltraHonkBackend>;
+  #queue: Promise<unknown> = Promise.resolve();
+  #closed = false;
+
+  private exclusive<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.#closed)
+      return Promise.reject(new Error("Prover has been destroyed"));
+    const next = this.#queue.then(fn);
+    this.#queue = next.catch(() => {});
+    return next;
+  }
 
   constructor(circuit: CompiledCircuit) {
     this.#noir = new Noir(circuit);
@@ -69,25 +93,36 @@ export class CircuitProver {
   }
 
   async #backendInstance(): Promise<UltraHonkBackend> {
-    if (!this.#backend) {
+    if (this.#backend) return this.#backend;
+    this.#initializing ??= timed("prover.init", async () => {
       const Backend = await loadUltraHonkBackend();
-      this.#backend = new Backend(this.#bytecode);
-    }
-    return this.#backend;
+      return (this.#backend = new Backend(this.#bytecode));
+    }).finally(() => {
+      this.#initializing = undefined;
+    });
+    return this.#initializing;
   }
 
   /** Solve the witness from `inputs` and generate a keccak-transcript proof. */
   async prove(inputs: NoirInputs): Promise<ProofResult> {
-    const { witness } = await this.#noir.execute(inputs);
-    const backend = await this.#backendInstance();
-    const { proof, publicInputs } = await backend.generateProof(witness, KECCAK);
-    return { proof, publicInputs };
+    return this.exclusive(async () => {
+      const { witness } = await timed("prover.witness", () =>
+        this.#noir.execute(inputs),
+      );
+      const backend = await this.#backendInstance();
+      const { proof, publicInputs } = await timed("prover.prove", () =>
+        backend.generateProof(witness, KECCAK),
+      );
+      return { proof, publicInputs };
+    });
   }
 
   /** Locally verify a proof (sanity check; the chain is the real authority). */
   async verify(result: ProofResult): Promise<boolean> {
-    const backend = await this.#backendInstance();
-    return backend.verifyProof(result, KECCAK);
+    return this.exclusive(async () => {
+      const backend = await this.#backendInstance();
+      return timed("prover.verify", () => backend.verifyProof(result, KECCAK));
+    });
   }
 
   /**
@@ -97,12 +132,18 @@ export class CircuitProver {
    * cryptographic fingerprint of the circuit (SELECTIVE_DISCLOSURE.md §5.5).
    */
   async verificationKey(): Promise<Uint8Array> {
-    const backend = await this.#backendInstance();
-    return backend.getVerificationKey(KECCAK);
+    return this.exclusive(async () => {
+      const backend = await this.#backendInstance();
+      return backend.getVerificationKey(KECCAK);
+    });
   }
 
   async destroy(): Promise<void> {
+    this.#closed = true;
+    await this.#queue;
+    await this.#initializing;
     await this.#backend?.destroy();
+    this.#backend = undefined;
   }
 }
 

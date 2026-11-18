@@ -50,3 +50,15 @@ assert.equal(transactionError("Your wallet is not funded on Stellar Testnet.").u
 console.log(
   "Financial amount precision, validation and error classification passed.",
 );
+
+assert.equal(transactionError("send confidential_transfer rejected (txTooLate, tx "+hash+")").title,"Transaction expired");
+assert.equal(transactionError("Transaction expired before submission. Nothing was submitted").uncertain,false);
+
+const walletRejected = transactionError("The user rejected this request. (code -4)");
+assert.equal(walletRejected.title, "Wallet signature not received");
+assert.equal(walletRejected.uncertain, false);
+
+const restorationLimit = transactionError('send restore for execute_run rejected (txSorobanInvalid): transaction byte-write resources exceed network config limit');
+assert.equal(restorationLimit.title, 'Stellar resource limit exceeded');
+assert.equal(restorationLimit.uncertain, false);
+assert.match(restorationLimit.advice, /requested action did not execute/);
