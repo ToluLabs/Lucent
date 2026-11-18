@@ -58,12 +58,20 @@ export interface ProofResult {
   publicInputs: string[];
 }
 
+/** Implementations must preserve circuit artifacts and the Keccak transcript. */
+export interface ProofEngine {
+  prove(inputs: NoirInputs): Promise<ProofResult>;
+  verify(result: ProofResult): Promise<boolean>;
+  verificationKey(): Promise<Uint8Array>;
+  destroy(): Promise<void>;
+}
+
 /**
  * Wraps one circuit: a `Noir` solver and a lazily-created `UltraHonkBackend`.
  * Construct once per circuit and reuse — backend init loads WASM and the CRS,
  * which is expensive. Call `destroy()` when done.
  */
-export class CircuitProver {
+export class CircuitProver implements ProofEngine {
   readonly #noir: Noir;
   readonly #bytecode: string;
   #backend?: UltraHonkBackend;

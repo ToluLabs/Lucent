@@ -17,7 +17,7 @@ import { encodeTransferData } from "./payload.js";
 import { buildTransferWitness } from "../witness/transfer.js";
 import type { KeyPair } from "../crypto/keys.js";
 import type { Point } from "../crypto/grumpkin.js";
-import type { CircuitProver } from "../proving/prover.js";
+import type { ProofEngine } from "../proving/prover.js";
 
 const addr = (a: string): xdr.ScVal => new Address(a).toScVal();
 const u64 = (v: bigint): xdr.ScVal => nativeToScVal(v, { type: "u64" });
@@ -118,7 +118,7 @@ export async function buildPayrollTransfers(params: {
   r: bigint;
   /** Registered auditor key (used for both sender and recipient channels). */
   kAud: Point;
-  prover: CircuitProver;
+  prover: ProofEngine;
   payments: PayrollPayment[];
 }): Promise<{ blobs: Uint8Array[]; next: { v: bigint; r: bigint } }> {
   let v = params.v;

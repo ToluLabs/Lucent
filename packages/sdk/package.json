@@ -17,6 +17,10 @@
     "./chain/status": {
       "types": "./dist/chain/status.d.ts",
       "import": "./dist/chain/status.js"
+    },
+    "./performance": {
+      "types": "./dist/performance/trace.d.ts",
+      "import": "./dist/performance/trace.js"
     }
   },
   "main": "./dist/index.js",
