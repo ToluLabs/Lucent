@@ -327,7 +327,15 @@ export class ChainClient {
       xdr.Uint64.fromString(String((await this.networkTime()) + 300)),
     );
     const fresh = new Transaction(envelope, this.cfg.networkPassphrase);
-    const signedXdr = await timed("tx.wallet_wait", () => signer.sign(fresh.toXDR()));
+    let signedXdr: string;
+    try {
+      signedXdr = await timed("tx.wallet_wait", () => signer.sign(fresh.toXDR()));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Wallet did not return a signature";
+      // Size and method identify wallet compatibility failures without exposing
+      // transaction contents, witnesses or decrypted account state.
+      throw new Error(`Wallet signing for ${method} failed before submission (${fresh.toEnvelope().toXDR().byteLength} XDR bytes): ${message}`);
+    }
     const signedTx = TransactionBuilder.fromXDR(
       signedXdr,
       this.cfg.networkPassphrase,

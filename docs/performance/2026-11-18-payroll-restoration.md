@@ -20,3 +20,7 @@ The configured Testnet RPC returned `txMaxWriteBytes = 132096` through a read-on
 SDK fast tests, app form tests and the production app build are the validation commands for this change. Optional live indexer parity requires a configured indexer. No wallet was signed and no financial transaction was submitted by the agent in this follow-up. Live wallet-approved restoration and payroll settlement still require user verification.
 
 An archived deployment may now require several restoration approvals followed by payroll approval. This is recovery overhead, not a claim of single-approval payroll recovery. Keeping deployed contract entries alive through TTL maintenance is a separate operational improvement.
+
+## Subsequent live verification
+
+The user-approved retry confirmed two separate restoration transactions. The final payroll signature then failed inside Varial's serializer. See [the captured error, reproduction and proposed upstream patch](2026-11-18-varial-serialization.md). Restoration batching is live-verified; payroll settlement is not.

@@ -1,0 +1,11 @@
+--- a/src/base/util/base64.ts
++++ b/src/base/util/base64.ts
+@@ -36,7 +36,7 @@
+ 
+ // Divisible by 3 so each btoa() chunk emits no padding, and small enough to
+ // stay under engines' max-argument-count limits for `Function.apply`.
+-const ENCODE_CHUNK_SIZE = 65535;
++const ENCODE_CHUNK_SIZE = 16383;
+ 
+ /**
+  * Encode bytes as a base64 string.

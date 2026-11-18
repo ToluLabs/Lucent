@@ -22,5 +22,7 @@ client.server.getTransaction=async()=>{throw Error('offline');};
 await assert.rejects(client.submit(tx,signer,'transfer'),e=>e.message.includes(hash)&&e.message.includes('confirmation unknown'));
 client.server.getTransaction=async()=>({status:'FAILED'});
 await assert.rejects(client.submit(tx,signer,'transfer'),/failed on-chain/);
-await assert.rejects(client.submit(tx,{...signer,sign:async()=>{throw Error('User declined');}},'transfer'),/declined/);
+const beforeRejection=submitted;
+await assert.rejects(client.submit(tx,{...signer,sign:async()=>{throw Error('User declined');}},'transfer'),error=>/Wallet signing for transfer failed before submission/.test(error.message)&&/\d+ XDR bytes/.test(error.message)&&/declined/.test(error.message));
+assert.equal(submitted,beforeRejection,'Wallet signing failure must not submit or automatically retry');
 console.log('Performance safety: concurrent reads deduplicated, fresh reads/failed reads preserved; submission is not success; confirmation errors retain hash; cancellation propagates.');
