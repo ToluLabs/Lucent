@@ -43,6 +43,14 @@ export function transactionError(message: string): {
       advice:
         "This operation may have reached the network. Check activity and refresh account state before submitting again. A timeout does not establish failure.",
     };
+  if (/\(code -4\)/i.test(message))
+    return {
+      uncertain: false,
+      hash,
+      title: "Wallet signature not received",
+      advice:
+        "Varial reported a rejected request. If you approved it, the approval did not return a signed transaction to Lucent. Check the wallet popup and retry when ready; Lucent will not retry automatically.",
+    };
   if (
     /reject|denied|declin|cancel/i.test(message) &&
     !/send .*rejected|txSoroban/i.test(message)

@@ -667,7 +667,7 @@ export class ConfidentialWallet {
     onPhase?.("submitting");
     this.log("submitting execute_run…");
     const r = await trackConfirmed("payroll_confirmed", () =>
-      submitExecuteRun(this.client, this.signer, runId, blobs),
+      submitExecuteRun(this.client, withWalletProgress(this.signer, onPhase), runId, blobs),
     );
     await this.engine.setSpendable(next);
     this.log(`run #${runId} executed (tx ${r.hash.slice(0, 10)}…)`);

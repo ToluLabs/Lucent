@@ -53,3 +53,7 @@ console.log(
 
 assert.equal(transactionError("send confidential_transfer rejected (txTooLate, tx "+hash+")").title,"Transaction expired");
 assert.equal(transactionError("Transaction expired before submission. Nothing was submitted").uncertain,false);
+
+const walletRejected = transactionError("The user rejected this request. (code -4)");
+assert.equal(walletRejected.title, "Wallet signature not received");
+assert.equal(walletRejected.uncertain, false);
