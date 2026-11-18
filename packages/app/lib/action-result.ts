@@ -69,6 +69,15 @@ export function transactionError(message: string): {
       advice:
         "Ask the recipient to connect to Lucent and register on Stellar Testnet.",
     };
+  if (/scecExceededLimit|resources? exceed.*limit|single archived entry exceeds/i.test(message))
+    return {
+      uncertain: false,
+      hash,
+      title: "Stellar resource limit exceeded",
+      advice: /restore|archived/i.test(message)
+        ? "Stellar rejected restoration of archived contract data. The requested action did not execute. Restoring the data may require separate wallet approvals; changing the payment amount does not resolve this restoration limit."
+        : "Stellar rejected this transaction because it exceeds a network resource limit. Your inputs are saved; check the technical details before retrying.",
+    };
   if (/exceed|insufficient/i.test(message))
     return {
       uncertain: false,

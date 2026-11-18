@@ -57,3 +57,8 @@ assert.equal(transactionError("Transaction expired before submission. Nothing wa
 const walletRejected = transactionError("The user rejected this request. (code -4)");
 assert.equal(walletRejected.title, "Wallet signature not received");
 assert.equal(walletRejected.uncertain, false);
+
+const restorationLimit = transactionError('send restore for execute_run rejected (txSorobanInvalid): transaction byte-write resources exceed network config limit');
+assert.equal(restorationLimit.title, 'Stellar resource limit exceeded');
+assert.equal(restorationLimit.uncertain, false);
+assert.match(restorationLimit.advice, /requested action did not execute/);

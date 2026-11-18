@@ -266,49 +266,53 @@ export class ChainClient {
         throw new Error(
           `${method}: ledger entries are still archived after restoration; retry the account operation`,
         );
-      // Auto-restoration plus the invocation can exceed the network write
-      // limit even when each operation fits separately. Restore first, then
-      // rebuild from a fresh sequence number and fresh simulation.
       const footprint = data.resources().footprint().readWrite();
-      const restoreTx = new TransactionBuilder(
-        await this.server.getAccount(signer.publicKey),
-        {
-          fee: BASE_FEE,
-          networkPassphrase: this.cfg.networkPassphrase,
-        },
-      )
-        .setSorobanData(
-          new SorobanDataBuilder()
-            .setReadWrite(
-              archived.map((index) => {
-                const key = footprint[index];
-                if (!key)
-                  throw new Error(
-                    "Simulation returned an invalid archived entry index",
-                  );
-                return key;
-              }),
-            )
-            .build(),
-        )
-        .addOperation(Operation.restoreFootprint({}))
-        .setTimebounds(0, (await this.networkTime()) + 300)
-        .build();
-      const restoreSim = await this.server.simulateTransaction(restoreTx);
-      if (rpc.Api.isSimulationError(restoreSim)) {
-        throw new Error(
-          `simulate restore for ${method} failed: ${restoreSim.error}`,
-        );
-      }
-      await this.submit(
-        rpc.assembleTransaction(restoreTx, restoreSim).build(),
-        signer,
-        `restore for ${method}`,
-      );
+      const keys = archived.map((index) => {
+        const key = footprint[index];
+        if (!key) throw new Error("Simulation returned an invalid archived entry index");
+        return key;
+      });
+      const configKey = xdr.LedgerKey.configSetting(new xdr.LedgerKeyConfigSetting({
+        configSettingId: xdr.ConfigSettingId.configSettingContractLedgerCostV0(),
+      }));
+      const config = await this.server.getLedgerEntries(configKey);
+      const writeLimit = config.entries[0]?.val.configSetting().contractLedgerCost().txMaxWriteBytes();
+      if (!writeLimit || !Number.isSafeInteger(writeLimit) || writeLimit <= 0)
+        throw new Error("Cannot read Stellar restoration resource limit; nothing was restored.");
+      await this.restoreArchived(keys, signer, method, writeLimit);
       return this.invoke(contractId, method, args, signer, true);
     }
     const assembled = rpc.assembleTransaction(tx, sim).build();
     return this.submit(assembled, signer, method);
+  }
+
+  /** Split oversized restorations BEFORE approval, never retry submitted writes. */
+  private async restoreArchived(
+    keys: xdr.LedgerKey[], signer: Signer, method: string, writeLimit: number,
+  ): Promise<void> {
+    const tx = new TransactionBuilder(await this.server.getAccount(signer.publicKey), {
+      fee: BASE_FEE, networkPassphrase: this.cfg.networkPassphrase,
+    })
+      .setSorobanData(new SorobanDataBuilder().setReadWrite(keys).build())
+      .addOperation(Operation.restoreFootprint({}))
+      .setTimebounds(0, (await this.networkTime()) + 300)
+      .build();
+    const sim = await this.server.simulateTransaction(tx);
+    const error = rpc.Api.isSimulationError(sim) ? sim.error : undefined;
+    const oversized = error
+      ? /exceed.*limit|limit.*exceed/i.test(error)
+      : !rpc.Api.isSimulationError(sim) && sim.transactionData.build().resources().writeBytes() > writeLimit;
+    if (oversized) {
+      if (keys.length <= 1)
+        throw new Error(`A single archived entry exceeds Stellar's restoration limit; ${method} was not executed.`);
+      const midpoint = Math.ceil(keys.length / 2);
+      await this.restoreArchived(keys.slice(0, midpoint), signer, method, writeLimit);
+      await this.restoreArchived(keys.slice(midpoint), signer, method, writeLimit);
+      return;
+    }
+    if (rpc.Api.isSimulationError(sim))
+      throw new Error(`simulate restore for ${method} failed: ${sim.error}`);
+    await this.submit(rpc.assembleTransaction(tx, sim).build(), signer, `restore for ${method}`);
   }
 
   private async submit(
