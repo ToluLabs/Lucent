@@ -18,6 +18,8 @@ import { DEPLOYMENT } from "@/lib/deployment";
 import { errMsg } from "@/lib/err";
 import { escrowTransferDescription } from "@/lib/escrow-activity";
 import { shortAddress, timeAgo } from "@/lib/format";
+import { useQueries } from "@tanstack/react-query";
+import { publicScope, usePublicQuery } from "@/lib/public-query";
 import { useAction } from "@/lib/use-action";
 import type { ConfidentialWallet } from "@/lib/wallet";
 import { useWallet } from "@/lib/wallet-context";
@@ -37,7 +39,13 @@ import {
   UserCheck,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState, type ComponentType } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useDeferredValue,
+  type ComponentType,
+} from "react";
 import { DiscloseFlow } from "./disclose-flow";
 
 /**
@@ -96,7 +104,8 @@ function describeEvent(
         const description = escrowTransferDescription(escrow, me, received);
         return {
           icon: Lock,
-          iconColor: description.tone === "warning" ? "text-warning" : "text-success",
+          iconColor:
+            description.tone === "warning" ? "text-warning" : "text-success",
           label: description.label,
         };
       }
@@ -238,52 +247,60 @@ export function HomeClient() {
   const { run, busy, phase, uncertain } = useAction();
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [historyAttempt, setHistoryAttempt] = useState(0);
-  const [historyError, setHistoryError] = useState<string | null>(null);
+
   const { wallet, view, connecting, refresh, lastSync, error, setError } =
     useWallet();
 
   const [syncing, setSyncing] = useState(false);
 
-  const [activity, setActivity] = useState<ConfidentialEvent[] | null>(null);
-  const [activityLoading, setActivityLoading] = useState(true);
+  const activityQuery = usePublicQuery(
+    wallet,
+    "activity",
+    "",
+    () => wallet!.listEvents(),
+    !!view?.registered,
+  );
+  const activity = activityQuery.data ?? null;
+  const activityLoading = activityQuery.isLoading;
+  const historyError = activityQuery.error ? errMsg(activityQuery.error) : null;
+  const publicBalanceQuery = usePublicQuery(wallet, "public-balance", "", () =>
+    wallet!.publicBalance(),
+  );
+  const publicBalance =
+    publicBalanceQuery.dataUpdatedAt > (lastSync?.getTime() ?? 0)
+      ? publicBalanceQuery.data
+      : view?.publicUSDC;
+
   const [decryptedAmounts, setDecryptedAmounts] = useState<
     Map<string, bigint | null>
   >(new Map());
-  const [escrowByAddress, setEscrowByAddress] = useState<
-    Map<string, EscrowInfo>
-  >(new Map());
 
-  const filtered = (activity ?? []).filter((ev) =>
-    JSON.stringify(ev, (_, v) => (typeof v === "bigint" ? v.toString() : v))
-      .toLowerCase()
-      .includes(query.toLowerCase()),
+  const deferredQuery = useDeferredValue(query.toLowerCase());
+  const searchable = useMemo(
+    () =>
+      (activity ?? []).map((ev) => ({
+        ev,
+        text: [
+          ev.type,
+          ev.txHash,
+          "account" in ev ? ev.account : "",
+          "from" in ev ? ev.from : "",
+          "to" in ev ? ev.to : "",
+        ]
+          .join(" ")
+          .toLowerCase(),
+      })),
+    [activity],
+  );
+  const filtered = useMemo(
+    () =>
+      searchable
+        .filter((item) => item.text.includes(deferredQuery))
+        .map((item) => item.ev),
+    [searchable, deferredQuery],
   );
   const pages = Math.max(1, Math.ceil(filtered.length / 20));
   const currentPage = Math.min(page, pages);
-
-  const accountReady = !!view?.registered;
-  useEffect(() => {
-    if (!wallet || !accountReady) return;
-    let cancelled = false;
-    (async () => {
-      setActivityLoading(true);
-      setHistoryError(null);
-      setActivity(null);
-      setDecryptedAmounts(new Map());
-      try {
-        const events = await wallet.listEvents();
-        if (!cancelled) setActivity(events);
-      } catch (e) {
-        if (!cancelled) setHistoryError(errMsg(e));
-      } finally {
-        if (!cancelled) setActivityLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [wallet, accountReady, lastSync, historyAttempt]);
 
   // Decrypt each transfer's amount for display — this is the account's own
   // data, so there's no reason to keep it hidden from the owner the way it's
@@ -292,6 +309,7 @@ export function HomeClient() {
   // recipient's viewing key), so this runs as its own effect rather than
   // blocking the activity list from rendering.
   useEffect(() => {
+    setDecryptedAmounts(new Map());
     if (!wallet || !activity) return;
     const transfers = filtered
       .slice((currentPage - 1) * 20, currentPage * 20)
@@ -313,51 +331,42 @@ export function HomeClient() {
     return () => {
       cancelled = true;
     };
-  }, [wallet, activity, page, query]);
+  }, [wallet, activity, page, deferredQuery]);
 
-  // Resolve escrow instance details (depositor/recipient/state) for every
-  // contract-address counterparty appearing in the activity feed, so those
-  // transfers can be relabeled "Escrow funded/released/refunded" instead of
-  // a bare address. This is a hard signal (every escrow instance IS its own
-  // confidential account), not a heuristic like the payroll match above.
-  useEffect(() => {
-    if (!wallet || !activity || !DEPLOYMENT.contracts.escrowFactory) return;
-    const contractCounterparties = new Set<string>();
-    for (const ev of activity) {
-      if (ev.type !== "transfer") continue;
-      const counterparty = ev.to === wallet.address ? ev.from : ev.to;
-      if (!counterparty.startsWith("G"))
-        contractCounterparties.add(counterparty);
-    }
-    if (contractCounterparties.size === 0) return;
-    let cancelled = false;
-    (async () => {
-      const entries = await Promise.all(
-        [...contractCounterparties].map(
-          async (addr): Promise<[string, EscrowInfo] | null> => {
-            try {
-              return [addr, await wallet.escrowInfo(addr)];
-            } catch {
-              return null;
-            }
-          },
-        ),
-      );
-      if (!cancelled) {
-        setEscrowByAddress(
-          new Map(entries.filter((e): e is [string, EscrowInfo] => e !== null)),
-        );
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [wallet, activity]);
+  // Fetch/cache only visible public escrow metadata, rather than every counterparty in history.
+  const escrowAddresses = [
+    ...new Set(
+      filtered
+        .slice((currentPage - 1) * 20, currentPage * 20)
+        .filter((ev): ev is TransferEvent => ev.type === "transfer")
+        .map((ev) => (ev.to === wallet?.address ? ev.from : ev.to))
+        .filter((address) => address.startsWith("C")),
+    ),
+  ];
+  const escrowQueries = useQueries({
+    queries: escrowAddresses.map((address) => ({
+      queryKey: [
+        ...publicScope(wallet?.address ?? "disconnected"),
+        "escrow",
+        address,
+      ],
+      queryFn: () => wallet!.escrowInfo(address),
+      enabled: !!wallet,
+    })),
+  });
+  const escrowByAddress = new Map<string, EscrowInfo>();
+  escrowQueries.forEach((result, i) => {
+    if (result.data) escrowByAddress.set(escrowAddresses[i]!, result.data);
+  });
 
   async function handleSync() {
     setSyncing(true);
     try {
-      await refresh();
+      await Promise.all([
+        refresh(),
+        activityQuery.refetch(),
+        publicBalanceQuery.refetch(),
+      ]);
     } finally {
       setSyncing(false);
     }
@@ -411,14 +420,18 @@ export function HomeClient() {
               </h2>
               <p className="my-5 max-w-lg text-sm leading-7 text-text-secondary">
                 Register your confidential keys with Lucent using a one-time
-                proof generated in this browser. Varial will ask you to
-                approve the transaction.
+                proof generated in this browser. Varial will ask you to approve
+                the transaction.
               </p>
               <AddressDisplay address={wallet.address} chars={8} />
               <p className="mt-4 text-sm leading-6 text-text-secondary">
                 Your Testnet wallet needs XLM for transaction fees.{" "}
-                <a href={`https://friendbot.stellar.org/?addr=${wallet.address}`}
-                  target="_blank" rel="noreferrer" className="text-accent underline">
+                <a
+                  href={`https://friendbot.stellar.org/?addr=${wallet.address}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-accent underline"
+                >
                   Fund with Friendbot ↗
                 </a>
               </p>
@@ -548,7 +561,9 @@ export function HomeClient() {
           <GlassCard padding="lg">
             <p className="text-sm text-text-secondary">Public wallet balance</p>
             <p className="mt-5 break-words text-2xl font-semibold tabular-nums">
-              {displayAmount(view.publicUSDC, 7)}
+              {publicBalance == null
+                ? "Unavailable"
+                : displayAmount(publicBalance, 7)}
             </p>
             <p className="mt-3 text-xs leading-6 text-text-muted">
               Public USDC, separate from your confidential account. Deposit and
@@ -584,7 +599,7 @@ export function HomeClient() {
               variant="ghost"
               size="sm"
               isLoading={activityLoading}
-              onClick={() => setHistoryAttempt((n) => n + 1)}
+              onClick={() => void activityQuery.refetch()}
             >
               Refresh activity
             </Button>
@@ -603,62 +618,60 @@ export function HomeClient() {
           {historyError && <ErrorBanner error={historyError} />}
           {activityLoading ? (
             <Skeleton className="h-36 w-full" />
+          ) : activity === null && historyError ? null : filtered.length ===
+            0 ? (
+            <div className="py-10 text-center">
+              <Activity className="mx-auto mb-4 h-7 w-7 text-text-muted" />
+              <p className="text-sm">
+                {query
+                  ? "No matching events"
+                  : "No events in the available history"}
+              </p>
+              <p className="mt-2 text-xs text-text-muted">
+                Missing historical events do not establish that an account was
+                never used.
+              </p>
+            </div>
           ) : (
-            !historyError &&
-            (filtered.length === 0 ? (
-              <div className="py-10 text-center">
-                <Activity className="mx-auto mb-4 h-7 w-7 text-text-muted" />
-                <p className="text-sm">
-                  {query
-                    ? "No matching events"
-                    : "No events in the available history"}
-                </p>
-                <p className="mt-2 text-xs text-text-muted">
-                  Missing historical events do not establish that an account was
-                  never used.
-                </p>
-              </div>
-            ) : (
-              <>
-                <ul>
-                  {filtered
-                    .slice((currentPage - 1) * 20, currentPage * 20)
-                    .map((ev) => (
-                      <ActivityRow
-                        key={ev.cursor}
-                        ev={ev}
-                        wallet={wallet}
-                        ctx={{ me: wallet.address, escrowByAddress }}
-                        decryptedAmount={decryptedAmounts.get(ev.cursor)}
-                      />
-                    ))}
-                </ul>
-                <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
-                  <span className="text-xs text-text-muted">
-                    {filtered.length} available events · Page {currentPage} of{" "}
-                    {pages}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={currentPage === 1}
-                      onClick={() => setPage(currentPage - 1)}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={currentPage === pages}
-                      onClick={() => setPage(currentPage + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
+            <>
+              <ul>
+                {filtered
+                  .slice((currentPage - 1) * 20, currentPage * 20)
+                  .map((ev) => (
+                    <ActivityRow
+                      key={ev.cursor}
+                      ev={ev}
+                      wallet={wallet}
+                      ctx={{ me: wallet.address, escrowByAddress }}
+                      decryptedAmount={decryptedAmounts.get(ev.cursor)}
+                    />
+                  ))}
+              </ul>
+              <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
+                <span className="text-xs text-text-muted">
+                  {filtered.length} available events · Page {currentPage} of{" "}
+                  {pages}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={currentPage === 1}
+                    onClick={() => setPage(currentPage - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={currentPage === pages}
+                    onClick={() => setPage(currentPage + 1)}
+                  >
+                    Next
+                  </Button>
                 </div>
-              </>
-            ))
+              </div>
+            </>
           )}
         </GlassCard>
         <p className="text-xs leading-6 text-text-muted">

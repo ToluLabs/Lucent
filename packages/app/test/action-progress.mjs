@@ -12,7 +12,9 @@ const context = {
 let finishRefresh;
 globalThis.__lucentActionTest = {
   context,
+  invalidations: [],
   wallet: {
+    wallet: { address: "owner" },
     setError() {},
     refresh: () => new Promise((resolve) => { finishRefresh = resolve; }),
   },
@@ -28,12 +30,14 @@ const bundle = await build({
     name: "action-context-fixture",
     setup(b) {
       const modules = {
+        "@tanstack/react-query": "export const useQueryClient=()=>({invalidateQueries:async options=>{globalThis.__lucentActionTest.invalidations.push(options);}});",
+        "./public-query": 'export const publicScope=address=>["scope",address];',
         react: "export const useCallback=f=>f; export const useState=()=>[null,()=>{}];",
         "./action-context": "export const useActionContext=()=>globalThis.__lucentActionTest.context;",
         "./wallet-context": "export const useWallet=()=>globalThis.__lucentActionTest.wallet;",
         "./analytics": "export const trackEvent=()=>{};export const trackedAction=()=>null;",
       };
-      b.onResolve({ filter: /^(react|\.\/(action-context|wallet-context|analytics))$/ }, (args) => ({ path: args.path, namespace: "fixture" }));
+      b.onResolve({ filter: /^(react|@tanstack\/react-query|\.\/(action-context|wallet-context|analytics|public-query))$/ }, (args) => ({ path: args.path, namespace: "fixture" }));
       b.onLoad({ filter: /.*/, namespace: "fixture" }, (args) => ({ contents: modules[args.path] }));
     },
   }],
@@ -54,10 +58,16 @@ finishRefresh();
 assert.equal(await pending, true);
 assert.equal(phases.at(-1), "confirmed");
 assert.equal(context.lock.current, false);
+const invalidations = globalThis.__lucentActionTest.invalidations;
+assert.equal(invalidations.length, 1);
+assert.equal(invalidations[0].predicate({queryKey:['scope','owner','activity']}), true);
+assert.equal(invalidations[0].predicate({queryKey:['scope','other','activity']}), false);
+assert.equal(invalidations[0].predicate({queryKey:['scope','owner','payroll']}), false);
 phases.length = 0;
 assert.equal(await action.run("register", async () => { throw new Error("User declined"); }), false);
 assert.deepEqual(phases, ["working", "failed"]);
 assert.equal(context.lock.current, false);
+assert.equal(invalidations.length, 1, "Wallet cancellation must not invalidate confirmed data");
 delete globalThis.__lucentActionTest;
 delete globalThis.window;
 console.log("Action progress passed: wallet approval phases, locked balance refresh, duplicate prevention and declined approval.");

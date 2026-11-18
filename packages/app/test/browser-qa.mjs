@@ -60,6 +60,15 @@ try {
       : {}),
   });
 
+  const manifest=JSON.parse(await readFile(resolve(import.meta.dirname,'../lib/proof-worker-manifest.json'),'utf8'));
+  const assets=await browser.newContext();
+  for(const path of [manifest.url,manifest.url.replace('worker.js','acvm_js_bg.wasm'),manifest.url.replace('worker.js','noirc_abi_wasm_bg.wasm')]) {
+    const response=await assets.request.get(base+path);
+    assert.equal(response.status(),200,'Pinned proof worker asset must be served');
+    assert.match(response.headers()['cache-control'],/immutable/);
+    assert.equal(response.headers()['cross-origin-embedder-policy'],'credentialless');
+  }
+  await assets.close();
   for (const width of [320, 390, 768, 1440, 1920]) {
     const context = await browser.newContext({
       viewport: { width, height: 1000 },

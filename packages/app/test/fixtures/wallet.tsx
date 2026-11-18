@@ -19,6 +19,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       phase?.("proving");
       await new Promise((r) => setTimeout(r, 80));
       phase?.("submitting");
+      window.dispatchEvent(new CustomEvent("lucent:submitted", {detail:{hash:(settings().get("result")==="timeout"?"a":"b").repeat(64)}}));
       await new Promise((r) => setTimeout(r, 120));
       const result = settings().get("result");
       if (result === "declined")
@@ -27,10 +28,13 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         throw new Error(
           `transfer confirmation timed out (tx ${"a".repeat(64)})`,
         );
+      current.current.paid = true;
       setPaid(true);
     };
     return {
       address: A,
+      publicBalance: async () => 50000000n,
+      destroy: async () => {},
       listEvents: async () => {
         (window as any).__historyCalls =
           ((window as any).__historyCalls ?? 0) + 1;
@@ -66,6 +70,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }),
       createTemplate: async () => {
         await operation();
+        current.current.templateCreated = true;
         setTemplateCreated(true);
         return 2n;
       },
