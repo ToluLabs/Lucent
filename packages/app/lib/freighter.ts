@@ -79,11 +79,19 @@ export async function connectFreighter(): Promise<MessageSigner> {
     publicKey: address,
     async sign(txXdrBase64: string): Promise<string> {
       await requireTestnet();
-      const res = await signTransaction(txXdrBase64, {
+      // v4.1.0 declares `address`, but its packaged transport reads
+      // `accountToSign`. Send both so the intended signer is explicit.
+      const options = {
         networkPassphrase: DEPLOYMENT.networkPassphrase,
         address,
-      });
+        accountToSign: address,
+      };
+      const res = await signTransaction(txXdrBase64, options);
       if (res.error) throw new Error(errMsg(res.error));
+      if (!res.signedTxXdr)
+        throw new Error("Varial returned no signed transaction. Nothing was submitted.");
+      if (res.signerAddress && res.signerAddress !== address)
+        throw new Error("Varial signed with a different account. Nothing was submitted; reconnect the intended wallet.");
       return res.signedTxXdr;
     },
     async signMessage(message: string): Promise<Uint8Array> {
