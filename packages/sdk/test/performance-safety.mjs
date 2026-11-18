@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { Account, Keypair, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
+import { Account, Keypair, TransactionBuilder, Operation, xdr } from '@stellar/stellar-sdk';
 import { ChainClient } from '../src/chain/client.ts';
 const config={rpcUrl:'http://localhost:1',networkPassphrase:'test',contracts:{token:'unused'}};
 const c=new ChainClient(config);
@@ -11,12 +11,12 @@ await Promise.all(Array.from({length:20},()=>c.simulate(contract,'same',[])));as
 await c.simulate(contract,'same',[]);assert.equal(reads,2,'No TTL cache for authoritative state reads');
 await Promise.all([c.simulate(contract,'a',[]),c.simulate(contract,'b',[])]);assert.equal(reads,4);
 fail=true;await assert.rejects(c.simulate(contract,'same',[]),/offline/);fail=false;await c.simulate(contract,'same',[]);assert.equal(reads,6);
-const kp=Keypair.random();const tx=new TransactionBuilder(new Account(kp.publicKey(),'0'),{fee:'100',networkPassphrase:'test'}).setTimeout(30).build();
+const kp=Keypair.random();const tx=new TransactionBuilder(new Account(kp.publicKey(),'0'),{fee:'100',networkPassphrase:'test'}).addOperation(Operation.manageData({name:'fixture',value:'test'})).setTimeout(30).build();
 const hash='a'.repeat(64);let submitted=0;
 const client=new ChainClient({...config,onSubmitted:h=>{assert.equal(h,hash);submitted++;}});
-const signer={publicKey:kp.publicKey(),sign:async()=>tx.toXDR()};
+const signer={publicKey:kp.publicKey(),sign:async xdr=>xdr};
 client.server.sendTransaction=async()=>({status:'PENDING',hash});
-client.server.getTransaction=async()=>({status:'SUCCESS'});
+client.server.getTransaction=async hash=>hash==='0'.repeat(64)?{status:'NOT_FOUND',latestLedgerCloseTime:Math.floor(Date.now()/1000)}:{status:'SUCCESS'};
 const result=await client.submit(tx,signer,'transfer');assert.equal(result.status,'SUCCESS');assert.equal(submitted,1);
 client.server.getTransaction=async()=>{throw Error('offline');};
 await assert.rejects(client.submit(tx,signer,'transfer'),e=>e.message.includes(hash)&&e.message.includes('confirmation unknown'));

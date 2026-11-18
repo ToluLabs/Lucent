@@ -25,6 +25,12 @@ export function transactionError(message: string): {
         "Install and unlock the Varial browser extension, then connect again.",
     };
   const hash = message.match(/(?:tx\s+)([a-f0-9]{64})/i)?.[1];
+  if (/txTooLate|Transaction expired before submission/i.test(message))
+    return {
+      uncertain:false, hash,
+      title:"Transaction expired",
+      advice:"This attempt did not execute the payment. Refresh your account, prepare it again and approve the new wallet request. Lucent will not resend automatically.",
+    };
   const uncertain =
     /timed? ?out|timeout|confirmation.*unknown|fetch failed|failed to fetch|network.*error|load failed/i.test(
       message,

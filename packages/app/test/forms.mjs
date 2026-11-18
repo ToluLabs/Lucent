@@ -50,3 +50,6 @@ assert.equal(transactionError("Your wallet is not funded on Stellar Testnet.").u
 console.log(
   "Financial amount precision, validation and error classification passed.",
 );
+
+assert.equal(transactionError("send confidential_transfer rejected (txTooLate, tx "+hash+")").title,"Transaction expired");
+assert.equal(transactionError("Transaction expired before submission. Nothing was submitted").uncertain,false);

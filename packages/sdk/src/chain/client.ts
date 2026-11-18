@@ -19,7 +19,8 @@ import {
   scValToNative,
   Operation,
   SorobanDataBuilder,
-  type Transaction,
+  FeeBumpTransaction,
+  Transaction,
 } from "@stellar/stellar-sdk";
 
 import { pointFromBytes, type Point } from "../crypto/grumpkin.js";
@@ -204,6 +205,28 @@ export class ChainClient {
     return (await this.server.getHealth()).latestLedger;
   }
 
+  private clock?: { seconds: number; monotonicMs: number };
+  private clockFlight?: Promise<number>;
+
+  /** NOT_FOUND responses include ledger time without decoding ledger XDR. */
+  private async networkTime(): Promise<number> {
+    const now = performance.now();
+    if (this.clock && now - this.clock.monotonicMs < 20_000)
+      return this.clock.seconds + Math.floor((now - this.clock.monotonicMs) / 1000);
+    if (this.clockFlight) return this.clockFlight;
+    this.clockFlight = (async () => {
+      const response = await this.server.getTransaction("0".repeat(64));
+      const seconds = Number(response.latestLedgerCloseTime);
+      if (!Number.isSafeInteger(seconds) || seconds <= 0)
+        throw new Error("Invalid ledger time");
+      this.clock = { seconds, monotonicMs: performance.now() };
+      return seconds;
+    })().catch(() => {
+      throw new Error("Stellar ledger time unavailable; transaction preparation stopped. Nothing was submitted.");
+    }).finally(() => { this.clockFlight = undefined; });
+    return this.clockFlight;
+  }
+
   // ----- writes ------------------------------------------------------------
 
   /**
@@ -224,7 +247,7 @@ export class ChainClient {
       networkPassphrase: this.cfg.networkPassphrase,
     })
       .addOperation(new Contract(contractId).call(method, ...args))
-      .setTimeout(180)
+      .setTimebounds(0, (await this.networkTime()) + 300)
       .build();
 
     const sim = await timed("tx.simulate", () =>
@@ -269,7 +292,7 @@ export class ChainClient {
             .build(),
         )
         .addOperation(Operation.restoreFootprint({}))
-        .setTimeout(180)
+        .setTimebounds(0, (await this.networkTime()) + 300)
         .build();
       const restoreSim = await this.server.simulateTransaction(restoreTx);
       if (rpc.Api.isSimulationError(restoreSim)) {
@@ -293,14 +316,24 @@ export class ChainClient {
     signer: Signer,
     method: string,
   ): Promise<InvokeResult> {
-    const signedXdr = await timed("tx.wallet_wait", () =>
-      signer.sign(assembled.toXDR()),
+    // Change only unsigned time bounds after simulation. Rebuilding through a
+    // TransactionBuilder can add the Soroban resource fee a second time.
+    const envelope = assembled.toEnvelope();
+    envelope.v1().tx().cond().timeBounds().maxTime(
+      xdr.Uint64.fromString(String((await this.networkTime()) + 300)),
     );
+    const fresh = new Transaction(envelope, this.cfg.networkPassphrase);
+    const signedXdr = await timed("tx.wallet_wait", () => signer.sign(fresh.toXDR()));
     const signedTx = TransactionBuilder.fromXDR(
       signedXdr,
       this.cfg.networkPassphrase,
     );
 
+    const bounds = signedTx instanceof FeeBumpTransaction
+      ? signedTx.innerTransaction.timeBounds : signedTx.timeBounds;
+    const maxTime = Number(bounds?.maxTime ?? 0);
+    if (maxTime === 0 || maxTime <= (await this.networkTime()) + 10)
+      throw new Error('Transaction expired before submission. Nothing was submitted; prepare it again and approve the new wallet request.');
     let send;
     try {
       send = await timed("tx.submit", () =>

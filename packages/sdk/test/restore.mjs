@@ -5,6 +5,7 @@ const address='GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 const contract='CACKEFUKVPBGDJM6Z4NOTY3H44MUMJDYIRNBLH6MDFN3QUSFWENXAABF';
 const key=new Contract(contract).getFootprint();
 const client=new ChainClient({rpcUrl:'https://example.com',networkPassphrase:'test',contracts:{token:contract}});
+client.server.getTransaction=async()=>({status:'NOT_FOUND',latestLedgerCloseTime:Math.floor(Date.now()/1000)});
 let simulations=0, accounts=0;
 const submissions=[];
 client.server.getAccount=async()=>new Account(address,String(++accounts));
